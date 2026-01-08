@@ -30,13 +30,10 @@ Calend'INT is an associative calendar platform designed for campus students to d
    ```
 
 2. **Start the application**:
-   Run the following command in the root directory of the project:
+   Run the following command in the root directory of the project. **The docker-compose.yml file is used for development, and the stack.yaml file is used for production** (on docker swarm).
    ```bash
    # Dev mode
-   docker compose -f docker-compose.dev.yml up --watch --build
-
-   # Prod mode
-   docker compose -f docker-compose.prod.yml up --build
+   docker compose up --watch --build
    ```
 
 3. **Access the services**:
@@ -64,11 +61,11 @@ Calend'INT is an associative calendar platform designed for campus students to d
 - **Frontend Code**: Located in `frontend/`
 - **Database**: PostgreSQL data is persisted in the `postgres_data` volume. To reset the database, run and add :
   ```bash
-  docker compose -f docker-compose.dev.yml exec backend python load_fixtures.py <email> --reset
+  docker compose exec backend python load_fixtures.py <email> --reset
   ```
 
 ### Make a superadmin
 
 ```sh
-docker compose -f docker-compose.dev.yml exec backend python make_superadmin.py <email>
+docker compose exec backend python make_superadmin.py <email>
 ```

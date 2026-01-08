@@ -4,7 +4,7 @@ stages:
 
 variables:
   DOCKER_DRIVER: overlay2
-  IMAGE_REGISTRY_BASE: $CI_REGISTRY_IMAGE/calendint/
+  IMAGE_REGISTRY_BASE: $CI_REGISTRY_IMAGE
   DOCKER_TLS_CERTDIR: "/certs"
 
 services:
