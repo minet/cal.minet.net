@@ -1,0 +1,50 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+  IMAGE_REGISTRY_BASE: $CI_REGISTRY_IMAGE/calendint/
+  DOCKER_TLS_CERTDIR: "/certs"
+
+services:
+  - docker:dind
+
+before_script:
+  - docker login -u $CI_REGISTRY_USER -p $CI_JOB_TOKEN $CI_REGISTRY
+
+build_backend:
+  stage: build
+  image: docker:latest
+  script:
+    - cd backend
+    - docker build -f Dockerfile.prod -t $IMAGE_REGISTRY_BASE/backend:stable .
+    - docker push $IMAGE_REGISTRY_BASE/backend:stable
+
+build_frontend:
+  stage: build
+  image: docker:latest
+  script:
+    - cd frontend
+    - docker build -f Dockerfile.prod -t $IMAGE_REGISTRY_BASE/frontend:stable .
+    - docker push $IMAGE_REGISTRY_BASE/frontend:stable
+
+build_nginx:
+  stage: build
+  image: docker:latest
+  script:
+    - cd nginx
+    - docker build -t $IMAGE_REGISTRY_BASE/nginx:stable .
+    - docker push $IMAGE_REGISTRY_BASE/nginx:stable
+
+deploy_prod:
+  stage: deploy
+  image: docker:latest
+  tags:
+    - swarm
+  script:
+    - export IMAGE_REGISTRY_BASE=$CI_REGISTRY_IMAGE/calendint
+    - chmod +x deploy.sh
+    - ./deploy.sh
+  only:
+    - main
