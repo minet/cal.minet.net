@@ -32,12 +32,16 @@ Calend'INT is an associative calendar platform designed for campus students to d
 2. **Start the application**:
    Run the following command in the root directory of the project:
    ```bash
-   docker compose up --build
+   # Dev mode
+   docker compose -f docker-compose.dev.yml up --watch --build
+
+   # Prod mode
+   docker compose -f docker-compose.prod.yml up --build
    ```
 
 3. **Access the services**:
-   - **Frontend**: [http://localhost:5173](http://localhost:5173)
-   - **Backend API Documentation**: [http://localhost:8000/docs](http://localhost:8000/docs)
+   - **Frontend**: [http://localhost](http://localhost)
+   - **Backend API Documentation**: [http://localhost/docs](http://localhost/docs)
 
 ## Usage
 
@@ -52,21 +56,19 @@ Calend'INT is an associative calendar platform designed for campus students to d
 - *Note: Currently, permission enforcement is basic. You may need to manually adjust database roles for advanced testing.*
 
 ### ICS Export
-- Your personalized ICS link can be generated via the API (implementation in progress).
-- Endpoint: `http://localhost/api/calendar/user/{user_id}.ics`
+- Each user can find a link to import the calendar of the events he is subscribed to in the **Mon profil** tab.
 
 ## Development
 
 - **Backend Code**: Located in `backend/`
 - **Frontend Code**: Located in `frontend/`
-- **Database**: PostgreSQL data is persisted in the `postgres_data` volume. To reset the database, run:
+- **Database**: PostgreSQL data is persisted in the `postgres_data` volume. To reset the database, run and add :
   ```bash
-  docker compose down -v
-  docker compose up --build
+  docker compose -f docker-compose.dev.yml exec backend python load_fixtures.py <email> --reset
   ```
 
 ### Make a superadmin
 
 ```sh
-docker compose exec backend python make_superadmin.py <email>
+docker compose -f docker-compose.dev.yml exec backend python make_superadmin.py <email>
 ```
