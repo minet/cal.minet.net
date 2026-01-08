@@ -6,6 +6,7 @@ variables:
   DOCKER_DRIVER: overlay2
   IMAGE_REGISTRY_BASE: $CI_REGISTRY_IMAGE
   DOCKER_TLS_CERTDIR: "/certs"
+  SWARM_FOLDER: /mnt/cephfs/swarm/stacks/cal.minet.net
 
 services:
   - docker:dind
@@ -45,6 +46,11 @@ deploy_prod:
   script:
     - export IMAGE_REGISTRY_BASE=$CI_REGISTRY_IMAGE/calendint
     - chmod +x deploy.sh
+    - mkdir -p $SWARM_FOLDER
+    - cp stack.yaml $SWARM_FOLDER/
+    - cp .env $SWARM_FOLDER/
+    - cp deploy.sh $SWARM_FOLDER/
+    - cd $SWARM_FOLDER
     - ./deploy.sh
   only:
     - main
