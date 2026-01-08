@@ -1,0 +1,50 @@
+[
+    {
+        "user_email": "primary_user@example.com",
+        "org_slug": "bde"
+    },
+    {
+        "user_email": "primary_user@example.com",
+        "org_slug": "cine-club"
+    },
+    {
+        "user_email": "primary_user@example.com",
+        "org_slug": "bda"
+    },
+    {
+        "user_email": "bob@example.com",
+        "org_slug": "minet"
+    },
+    {
+        "user_email": "charlie@example.com",
+        "org_slug": "bde"
+    },
+    {
+        "user_email": "david@example.com",
+        "org_slug": "bds"
+    },
+    {
+        "user_email": "eve@example.com",
+        "org_slug": "bda"
+    },
+    {
+        "user_email": "frank@example.com",
+        "org_slug": "je"
+    },
+    {
+        "user_email": "grace@example.com",
+        "org_slug": "robotik"
+    },
+    {
+        "user_email": "heidi@example.com",
+        "org_slug": "bde"
+    },
+    {
+        "user_email": "ivan@example.com",
+        "org_slug": "minet"
+    },
+    {
+        "user_email": "judy@example.com",
+        "org_slug": "cine-club"
+    }
+]

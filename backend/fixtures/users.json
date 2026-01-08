@@ -1,0 +1,57 @@
+[
+    {
+        "email": "primary_user@example.com",
+        "full_name": "Primary User",
+        "is_superadmin": false
+    },
+    {
+        "email": "admin@calendint.fr",
+        "full_name": "Admin Calendint",
+        "is_superadmin": true
+    },
+    {
+        "email": "bob@example.com",
+        "full_name": "Bob Builder",
+        "is_superadmin": false
+    },
+    {
+        "email": "charlie@example.com",
+        "full_name": "Charlie Chocolate",
+        "is_superadmin": false
+    },
+    {
+        "email": "david@example.com",
+        "full_name": "David Bowie",
+        "is_superadmin": false
+    },
+    {
+        "email": "eve@example.com",
+        "full_name": "Eve Polastri",
+        "is_superadmin": false
+    },
+    {
+        "email": "frank@example.com",
+        "full_name": "Frank Sinatra",
+        "is_superadmin": false
+    },
+    {
+        "email": "grace@example.com",
+        "full_name": "Grace Hopper",
+        "is_superadmin": false
+    },
+    {
+        "email": "heidi@example.com",
+        "full_name": "Heidi Klum",
+        "is_superadmin": false
+    },
+    {
+        "email": "ivan@example.com",
+        "full_name": "Ivan The Terrible",
+        "is_superadmin": false
+    },
+    {
+        "email": "judy@example.com",
+        "full_name": "Judy Garland",
+        "is_superadmin": false
+    }
+]

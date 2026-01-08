@@ -1,0 +1,57 @@
+[
+    {
+        "user_email": "primary_user@example.com",
+        "org_slug": "minet",
+        "role": "org_admin"
+    },
+    {
+        "user_email": "primary_user@example.com",
+        "org_slug": "cine-club",
+        "role": "org_member"
+    },
+    {
+        "user_email": "primary_user@example.com",
+        "org_slug": "photo-club",
+        "role": "org_member"
+    },
+    {
+        "user_email": "bob@example.com",
+        "org_slug": "minet",
+        "role": "org_member"
+    },
+    {
+        "user_email": "charlie@example.com",
+        "org_slug": "bde",
+        "role": "org_member"
+    },
+    {
+        "user_email": "david@example.com",
+        "org_slug": "bds",
+        "role": "org_admin"
+    },
+    {
+        "user_email": "eve@example.com",
+        "org_slug": "bda",
+        "role": "org_admin"
+    },
+    {
+        "user_email": "frank@example.com",
+        "org_slug": "je",
+        "role": "org_admin"
+    },
+    {
+        "user_email": "grace@example.com",
+        "org_slug": "robotik",
+        "role": "org_admin"
+    },
+    {
+        "user_email": "heidi@example.com",
+        "org_slug": "bde",
+        "role": "org_member"
+    },
+    {
+        "user_email": "ivan@example.com",
+        "org_slug": "minet",
+        "role": "org_member"
+    }
+]

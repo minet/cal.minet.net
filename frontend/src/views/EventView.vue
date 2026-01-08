@@ -1,0 +1,362 @@
+<template>
+  <div v-if="loading" class="text-center py-12">
+    <p class="text-sm text-gray-500">Chargement...</p>
+  </div>
+
+  <div v-else-if="event">
+    <!-- Header -->
+    <header 
+      class="shadow-sm rounded-lg mb-6 transition-colors"
+      :style="{ 
+        backgroundColor: getOrgColor(event.organization?.color_chroma/20, event.organization?.color_hue, 1),
+        borderTop: `4px solid ${getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.6)}`
+      }"
+    >
+      <div class="px-4 py-6 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-3xl font-bold tracking-tight text-gray-900">{{ event.title }}</h1>
+            <ReactionList 
+              v-if="event" 
+              :event-id="event.id" 
+              :reactions="event.reactions"
+              :btn-add="canEdit"
+              @update="loadEvent" 
+              class="mb-2"
+            />
+            <div class="mt-1 flex items-center text-xs text-gray-500 mb-2">
+              <InformationCircleIcon class="h-3 w-3 mr-1" />
+              Interagir ajoute l'événement à votre calendrier
+            </div>
+            <div class="mt-2 flex items-center space-x-3">
+              <!-- Visibility Badge -->
+              <span v-if="event.visibility === 'draft'" class="inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">
+                <DocumentTextIcon class="mr-1.5 h-4 w-4" />
+                Brouillon
+              </span>
+              <span v-else-if="event.visibility === 'private'" class="inline-flex items-center rounded-md bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700 ring-1 ring-inset ring-purple-600/20">
+                <LockClosedIcon class="mr-1.5 h-4 w-4" />
+                Privé
+              </span>
+              <span v-else class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+                <GlobeAltIcon class="mr-1.5 h-4 w-4" />
+                Public
+              </span>
+              <router-link 
+                v-if="event.organization"
+                :to="`/organizations/${event.organization.id}`"
+                class="text-sm font-medium hover:underline transition-colors"
+                :style="{ color: getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.4) }"
+              >
+                {{ event.organization.name }}
+              </router-link>
+            </div>
+          </div>
+          
+          <!-- Desktop Actions -->
+          <div class="hidden md:flex space-x-3">
+             <button
+              v-if="canEdit"
+              @click="showReactionModal = true"
+               class="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+            >
+              <FaceSmileIcon class="h-5 w-5 mr-2 text-gray-500" />
+              Réactions
+            </button>
+            <router-link 
+              v-if="canEdit"
+              :to="`/events/${event.id}/edit`"
+              class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+            >
+              <PencilIcon class="h-5 w-5 mr-2" />
+              Modifier
+            </router-link>
+            <router-link 
+              :to="`/events/${event.id}/countdown`"
+              target="_blank"
+              class="inline-flex items-center rounded-md bg-gray-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500"
+            >
+              <ClockIcon class="h-5 w-5 mr-2" />
+              Compte à rebours
+            </router-link>
+          </div>
+
+          <!-- Mobile Menu Button -->
+          <div class="md:hidden">
+            <button 
+              @click="mobileMenuOpen = !mobileMenuOpen"
+              type="button" 
+              class="inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+            >
+              <span class="sr-only">Open menu</span>
+              <Bars3Icon v-if="!mobileMenuOpen" class="h-6 w-6" aria-hidden="true" />
+              <XMarkIcon v-else class="h-6 w-6" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+
+        <!-- Mobile Actions Pane -->
+        <div v-if="mobileMenuOpen" class="mt-4 md:hidden border-t border-gray-200 pt-4">
+          <div class="flex flex-col space-y-3">
+             <button
+              v-if="canEdit"
+              @click="showReactionModal = true"
+               class="inline-flex items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+            >
+              <FaceSmileIcon class="h-5 w-5 mr-2 text-gray-500" />
+              Gérer réactions
+            </button>
+            <router-link 
+              v-if="canEdit"
+              :to="`/events/${event.id}/edit`"
+              class="inline-flex items-center justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+            >
+              <PencilIcon class="h-5 w-5 mr-2" />
+              Modifier
+            </router-link>
+            <router-link 
+              :to="`/events/${event.id}/countdown`"
+              target="_blank"
+              class="inline-flex items-center justify-center rounded-md bg-gray-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500"
+            >
+              <ClockIcon class="h-5 w-5 mr-2" />
+              Compte à rebours
+            </router-link>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Event Details Grid -->
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <!-- Main Content -->
+      <div class="lg:col-span-2 space-y-6">
+        <!-- Poster -->
+        <div v-if="event.poster_url" class="bg-white shadow-sm rounded-lg overflow-hidden">
+          <img :src="event.poster_url" :alt="event.title" class="w-full object-cover" />
+        </div>
+        
+        <!-- Description -->
+        <div class="bg-white shadow-sm rounded-lg p-6">
+          <h2 class="text-lg font-medium text-gray-900 mb-3">Description</h2>
+          <p class="text-gray-700 whitespace-pre-wrap">{{ event.description || 'Aucune description' }}</p>
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <div class="space-y-6">
+        <!-- Date & Time -->
+        <div class="bg-white shadow-sm rounded-lg p-6">
+          <h3 class="text-sm font-medium text-gray-900 mb-4">Date et heure</h3>
+          
+          <div class="space-y-3">
+            <div>
+              <p class="text-xs text-gray-500">Début</p>
+              <p class="text-sm font-medium text-gray-900">{{ formatDateTime(event.start_time) }}</p>
+            </div>
+            
+            <div>
+              <p class="text-xs text-gray-500">Fin</p>
+              <p class="text-sm font-medium text-gray-900">{{ formatDateTime(event.end_time) }}</p>
+            </div>
+            
+            <div>
+              <p class="text-xs text-gray-500">Durée</p>
+              <p class="text-sm font-medium text-gray-900">{{ getDuration() }}</p>
+            </div>
+          </div>
+        </div>
+        <!-- Location -->
+        <div v-if="event.location" class="bg-white shadow-sm rounded-lg p-6">
+          <h3 class="text-sm font-medium text-gray-900 mb-2">Lieu</h3>
+          <p class="text-sm text-gray-700 flex items-center">
+            <MapPinIcon class="h-5 w-5 text-gray-400 mr-2" />
+            <a 
+              v-if="event.location_url" 
+              :href="event.location_url" 
+              target="_blank" 
+              class="text-indigo-600 hover:text-indigo-500 hover:underline"
+            >
+              {{ event.location }}
+            </a>
+            <span v-else>{{ event.location }}</span>
+          </p>
+        </div>
+
+        <!-- Visibility & Group Info -->
+        <div v-if="event.visibility === 'private' && event.group" class="bg-white shadow-sm rounded-lg p-6">
+          <h3 class="text-sm font-medium text-gray-900 mb-2">Groupe</h3>
+          <p class="text-sm text-gray-700 flex items-center">
+            🔒 {{ event.group.name }}
+          </p>
+          <p class="text-xs text-gray-500 mt-1">Événement privé, visible uniquement par les membres du groupe</p>
+        </div>
+        
+        <!-- Organization -->
+        <OrganizationCard 
+          :organization="event.organization" 
+          :show-type="true"
+          :no-border="true"
+          class="shadow-sm bg-white rounded-lg" 
+        />
+        <!-- Tags -->
+        <div v-if="event.tags && event.tags.length > 0" class="bg-white shadow-sm rounded-lg p-6">
+          <h3 class="text-sm font-medium text-gray-900 mb-3">Tags</h3>
+          <div class="flex flex-wrap gap-2">
+            <TagBadge 
+              v-for="tag in event.tags" 
+              :key="tag.id" 
+              :tag="tag" 
+              :organization="event.organization"
+              :subscribed="isSubscribedToTag(tag.id)"
+              :show-subscribe="true"
+              @toggle-subscription="toggleTagSubscription"
+            />
+          </div>
+        </div>
+
+        
+
+        
+      </div>
+    </div>
+    
+    <ReactionAdminModal 
+      v-if="canEdit" 
+      v-model="showReactionModal" 
+      :event-id="event.id"
+      @change="loadEvent"
+    />
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useAuth } from '../composables/useAuth'
+import api from '../utils/api'
+import { 
+  ClockIcon, 
+  MapPinIcon, 
+  PencilIcon,
+  BellIcon,
+  BellSlashIcon,
+  DocumentTextIcon,
+  LockClosedIcon,
+  GlobeAltIcon,
+  Bars3Icon,
+  XMarkIcon,
+  InformationCircleIcon
+} from '@heroicons/vue/24/outline'
+import { formatLocalDate } from '../utils/dateUtils'
+import TagBadge from '../components/TagBadge.vue'
+import OrganizationCard from '../components/OrganizationCard.vue'
+import ReactionList from '../components/ReactionList.vue'
+import ReactionAdminModal from '../components/ReactionAdminModal.vue'
+import { FaceSmileIcon } from '@heroicons/vue/24/outline'
+import { getOrgColor } from '../utils/colorUtils'
+
+const route = useRoute()
+const router = useRouter()
+const { user } = useAuth()
+const event = ref(null)
+const userMemberships = ref([])
+const subscriptions = ref([])
+const loading = ref(true)
+const mobileMenuOpen = ref(false)
+const showReactionModal = ref(false)
+
+const canEdit = computed(() => {
+  if (!event.value || !user.value) return false
+  
+  // Superadmin can edit anything
+  if (user.value.is_superadmin) return true
+  
+  // Check if user is admin or member of the event's organization
+  return userMemberships.value.some(m => 
+    m.organization_id === event.value.organization.id && 
+    (m.role === 'org_admin' || m.role === 'org_member')
+  )
+})
+
+const formatDateTime = (dateString) => {
+  return formatLocalDate(dateString, { dateStyle: 'full', timeStyle: 'short' })
+}
+
+const getDuration = () => {
+  if (!event.value) return ''
+  
+  const start = new Date(event.value.start_time)
+  const end = new Date(event.value.end_time)
+  const diffMs = end - start
+  
+  const hours = Math.floor(diffMs / (1000 * 60 * 60))
+  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
+  
+  if (hours > 0) {
+    return `${hours}h${minutes > 0 ? ` ${minutes}min` : ''}`
+  }
+  return `${minutes} min`
+}
+
+const loadEvent = async () => {
+  try {
+    const response = await api.get(`/events/${route.params.id}`)
+    event.value = response.data
+  } catch (error) {
+    console.error('Failed to load event:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadUserMemberships = async () => {
+  try {
+    const response = await api.get('/users/me/memberships')
+    userMemberships.value = response.data
+  } catch (error) {
+    console.error('Failed to load memberships:', error)
+  }
+}
+
+const loadSubscriptions = async () => {
+  try {
+    const response = await api.get('/subscriptions/me')
+    subscriptions.value = [
+      ...response.data.organizations,
+      ...response.data.tags
+    ]
+  } catch (error) {
+    console.error('Failed to load subscriptions:', error)
+  }
+}
+
+const isSubscribedToTag = (tagId) => {
+  return subscriptions.value.some(sub => sub.tag?.id === tagId)
+}
+
+const toggleTagSubscription = async (tag) => {
+  const subscription = subscriptions.value.find(sub => sub.tag?.id === tag.id)
+  
+  try {
+    if (subscription) {
+      await api.delete(`/subscriptions/tags/${tag.id}`)
+      subscriptions.value = subscriptions.value.filter(sub => sub.tag?.id !== tag.id)
+    } else {
+      const response = await api.post(`/subscriptions/tags/${tag.id}`)
+      subscriptions.value.push({
+        id: response.data.subscription_id,
+        tag: { id: tag.id }
+      })
+    }
+  } catch (error) {
+    console.error('Failed to toggle subscription:', error)
+  }
+}
+
+onMounted(() => {
+  loadEvent()
+  loadUserMemberships()
+  loadSubscriptions()
+})
+</script>

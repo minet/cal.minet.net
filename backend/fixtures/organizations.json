@@ -1,0 +1,471 @@
+[
+    {
+        "name": "BDE",
+        "slug": "bde",
+        "type": "liste",
+        "description": "Bureau des Élèves",
+        "color_chroma": 0.85,
+        "color_hue": 25.0,
+        "tags": [
+            {
+                "name": "Soirée",
+                "color": "#FF5733"
+            },
+            {
+                "name": "Afterwork",
+                "color": "#C70039"
+            },
+            {
+                "name": "Sport",
+                "color": "#900C3F"
+            },
+            {
+                "name": "Culture",
+                "color": "#581845"
+            }
+        ],
+        "groups": [
+            {
+                "name": "Bureau"
+            },
+            {
+                "name": "Pôles"
+            },
+            {
+                "name": "Respo"
+            }
+        ],
+        "events": [
+            {
+                "title": "Integration Weekend",
+                "description": "The best weekend of the year!",
+                "start_days_offset": -30,
+                "duration": 1,
+                "end_days_offset": -28,
+                "location": "Camping des Flots Bleus",
+                "visibility": "public_approved",
+                "tag_names": [
+                    "Soirée",
+                    "Sport"
+                ]
+            },
+            {
+                "title": "Halloween Party",
+                "description": "Spooky scary skeletons",
+                "start_days_offset": 5,
+                "duration": 1,
+                "end_days_offset": 5,
+                "location": "Foyer",
+                "visibility": "public_pending",
+                "tag_names": [
+                    "Soirée"
+                ]
+            },
+            {
+                "title": "Christmas Gala",
+                "description": "Fancy dinner and dance",
+                "start_days_offset": 20,
+                "duration": 1,
+                "end_days_offset": 20,
+                "location": "Palais des Congrès",
+                "visibility": "public_approved",
+                "hide_details": true,
+                "tag_names": [
+                    "Soirée"
+                ]
+            },
+            {
+                "title": "Ski Trip Info Session",
+                "description": "Come learn about the ski trip",
+                "start_days_offset": 15,
+                "duration": 1,
+                "end_days_offset": 15,
+                "location": "Amphi 1",
+                "visibility": "public_rejected",
+                "rejection_message": "Please reschedule - conflicts with exam period",
+                "tag_names": [
+                    "Sport"
+                ]
+            },
+            {
+                "title": "Afterwork: St Patrick",
+                "description": "Green beer!",
+                "start_days_offset": 100,
+                "duration": 1,
+                "end_days_offset": 100,
+                "location": "Foyer",
+                "visibility": "draft",
+                "tag_names": [
+                    "Afterwork"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "Ciné-Club",
+        "slug": "cine-club",
+        "type": "club",
+        "description": "Pour les amateurs de 7ème art",
+        "color_chroma": 0.45,
+        "color_hue": 210.0,
+        "tags": [
+            {
+                "name": "Projection",
+                "color": "#2E86C1"
+            },
+            {
+                "name": "Debate",
+                "color": "#1ABC9C"
+            },
+            {
+                "name": "Marathon",
+                "color": "#16A085"
+            }
+        ],
+        "groups": [
+            {
+                "name": "Bureau"
+            }
+        ],
+        "events": [
+            {
+                "title": "Movie Night: Inception",
+                "description": "Is it a dream?",
+                "start_days_offset": 0,
+                "duration": 1,
+                "end_days_offset": 0,
+                "location": "Amphi 1",
+                "visibility": "public_approved",
+                "tag_names": [
+                    "Projection"
+                ]
+            },
+            {
+                "title": "Oscars Watch Party",
+                "description": "Live screening of the Oscars",
+                "start_days_offset": 60,
+                "duration": 1,
+                "end_days_offset": 60,
+                "location": "Foyer",
+                "visibility": "public_approved",
+                "tag_names": [
+                    "Debate"
+                ]
+            },
+            {
+                "title": "Lord of the Rings Marathon",
+                "description": "Extended editions only",
+                "start_days_offset": 12,
+                "duration": 1,
+                "end_days_offset": 13,
+                "location": "Amphi 2",
+                "visibility": "public_approved",
+                "tag_names": [
+                    "Marathon",
+                    "Projection"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "MiNET",
+        "slug": "minet",
+        "type": "association",
+        "description": "Association réseau et informatique",
+        "color_chroma": 0.65,
+        "color_hue": 280.0,
+        "tags": [
+            {
+                "name": "Tech",
+                "color": "#8E44AD"
+            },
+            {
+                "name": "Maintenance",
+                "color": "#34495E"
+            },
+            {
+                "name": "Formation",
+                "color": "#F39C12"
+            }
+        ],
+        "groups": [
+            {
+                "name": "CA"
+            },
+            {
+                "name": "Membres Actifs"
+            }
+        ],
+        "events": [
+            {
+                "title": "Server Maintenance",
+                "description": "Downtime expected",
+                "start_days_offset": -7,
+                "duration": 1,
+                "end_days_offset": -7,
+                "location": "Server Room",
+                "visibility": "public_approved",
+                "tag_names": [
+                    "Maintenance"
+                ]
+            },
+            {
+                "title": "Tech Talk: Kubernetes",
+                "description": "Introduction to K8s",
+                "start_days_offset": 10,
+                "duration": 1,
+                "end_days_offset": 10,
+                "location": "Amphi 2",
+                "visibility": "public_approved",
+                "tag_names": [
+                    "Tech",
+                    "Formation"
+                ]
+            },
+            {
+                "title": "Install Party",
+                "description": "Install Linux on your laptop",
+                "start_days_offset": 3,
+                "duration": 1,
+                "end_days_offset": 3,
+                "location": "Foyer",
+                "visibility": "public_approved",
+                "tag_names": [
+                    "Tech",
+                    "Formation"
+                ]
+            },
+            {
+                "title": "Network Workshop",
+                "description": "Learn how the internet works",
+                "start_days_offset": 14,
+                "duration": 1,
+                "end_days_offset": 14,
+                "location": "Lab 1",
+                "visibility": "public_approved",
+                "tag_names": [
+                    "Formation"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "Photo Club",
+        "slug": "photo-club",
+        "type": "club",
+        "description": "Capture the moment",
+        "color_chroma": 0.72,
+        "color_hue": 45.0,
+        "tags": [
+            {
+                "name": "Workshop",
+                "color": "#D35400"
+            },
+            {
+                "name": "Exhibition",
+                "color": "#E67E22"
+            }
+        ],
+        "groups": [],
+        "events": [
+            {
+                "title": "Photography Workshop",
+                "description": "Learn the basics of exposure",
+                "start_days_offset": 2,
+                "duration": 1,
+                "end_days_offset": 2,
+                "location": "Room 101",
+                "visibility": "public_approved",
+                "tag_names": [
+                    "Workshop"
+                ]
+            },
+            {
+                "title": "Campus Exhibition",
+                "description": "Photos of the campus",
+                "start_days_offset": 40,
+                "duration": 1,
+                "end_days_offset": 45,
+                "location": "Hall",
+                "visibility": "public_approved",
+                "tag_names": [
+                    "Exhibition"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "BDS",
+        "slug": "bds",
+        "type": "association",
+        "description": "Bureau des Sports",
+        "color_chroma": 0.55,
+        "color_hue": 145.0,
+        "tags": [
+            {
+                "name": "Match",
+                "color": "#27AE60"
+            },
+            {
+                "name": "Tournament",
+                "color": "#2ECC71"
+            }
+        ],
+        "groups": [
+            {
+                "name": "Bureau"
+            },
+            {
+                "name": "Coachs"
+            }
+        ],
+        "events": [
+            {
+                "title": "Football Match vs TSP",
+                "description": "Come support our team!",
+                "start_days_offset": 4,
+                "duration": 1,
+                "end_days_offset": 4,
+                "location": "Stadium",
+                "visibility": "public_approved",
+                "tag_names": [
+                    "Match"
+                ]
+            },
+            {
+                "title": "Tennis Tournament",
+                "description": "Open to everyone",
+                "start_days_offset": 25,
+                "duration": 1,
+                "end_days_offset": 26,
+                "location": "Tennis Courts",
+                "visibility": "public_approved",
+                "tag_names": [
+                    "Tournament"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "BDA",
+        "slug": "bda",
+        "type": "association",
+        "description": "Bureau des Arts",
+        "color_chroma": 0.68,
+        "color_hue": 310.0,
+        "tags": [
+            {
+                "name": "Concert",
+                "color": "#9B59B6"
+            },
+            {
+                "name": "Theater",
+                "color": "#8E44AD"
+            }
+        ],
+        "groups": [
+            {
+                "name": "Bureau"
+            }
+        ],
+        "events": [
+            {
+                "title": "Rock Concert",
+                "description": "Live music",
+                "start_days_offset": 8,
+                "duration": 1,
+                "end_days_offset": 8,
+                "location": "Foyer",
+                "visibility": "public_approved",
+                "tag_names": [
+                    "Concert"
+                ]
+            },
+            {
+                "title": "Improv Night",
+                "description": "Laugh with us",
+                "start_days_offset": 18,
+                "duration": 1,
+                "end_days_offset": 18,
+                "location": "Amphi 1",
+                "visibility": "public_approved",
+                "tag_names": [
+                    "Theater"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "Junior Entreprise",
+        "slug": "je",
+        "type": "association",
+        "description": "Professional experience",
+        "color_chroma": 0.3,
+        "color_hue": 200.0,
+        "tags": [
+            {
+                "name": "Business",
+                "color": "#34495E"
+            },
+            {
+                "name": "Networking",
+                "color": "#2C3E50"
+            }
+        ],
+        "groups": [
+            {
+                "name": "Board"
+            },
+            {
+                "name": "Project Managers"
+            }
+        ],
+        "events": [
+            {
+                "title": "Networking Breakfast",
+                "description": "Meet alumni",
+                "start_days_offset": 6,
+                "duration": 1,
+                "end_days_offset": 6,
+                "location": "Cafeteria",
+                "visibility": "public_approved",
+                "tag_names": [
+                    "Networking"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "Robotik",
+        "slug": "robotik",
+        "type": "club",
+        "description": "Building robots",
+        "color_chroma": 0.9,
+        "color_hue": 5.0,
+        "tags": [
+            {
+                "name": "Competition",
+                "color": "#E74C3C"
+            },
+            {
+                "name": "Hackathon",
+                "color": "#C0392B"
+            }
+        ],
+        "groups": [],
+        "events": [
+            {
+                "title": "Robot Fight",
+                "description": "Destruction derby",
+                "start_days_offset": 50,
+                "duration": 1,
+                "end_days_offset": 50,
+                "location": "Hall",
+                "visibility": "public_approved",
+                "tag_names": [
+                    "Competition"
+                ]
+            }
+        ]
+    }
+]
