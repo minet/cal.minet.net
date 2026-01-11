@@ -19,7 +19,8 @@ build_backend:
   image: docker:latest
   script:
     - cd backend
-    - docker build -f Dockerfile.prod -t $IMAGE_REGISTRY_BASE/backend:stable .
+    - docker pull $IMAGE_REGISTRY_BASE/backend:stable || true
+    - docker build --cache-from $IMAGE_REGISTRY_BASE/backend:stable -f Dockerfile.prod -t $IMAGE_REGISTRY_BASE/backend:stable .
     - docker push $IMAGE_REGISTRY_BASE/backend:stable
 
 build_frontend:
@@ -27,7 +28,8 @@ build_frontend:
   image: docker:latest
   script:
     - cd frontend
-    - docker build -f Dockerfile.prod -t $IMAGE_REGISTRY_BASE/frontend:stable .
+    - docker pull $IMAGE_REGISTRY_BASE/frontend:stable || true
+    - docker build --cache-from $IMAGE_REGISTRY_BASE/frontend:stable -f Dockerfile.prod -t $IMAGE_REGISTRY_BASE/frontend:stable .
     - docker push $IMAGE_REGISTRY_BASE/frontend:stable
 
 build_nginx:
@@ -35,7 +37,8 @@ build_nginx:
   image: docker:latest
   script:
     - cd nginx
-    - docker build -t $IMAGE_REGISTRY_BASE/nginx:stable .
+    - docker pull $IMAGE_REGISTRY_BASE/nginx:stable || true
+    - docker build --cache-from $IMAGE_REGISTRY_BASE/nginx:stable -t $IMAGE_REGISTRY_BASE/nginx:stable .
     - docker push $IMAGE_REGISTRY_BASE/nginx:stable
 
 deploy_prod:
