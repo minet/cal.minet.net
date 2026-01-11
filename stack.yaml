@@ -4,7 +4,7 @@ services:
   nginx:
     image: ${IMAGE_REGISTRY_BASE}/nginx:stable
     ports:
-      - 8000:80
+      - 8001:80
     deploy:
       replicas: 1
       restart_policy:
