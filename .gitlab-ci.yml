@@ -44,7 +44,7 @@ deploy_prod:
   tags:
     - swarm
   script:
-    - export IMAGE_REGISTRY_BASE=$CI_REGISTRY_IMAGE/calendint
+    - export IMAGE_REGISTRY_BASE=$CI_REGISTRY_IMAGE
     - chmod +x deploy.sh
     - mkdir -p $SWARM_FOLDER
     - cp stack.yaml $SWARM_FOLDER/
