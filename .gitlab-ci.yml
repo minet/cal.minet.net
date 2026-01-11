@@ -48,7 +48,6 @@ deploy_prod:
     - chmod +x deploy.sh
     - mkdir -p $SWARM_FOLDER
     - cp stack.yaml $SWARM_FOLDER/
-    - cp .env $SWARM_FOLDER/
     - cp deploy.sh $SWARM_FOLDER/
     - cd $SWARM_FOLDER
     - ./deploy.sh
