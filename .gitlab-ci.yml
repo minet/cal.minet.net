@@ -24,22 +24,12 @@ build_backend:
     - docker build --cache-from $IMAGE_REGISTRY_BASE/backend:stable --build-arg BUILDKIT_INLINE_CACHE=1 -f Dockerfile.prod -t $IMAGE_REGISTRY_BASE/backend:stable .
     - docker push $IMAGE_REGISTRY_BASE/backend:stable
 
-build_frontend:
-  stage: build
-  image: docker:latest
-  script:
-    - cd frontend
-    - docker pull $IMAGE_REGISTRY_BASE/frontend:stable || true
-    - docker build --cache-from $IMAGE_REGISTRY_BASE/frontend:stable --build-arg BUILDKIT_INLINE_CACHE=1 -f Dockerfile.prod -t $IMAGE_REGISTRY_BASE/frontend:stable .
-    - docker push $IMAGE_REGISTRY_BASE/frontend:stable
-
 build_nginx:
   stage: build
   image: docker:latest
   script:
-    - cd nginx
     - docker pull $IMAGE_REGISTRY_BASE/nginx:stable || true
-    - docker build --cache-from $IMAGE_REGISTRY_BASE/nginx:stable --build-arg BUILDKIT_INLINE_CACHE=1 -t $IMAGE_REGISTRY_BASE/nginx:stable .
+    - docker build --cache-from $IMAGE_REGISTRY_BASE/nginx:stable --build-arg BUILDKIT_INLINE_CACHE=1 -f nginx/Dockerfile -t $IMAGE_REGISTRY_BASE/nginx:stable .
     - docker push $IMAGE_REGISTRY_BASE/nginx:stable
 
 deploy_prod:

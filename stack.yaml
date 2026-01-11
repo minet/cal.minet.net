@@ -10,15 +10,7 @@ services:
       restart_policy:
         condition: on-failure
     depends_on:
-      - frontend
       - backend
-    networks:
-      - calendint_net
-
-  frontend:
-    image: ${IMAGE_REGISTRY_BASE}/frontend:stable
-    deploy:
-      replicas: 1
     networks:
       - calendint_net
 
