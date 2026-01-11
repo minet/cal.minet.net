@@ -7,6 +7,7 @@ variables:
   IMAGE_REGISTRY_BASE: $CI_REGISTRY_IMAGE
   DOCKER_TLS_CERTDIR: "/certs"
   SWARM_FOLDER: /mnt/cephfs/swarm/stacks/cal.minet.net
+  DOCKER_BUILDKIT: 1
 
 services:
   - docker:dind
@@ -20,7 +21,7 @@ build_backend:
   script:
     - cd backend
     - docker pull $IMAGE_REGISTRY_BASE/backend:stable || true
-    - docker build --cache-from $IMAGE_REGISTRY_BASE/backend:stable -f Dockerfile.prod -t $IMAGE_REGISTRY_BASE/backend:stable .
+    - docker build --cache-from $IMAGE_REGISTRY_BASE/backend:stable --build-arg BUILDKIT_INLINE_CACHE=1 -f Dockerfile.prod -t $IMAGE_REGISTRY_BASE/backend:stable .
     - docker push $IMAGE_REGISTRY_BASE/backend:stable
 
 build_frontend:
@@ -29,7 +30,7 @@ build_frontend:
   script:
     - cd frontend
     - docker pull $IMAGE_REGISTRY_BASE/frontend:stable || true
-    - docker build --cache-from $IMAGE_REGISTRY_BASE/frontend:stable -f Dockerfile.prod -t $IMAGE_REGISTRY_BASE/frontend:stable .
+    - docker build --cache-from $IMAGE_REGISTRY_BASE/frontend:stable --build-arg BUILDKIT_INLINE_CACHE=1 -f Dockerfile.prod -t $IMAGE_REGISTRY_BASE/frontend:stable .
     - docker push $IMAGE_REGISTRY_BASE/frontend:stable
 
 build_nginx:
@@ -38,7 +39,7 @@ build_nginx:
   script:
     - cd nginx
     - docker pull $IMAGE_REGISTRY_BASE/nginx:stable || true
-    - docker build --cache-from $IMAGE_REGISTRY_BASE/nginx:stable -t $IMAGE_REGISTRY_BASE/nginx:stable .
+    - docker build --cache-from $IMAGE_REGISTRY_BASE/nginx:stable --build-arg BUILDKIT_INLINE_CACHE=1 -t $IMAGE_REGISTRY_BASE/nginx:stable .
     - docker push $IMAGE_REGISTRY_BASE/nginx:stable
 
 deploy_prod:
