@@ -12,11 +12,15 @@ services:
     depends_on:
       - frontend
       - backend
+    networks:
+      - calendint_net
 
   frontend:
     image: ${IMAGE_REGISTRY_BASE}/frontend:stable
     deploy:
       replicas: 1
+    networks:
+      - calendint_net
 
   backend:
     image: ${IMAGE_REGISTRY_BASE}/backend:stable
@@ -36,6 +40,8 @@ services:
     depends_on:
       - db
       - minio
+    networks:
+      - calendint_net
 
   db:
     image: postgres:15
@@ -47,6 +53,8 @@ services:
       - POSTGRES_DB=calendint
     deploy:
       replicas: 1
+    networks:
+      - calendint_net
 
   minio:
     image: minio/minio:latest
@@ -58,3 +66,9 @@ services:
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
     deploy:
       replicas: 1
+    networks:
+      - calendint_net
+
+networks:
+  calendint_net:
+    driver: overlay

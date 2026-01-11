@@ -9,7 +9,7 @@ COPY app /app/app
 COPY make_superadmin.py .
 
 
-EXPOSE 8000
+
 
 # Use multiple workers for production
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
