@@ -163,6 +163,19 @@
         </div>
       </router-link>
     </div>
+    
+    <!-- Custom Links -->
+    <div v-if="organization.organization_links && organization.organization_links.length > 0" class="bg-white shadow-sm rounded-lg p-6 mb-6">
+      <h2 class="text-lg font-medium text-gray-900 mb-3">Liens</h2>
+      <ul class="space-y-2">
+        <li v-for="link in organization.organization_links" :key="link.id">
+            <a :href="link.url" target="_blank" class="text-indigo-600 hover:text-indigo-800 flex items-center">
+                <LinkIcon class="h-4 w-4 mr-2" />
+                {{ link.name }}
+            </a>
+        </li>
+      </ul>
+    </div>
 
     <!-- Tags -->
     <div v-if="tags.length > 0" class="bg-white shadow-sm rounded-lg p-6 mb-6">
@@ -261,7 +274,8 @@ import {
   TagIcon, 
   UsersIcon,
   Bars3Icon,
-  XMarkIcon
+  XMarkIcon,
+  LinkIcon
 } from '@heroicons/vue/24/outline'
 
 const route = useRoute()

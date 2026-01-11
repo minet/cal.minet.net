@@ -147,3 +147,19 @@ export function getOrgTextColor(chroma, hue, backgroundLuminance) {
         return '#ffffff'; // white
     }
 }
+
+export function getEventGradient(mainOrg, guestOrgs = [], chromaDivider = 2, lightness = 0.9) {
+    const orgs = [mainOrg, ...(guestOrgs || [])].filter(Boolean);
+    if (orgs.length === 0) return 'oklch(0.98 0 0)';
+
+    const colors = orgs.map(o => {
+        const chroma = (o.color_chroma !== null && o.color_chroma !== undefined) ? o.color_chroma : 0;
+        const hue = (o.color_hue !== null && o.color_hue !== undefined) ? o.color_hue : 0;
+        // Use a light tint for backgrounds
+        return `oklch(${lightness} ${chroma / chromaDivider} ${hue})`;
+    });
+
+    if (colors.length === 1) return colors[0];
+
+    return `linear-gradient(135deg, ${colors.join(', ')})`;
+}

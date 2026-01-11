@@ -6,7 +6,7 @@ from uuid import UUID
 from app.database import get_session
 from app.models import (
     Event, User, Membership, Role, Organization, EventVisibility, 
-    Group, GroupMembership, EventTag, Tag, EventReaction, EventLink
+    Group, GroupMembership, EventTag, Tag, EventReaction, EventLink, EventGuestOrganization
 )
 from app.api.auth import get_current_user, get_current_user_optional
 from app.schemas import (
@@ -160,8 +160,31 @@ def create_event(
             })
     session.commit()
     
+    # Add guest organizations
+    for guest_org_id in event_data.guest_organization_ids:
+        guest_org = session.get(Organization, UUID(guest_org_id))
+        if guest_org:
+            guest_link = EventGuestOrganization(event_id=new_event.id, organization_id=UUID(guest_org_id))
+            session.add(guest_link)
+
+    session.commit()
+    session.refresh(new_event)
+    
     # Load organization
     organization = session.get(Organization, new_event.organization_id)
+
+    # Load guest organizations
+    new_event_guest_organizations = []
+    for guest_org in new_event.guest_organizations:
+        new_event_guest_organizations.append({
+            "id": str(guest_org.id),
+            "name": guest_org.name,
+            "logo_url": guest_org.logo_url,
+            "type": guest_org.type,
+            "slug": guest_org.slug,
+            "color_chroma": guest_org.color_chroma,
+            "color_hue": guest_org.color_hue
+        })
 
     return {
         "id": str(new_event.id),
@@ -177,6 +200,7 @@ def create_event(
         "poster_url": new_event.poster_url,
         "created_at": new_event.created_at,
         "organization": organization,
+        "guest_organizations": new_event_guest_organizations,
         "tags": tags,
         "created_by_id": str(new_event.created_by_id)
     }
@@ -258,6 +282,15 @@ def list_drafts(
             } if event.organization else None,
             "tags": tags,
             "is_draft": True, # Helper for frontend
+            "guest_organizations": [{
+                "id": str(g.id),
+                "name": g.name,
+                "logo_url": g.logo_url,
+                "type": g.type.value if g.type else None,
+                "slug": g.slug,
+                "color_chroma": g.color_chroma,
+                "color_hue": g.color_hue
+            } for g in event.guest_organizations],
             "created_at": event.created_at.isoformat()
         })
         
@@ -329,6 +362,15 @@ def list_events(
                     "color_hue": event.organization.color_hue,
                 } if event.organization else None,
                 "tags": tags,
+                "guest_organizations": [{
+                    "id": str(g.id),
+                    "name": g.name,
+                    "logo_url": g.logo_url,
+                    "type": g.type.value if g.type else None,
+                    "slug": g.slug,
+                    "color_chroma": g.color_chroma,
+                    "color_hue": g.color_hue
+                } for g in event.guest_organizations],
                 "created_at": event.created_at.isoformat(),
                 "reactions": reactions
             })
@@ -407,6 +449,15 @@ def list_my_events(
             "visibility": event.visibility,
             "group_id": str(event.group_id) if event.group_id else None,
             "tags": tags,
+            "guest_organizations": [{
+                "id": str(g.id),
+                "name": g.name,
+                "logo_url": g.logo_url,
+                "type": g.type.value if g.type else None,
+                "slug": g.slug,
+                "color_chroma": g.color_chroma,
+                "color_hue": g.color_hue
+            } for g in event.guest_organizations],
             "created_at": event.created_at.isoformat(),
             "reactions": reactions
         })
@@ -454,6 +505,15 @@ def list_pending_approvals(
                 "email": creator.email
             } if creator else None,
             "visibility": event.visibility.value,
+            "guest_organizations": [{
+                "id": str(g.id),
+                "name": g.name,
+                "logo_url": g.logo_url,
+                "type": g.type.value if g.type else None,
+                "slug": g.slug,
+                "color_chroma": g.color_chroma,
+                "color_hue": g.color_hue
+            } for g in event.guest_organizations],
             "created_at": event.created_at.isoformat()
         })
     
@@ -613,6 +673,17 @@ def get_event(
                 "color": tag.color
             })
             
+    # Load guest organizations
+    guest_organizations = [{
+        "id": str(g.id),
+        "name": g.name,
+        "logo_url": g.logo_url,
+        "type": g.type.value if g.type else None,
+        "slug": g.slug,
+        "color_chroma": g.color_chroma,
+        "color_hue": g.color_hue
+    } for g in event.guest_organizations]
+            
     # Load reactions
     reactions = get_event_reactions_summary(event.id, current_user.id if current_user else None, session)
     
@@ -654,6 +725,7 @@ def get_event(
             "color_chroma": event.organization.color_chroma,
             "color_hue": event.organization.color_hue,
         } if event.organization else None,
+        "guest_organizations": guest_organizations,
         "tags": tags,
         "created_by_id": str(event.created_by_id),
         "created_at": event.created_at.isoformat(),
@@ -734,6 +806,22 @@ def update_event(
                 event_tag = EventTag(event_id=event.id, tag_id=UUID(tag_id))
                 session.add(event_tag)
     
+    # Update guest organizations
+    if event_data.guest_organization_ids is not None:
+        # Remove old guests
+        old_guests = session.exec(
+            select(EventGuestOrganization).where(EventGuestOrganization.event_id == event.id)
+        ).all()
+        for old_guest in old_guests:
+            session.delete(old_guest)
+            
+        # Add new guests
+        for guest_org_id in event_data.guest_organization_ids:
+            guest_org = session.get(Organization, UUID(guest_org_id))
+            if guest_org:
+                guest_link = EventGuestOrganization(event_id=event.id, organization_id=UUID(guest_org_id))
+                session.add(guest_link)
+    
     session.add(event)
     session.commit()
     session.refresh(event)
@@ -770,6 +858,11 @@ def delete_event(
     reactions = session.exec(select(EventReaction).where(EventReaction.event_id == event.id)).all()
     for reaction in reactions:
         session.delete(reaction)
+
+    # 4. Guest Organizations
+    guests = session.exec(select(EventGuestOrganization).where(EventGuestOrganization.event_id == event.id)).all()
+    for guest in guests:
+        session.delete(guest)
     
     session.delete(event)
     session.commit()

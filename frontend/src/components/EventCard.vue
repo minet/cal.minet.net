@@ -8,12 +8,40 @@
         class="w-full h-full object-cover transform hover:scale-105 transition-transform duration-500"
       />
       <!-- Organization Logo Overlay -->
-      <div v-if="event.organization?.logo_url" class="absolute bottom-3 right-3 bg-white p-1 rounded-full shadow-md">
+      <div class="absolute bottom-3 right-3 flex items-center space-x-2 overflow-hidden p-1 bg-white/90 rounded-full shadow-md backdrop-blur-sm">
+        <template v-for="guest in event.guest_organizations" :key="guest.id">
+            <img 
+                v-if="guest.logo_url"
+                :src="guest.logo_url" 
+                :alt="guest.name"
+                class="inline-block h-10 w-10 rounded-full ring-2 ring-white object-cover"
+                :title="guest.name"
+            />
+            <div 
+                v-else
+                class="inline-block h-10 w-10 rounded-full ring-2 ring-white flex items-center justify-center font-bold"
+                :style="{ backgroundColor: getOrgColor(guest.color_chroma, guest.color_hue, 0.95), color: getOrgColor(guest.color_chroma, guest.color_hue, 0.4) }"
+                :title="guest.name"
+            >
+                {{ guest.name.charAt(0) }}
+            </div>
+        </template>
+        
         <img 
+          v-if="event.organization?.logo_url"
           :src="event.organization.logo_url" 
           :alt="event.organization.name" 
-          class="w-10 h-10 rounded-full object-cover"
+          class="inline-block h-10 w-10 rounded-full ring-2 ring-white object-cover z-10"
+          :title="event.organization.name"
         />
+        <div 
+          v-else-if="event.organization"
+          class="inline-block h-10 w-10 rounded-full ring-2 ring-white z-10 flex items-center justify-center font-bold"
+          :style="{ backgroundColor: getOrgColor(event.organization.color_chroma, event.organization.color_hue, 0.95), color: getOrgColor(event.organization.color_chroma, event.organization.color_hue, 0.4) }"
+          :title="event.organization.name"
+        >
+          {{ event.organization.name.charAt(0) }}
+        </div>
       </div>
     </div>
     
@@ -21,19 +49,44 @@
     <div 
       v-else 
       class="relative h-24 flex items-center justify-center p-4 transition-colors rounded-t-xl"
-      :style="{ background: `linear-gradient(to right, ${getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.6)}, ${getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.4)})` }"
-      :class="{ 'bg-gradient-to-r from-indigo-500 to-purple-600': event.organization?.color_chroma === null }"
+      :style="{ background: getEventGradient(event.organization, event.guest_organizations) }"
     >
-      <div v-if="event.organization?.logo_url" class="absolute -bottom-6 left-6 border-4 border-white rounded-full bg-white">
+      <div class="absolute -bottom-6 left-6 flex items-center -space-x-2">
         <img 
+          v-if="event.organization?.logo_url"
           :src="event.organization.logo_url" 
           :alt="event.organization.name" 
-          class="w-12 h-12 rounded-full object-cover"
+          class="h-12 w-12 rounded-full border-4 border-white object-cover z-20 bg-white"
         />
+        <div 
+          v-else-if="event.organization"
+          class="h-12 w-12 rounded-full border-4 border-white z-20 bg-white flex items-center justify-center font-bold"
+          :style="{ color: getOrgColor(event.organization.color_chroma, event.organization.color_hue, 0.4) }"
+        >
+          {{ event.organization.name.charAt(0) }}
+        </div>
+
+        <template v-for="guest in event.guest_organizations" :key="guest.id">
+            <img 
+                v-if="guest.logo_url"
+                :src="guest.logo_url" 
+                :alt="guest.name"
+                class="h-12 w-12 rounded-full border-4 border-white object-cover bg-white"
+                :title="guest.name"
+            />
+            <div 
+                v-else
+                class="h-12 w-12 rounded-full border-4 border-white bg-white flex items-center justify-center text-xs font-bold"
+                :style="{ color: getOrgColor(guest.color_chroma, guest.color_hue, 0.4) }"
+                :title="guest.name"
+            >
+                {{ guest.name.charAt(0) }}
+            </div>
+        </template>
       </div>
     </div>
 
-    <div class="p-5 flex-1 flex flex-col pt-8"> <!-- Added pt-8 to account for logo overlap if no poster -->
+    <div class="p-5 flex-1 flex flex-col pt-8">
       <!-- Date and Time -->
       <div class="flex items-center text-sm text-indigo-600 font-semibold mb-2">
         <span class="uppercase tracking-wide">{{ formattedDate }}</span>
@@ -79,6 +132,9 @@
           }"
         >
           {{ event.organization?.name || 'Organisation' }}
+          <span v-if="event.guest_organizations?.length" class="ml-1 opacity-75 text-[10px]">
+            +{{ event.guest_organizations.length }}
+          </span>
         </span>
         <router-link :to="`/events/${event.id}`" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center group">
           Voir détails
@@ -97,7 +153,7 @@ import { formatLocalDate } from '../utils/dateUtils'
 
 import ReactionList from './ReactionList.vue'
 import api from '../utils/api'
-import { getOrgColor } from '../utils/colorUtils'
+import { getOrgColor, getEventGradient } from '../utils/colorUtils'
 
 const props = defineProps({
   event: {

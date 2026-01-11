@@ -8,7 +8,7 @@
     <header 
       class="shadow-sm rounded-lg mb-6 transition-colors"
       :style="{ 
-        backgroundColor: getOrgColor(event.organization?.color_chroma/20, event.organization?.color_hue, 1),
+        background: getEventGradient(event.organization, event.guest_organizations, 2, 1),
         borderTop: `4px solid ${getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.6)}`
       }"
     >
@@ -50,6 +50,20 @@
               >
                 {{ event.organization.name }}
               </router-link>
+              <template v-if="event.guest_organizations && event.guest_organizations.length">
+                  <span class="text-gray-400 mx-2 text-sm">×</span>
+                  <div class="flex flex-wrap gap-1 items-center">
+                    <router-link 
+                        v-for="(guest, idx) in event.guest_organizations" 
+                        :key="guest.id"
+                        :to="`/organizations/${guest.id}`"
+                        class="text-sm font-medium hover:underline transition-colors block"
+                        :style="{ color: getOrgColor(guest.color_chroma, guest.color_hue, 0.4) }"
+                    >
+                        {{ guest.name }}<span v-if="idx < event.guest_organizations.length - 1" class="text-gray-400 font-normal">, </span>
+                    </router-link>
+                  </div>
+              </template>
             </div>
           </div>
           
@@ -72,7 +86,7 @@
               Modifier
             </router-link>
             <router-link 
-              :to="`/events/${event.id}/countdown`"
+              :to="`/countdown/${event.id}`"
               target="_blank"
               class="inline-flex items-center rounded-md bg-gray-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500"
             >
@@ -192,13 +206,23 @@
           <p class="text-xs text-gray-500 mt-1">Événement privé, visible uniquement par les membres du groupe</p>
         </div>
         
-        <!-- Organization -->
         <OrganizationCard 
           :organization="event.organization" 
           :show-type="true"
           :no-border="true"
           class="shadow-sm bg-white rounded-lg" 
         />
+        
+        <!-- Guest Organizations -->
+        <OrganizationCard 
+            v-for="guest in event.guest_organizations"
+            :key="guest.id"
+            :organization="guest"
+            :show-type="true"
+            :no-border="true"
+            class="shadow-sm bg-white rounded-lg"
+        />
+        
         <!-- Tags -->
         <div v-if="event.tags && event.tags.length > 0" class="bg-white shadow-sm rounded-lg p-6">
           <h3 class="text-sm font-medium text-gray-900 mb-3">Tags</h3>
@@ -254,7 +278,7 @@ import OrganizationCard from '../components/OrganizationCard.vue'
 import ReactionList from '../components/ReactionList.vue'
 import ReactionAdminModal from '../components/ReactionAdminModal.vue'
 import { FaceSmileIcon } from '@heroicons/vue/24/outline'
-import { getOrgColor } from '../utils/colorUtils'
+import { getOrgColor, getEventGradient } from '../utils/colorUtils'
 
 const route = useRoute()
 const router = useRouter()

@@ -9,6 +9,12 @@ class TagRead(BaseModel):
     name: str
     color: str
 
+class OrganizationLinkRead(BaseModel):
+    id: UUID
+    name: str
+    url: str
+    order: int
+
 class OrganizationRead(BaseModel):
     id: UUID
     name: str
@@ -21,6 +27,7 @@ class OrganizationRead(BaseModel):
     color_hue: Optional[float] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    organization_links: List[OrganizationLinkRead] = []
 
 class UserRead(BaseModel):
     id: UUID
@@ -59,6 +66,7 @@ class CreateEvent(BaseModel):
     visibility: str = "public_pending"
     group_id: Optional[str] = None
     tag_ids: List[str] = []
+    guest_organization_ids: List[str] = []
     show_on_schedule: bool = False
     hide_details: bool = False
 
@@ -72,6 +80,7 @@ class UpdateEvent(BaseModel):
     visibility: Optional[str] = None
     group_id: Optional[str] = None
     tag_ids: Optional[List[str]] = None
+    guest_organization_ids: Optional[List[str]] = None
     show_on_schedule: Optional[bool] = None
     poster_url: Optional[str] = None
     hide_details: Optional[bool] = None
@@ -106,6 +115,7 @@ class EventRead(BaseModel):
     created_at: datetime
     
     organization: Optional[OrganizationRead] = None
+    guest_organizations: List[OrganizationRead] = []
     tags: List[TagRead] = []
     group: Optional[GroupRead] = None
     created_by: Optional[UserPublicRead] = None

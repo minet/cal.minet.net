@@ -16,6 +16,10 @@ class Role(str, Enum):
     ORG_MEMBER = "org_member"
     ORG_VIEWER = "org_viewer"
 
+class EventGuestOrganization(SQLModel, table=True):
+    event_id: UUID = Field(foreign_key="event.id", primary_key=True)
+    organization_id: UUID = Field(foreign_key="organization.id", primary_key=True)
+
 class EventVisibility(str, Enum):
     DRAFT = "draft"
     PRIVATE = "private"
@@ -57,6 +61,7 @@ class Organization(SQLModel, table=True):
     subscribers: List["Subscription"] = Relationship(back_populates="organization")
     groups: List["Group"] = Relationship(back_populates="organization")
     organization_links: List["OrganizationLink"] = Relationship(back_populates="organization")
+    guest_events: List["Event"] = Relationship(back_populates="guest_organizations", link_model=EventGuestOrganization)
 
 class Membership(SQLModel, table=True):
     """Link between User and Organization with a specific Role"""
@@ -131,8 +136,8 @@ class Event(SQLModel, table=True):
     organization: Optional[Organization] = Relationship(back_populates="events")
     group: Optional["Group"] = Relationship(back_populates="events")
     event_links: List["EventLink"] = Relationship(back_populates="event")
-    event_links: List["EventLink"] = Relationship(back_populates="event")
     event_tags: List["EventTag"] = Relationship(back_populates="event")
+    guest_organizations: List[Organization] = Relationship(back_populates="guest_events", link_model=EventGuestOrganization)
     reactions: List["EventReaction"] = Relationship(back_populates="event")
 
 class Group(SQLModel, table=True):
@@ -167,6 +172,8 @@ class Subscription(SQLModel, table=True):
     user: Optional[User] = Relationship(back_populates="subscriptions")
     organization: Optional[Organization] = Relationship(back_populates="subscribers")
     tag: Optional[Tag] = Relationship(back_populates="subscribers")
+
+
 
 class EventReaction(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)

@@ -22,6 +22,29 @@
           <div class="border-b border-gray-900/10 pb-12">
             <!-- Organization Selector (Hidden) -->
             <!-- <div class="mb-8">...</div> -->
+            
+            <!-- Collapsible Guest Organizations Section -->
+
+            <div class="col-span-full mb-8">
+                <CollapsibleCard 
+                    title="Organisations invitées (optionnel)"
+                    v-model="isGuestOrgsOpen"
+                >
+                    <template #summary>
+                        <span v-if="form.guest_organization_ids.length > 0" class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10">
+                            {{ form.guest_organization_ids.length }} sélectionnée(s)
+                        </span>
+                    </template>
+                    
+                    <OrganizationSelector
+                        v-model="form.guest_organization_ids"
+                        :organizations="allOrganizations"
+                        :multiple="true"
+                        label=""
+                        emptyMessage="Aucune organisation disponible"
+                    />
+                </CollapsibleCard>
+            </div>
 
             <div class="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
               <div class="sm:col-span-4">
@@ -260,6 +283,7 @@ import { useAuth } from '../composables/useAuth'
 import { formatLocalDate, localToUtc, utcToLocal } from '../utils/dateUtils'
 import OrganizationSelector from '../components/OrganizationSelector.vue'
 import ImageUpload from '../components/ImageUpload.vue'
+import CollapsibleCard from '../components/CollapsibleCard.vue'
 import VisibilitySelector from '../components/VisibilitySelector.vue'
 import TagSelector from '../components/TagSelector.vue'
 import { PlusIcon, XMarkIcon, PaperAirplaneIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
@@ -285,7 +309,8 @@ const form = ref({
   rejection_message: null,
   group_id: null,
   tag_ids: [],
-  links: []
+  links: [],
+  guest_organization_ids: []
 })
 
 const timeForm = ref({
@@ -296,6 +321,7 @@ const timeForm = ref({
 })
 
 const userOrganizations = ref([])
+const allOrganizations = ref([])
 const showAllOrgs = ref(false)
 const eventLoaded = ref(false)
 const error = ref('')
@@ -303,6 +329,7 @@ const loading = ref(false)
 const originalOrgId = ref(null) 
 const originalVisibility = ref(null)
 const currentOrganization = ref(null)
+const isGuestOrgsOpen = ref(false)
 
 const updateTimeFromComponents = () => {
   if (!timeForm.value.date || !timeForm.value.time) return
@@ -386,7 +413,9 @@ const loadEvent = async () => {
       rejection_message: event.rejection_message || null,
       group_id: event.group?.id || null,
       tag_ids: event.tags?.map(t => t.id) || [],
-      links: event.event_links || []
+      tag_ids: event.tags?.map(t => t.id) || [],
+      links: event.event_links || [],
+      guest_organization_ids: event.guest_organizations?.map(o => o.id) || []
     }
     
     // Initialize Time Components
@@ -401,6 +430,11 @@ const loadEvent = async () => {
     originalVisibility.value = event.visibility
     currentOrganization.value = event.organization
     eventLoaded.value = true
+    
+    // Open if there are Guest Organizations
+    if (form.value.guest_organization_ids.length > 0) {
+        isGuestOrgsOpen.value = true
+    }
   } catch (err) {
     console.error('Failed to load event:', err)
     error.value = err.response?.data?.detail || 'Échec du chargement de l\'événement'
@@ -433,8 +467,9 @@ const loadUserOrganizations = async () => {
 const loadAllOrganizations = async () => {
   try {
     loading.value = true
+    loading.value = true
     const response = await api.get('/organizations/')
-    userOrganizations.value = response.data
+    allOrganizations.value = response.data
     showAllOrgs.value = true
   } catch (err) {
     console.error('Failed to load all organizations:', err)
@@ -473,6 +508,8 @@ const updateEvent = async (shouldRedirect = true) => {
       hide_details: form.value.hide_details,
       group_id: form.value.group_id,
       tag_ids: form.value.tag_ids,
+      tag_ids: form.value.tag_ids,
+      guest_organization_ids: form.value.guest_organization_ids,
       links: form.value.links.filter(link => link.name && link.url)
     }
     
@@ -529,6 +566,7 @@ const deleteEvent = async () => {
 
 onMounted(() => {
   loadUserOrganizations()
+  loadAllOrganizations()
   loadEvent()
 })
 </script>

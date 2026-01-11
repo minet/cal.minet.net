@@ -9,7 +9,7 @@
         @click="selectOrganization(org)"
         :class="[
           'relative flex cursor-pointer rounded-lg border p-4 shadow-sm focus:outline-none transition-all',
-          selectedId === org.id
+          isSelected(org.id)
             ? 'border-indigo-600 ring-2 ring-indigo-600 bg-indigo-50'
             : 'border-gray-300 hover:border-indigo-400 bg-white'
         ]"
@@ -17,8 +17,23 @@
         <div class="flex flex-1">
           <div class="flex flex-col">
             <div class="flex items-center space-x-3">
-              <div class="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                <span class="text-indigo-600 font-semibold text-sm">{{ org.name.charAt(0) }}</span>
+              <div class="flex-shrink-0 h-10 w-10">
+                <img 
+                  v-if="org.logo_url" 
+                  :src="org.logo_url" 
+                  :alt="org.name" 
+                  class="h-10 w-10 rounded-full object-cover bg-white"
+                />
+                <div 
+                  v-else 
+                  class="h-10 w-10 rounded-full flex items-center justify-center font-bold"
+                  :style="{ 
+                    backgroundColor: getOrgColor(org.color_chroma/20, org.color_hue, 0.95), 
+                    color: getOrgColor(org.color_chroma, org.color_hue, 0.4) 
+                  }"
+                >
+                  <span class="text-sm">{{ org.name.charAt(0) }}</span>
+                </div>
               </div>
               <div class="flex-1 min-w-0">
                 <span class="block text-sm font-medium text-gray-900 truncate">
@@ -29,14 +44,11 @@
                 </span>
               </div>
             </div>
-            <p v-if="org.description" class="mt-2 text-xs text-gray-500 line-clamp-2">
-              {{ org.description }}
-            </p>
           </div>
         </div>
         
         <div
-          v-if="selectedId === org.id"
+          v-if="isSelected(org.id)"
           class="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600"
         >
           <CheckIcon class="h-3 w-3 text-white" />
@@ -53,6 +65,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { CheckIcon } from '@heroicons/vue/24/solid'
+import { getOrgColor } from '../utils/colorUtils'
 
 const props = defineProps({
   organizations: {
@@ -60,7 +73,7 @@ const props = defineProps({
     required: true
   },
   modelValue: {
-    type: String,
+    type: [String, Array],
     default: null
   },
   label: {
@@ -70,6 +83,10 @@ const props = defineProps({
   emptyMessage: {
     type: String,
     default: 'Aucune organisation disponible'
+  },
+  multiple: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -81,8 +98,27 @@ watch(() => props.modelValue, (newValue) => {
   selectedId.value = newValue
 })
 
+const isSelected = (id) => {
+  if (props.multiple) {
+    return Array.isArray(selectedId.value) && selectedId.value.includes(id)
+  }
+  return selectedId.value === id
+}
+
 const selectOrganization = (org) => {
-  selectedId.value = org.id
-  emit('update:modelValue', org.id)
+  if (props.multiple) {
+    let newVal = Array.isArray(selectedId.value) ? [...selectedId.value] : []
+    const index = newVal.indexOf(org.id)
+    if (index === -1) {
+      newVal.push(org.id)
+    } else {
+      newVal.splice(index, 1)
+    }
+    selectedId.value = newVal
+    emit('update:modelValue', newVal)
+  } else {
+    selectedId.value = org.id
+    emit('update:modelValue', org.id)
+  }
 }
 </script>

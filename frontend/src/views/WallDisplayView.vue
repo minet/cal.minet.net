@@ -10,7 +10,7 @@
   <div 
     v-else
     class="fixed inset-0 z-50 flex overflow-hidden transition-colors duration-1000 ease-in-out"
-    :style="{ backgroundColor: currentEventBg }"
+    :style="{ background: currentEventBg }"
   >
     <!-- Progress Bar -->
     <div class="absolute top-0 left-0 h-2 bg-gray-900/10 z-50" :style="{ width: `${progress}%`, transition: 'width 0.1s linear' }"></div>
@@ -64,7 +64,8 @@
         <div class="w-full lg:w-1/2 h-1/2 lg:h-full flex flex-col justify-start p-8 lg:p-16 pt-8 lg:pt-24 text-gray-900 overflow-hidden">
           
           <!-- Organization Pill -->
-          <div class="mb-8">
+           <!-- Organization Pill -->
+          <div class="mb-8 flex flex-wrap gap-4 items-center">
              <div class="inline-flex items-center bg-white shadow-xl rounded-full px-6 py-3 border border-gray-100 transform transition-transform duration-500 hover:scale-105">
                 <img 
                   v-if="currentEvent.organization?.logo_url" 
@@ -73,6 +74,18 @@
                   alt="Org Logo" 
                 />
                 <span class="text-2xl font-bold tracking-wide text-gray-900">{{ currentEvent.organization?.name }}</span>
+             </div>
+
+             <div v-for="guest in currentEvent.guest_organizations" :key="guest.id"
+                  class="inline-flex items-center bg-white/90 shadow-lg rounded-full px-4 py-2 border border-gray-100/50 transform transition-transform duration-500 hover:scale-105"
+             >
+                <img 
+                  v-if="guest.logo_url" 
+                  :src="guest.logo_url" 
+                  class="w-8 h-8 rounded-full mr-2 object-cover" 
+                  alt="Guest Logo" 
+                />
+                <span class="text-lg font-bold tracking-wide text-gray-700">{{ guest.name }}</span>
              </div>
           </div>
 
@@ -142,7 +155,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import api from '../utils/api'
-import { getOrgColor } from '../utils/colorUtils'
+import { getOrgColor, getEventGradient } from '../utils/colorUtils'
 import { formatLocalDate } from '../utils/dateUtils'
 import QrcodeVue from 'qrcode.vue'
 
@@ -171,12 +184,8 @@ const currentEvent = computed(() => {
 const currentEventBg = computed(() => {
   if (currentEvent.value.isAd) return '#ffffff' // White background for ad
   if (!currentEvent.value?.organization) return '#f3f4f6' // gray-100 default
-  // Use a very light shade for background (Luminance ~0.96)
-  return getOrgColor(
-      currentEvent.value.organization.color_chroma/20, 
-      currentEvent.value.organization.color_hue, 
-      0.96
-  )
+  // Use gradient
+  return getEventGradient(currentEvent.value.organization, currentEvent.value.guest_organizations)
 })
 
 const displayedReactions = computed(() => {

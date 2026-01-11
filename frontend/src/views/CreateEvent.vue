@@ -24,6 +24,28 @@
               />
             </div>
 
+            <!-- Collapsible Guest Organizations Section -->
+            <div class="col-span-full mb-8">
+                <CollapsibleCard 
+                    title="Organisations invitées (optionnel)"
+                    v-model="isGuestOrgsOpen"
+                >
+                    <template #summary>
+                        <span v-if="form.guest_organization_ids.length > 0" class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10">
+                            {{ form.guest_organization_ids.length }} sélectionnée(s)
+                        </span>
+                    </template>
+                    
+                    <OrganizationSelector
+                        v-model="form.guest_organization_ids"
+                        :organizations="allOrganizations"
+                        :multiple="true"
+                        label=""
+                        emptyMessage="Aucune organisation disponible"
+                    />
+                </CollapsibleCard>
+            </div>
+
             <div class="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
               <div class="sm:col-span-4">
                 <label for="title" class="block text-sm font-medium leading-6 text-gray-900">Titre de l'événement</label>
@@ -53,31 +75,74 @@
                 </div>
               </div>
 
-              <div class="sm:col-span-3">
-                <label for="start_time" class="block text-sm font-medium leading-6 text-gray-900">Début</label>
-                <div class="mt-2">
-                  <input 
-                    type="datetime-local" 
-                    name="start_time" 
-                    id="start_time" 
-                    required
-                    v-model="form.start_time" 
-                    class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
-                  />
-                </div>
-              </div>
+              <!-- Date, Time, Duration -->
+              <div class="col-span-full bg-gray-50 p-4 rounded-lg">
+                <h3 class="text-sm font-medium text-gray-900 mb-4">Date et Heure</h3>
 
-              <div class="sm:col-span-3">
-                <label for="end_time" class="block text-sm font-medium leading-6 text-gray-900">Fin</label>
-                <div class="mt-2">
-                  <input 
-                    type="datetime-local" 
-                    name="end_time" 
-                    id="end_time" 
-                    required
-                    v-model="form.end_time" 
-                    class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
-                  />
+                <div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3 items-end">
+                  <!-- Date -->
+                  <div>
+                    <label for="date" class="block text-sm font-medium leading-6 text-gray-900">Date</label>
+                    <div class="mt-2">
+                      <input 
+                        type="date" 
+                        id="date" 
+                        required
+                        v-model="timeForm.date"
+                        @change="updateTimeFromComponents"
+                        class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
+                      />
+                    </div>
+                  </div>
+
+                  <!-- Time -->
+                  <div>
+                    <label for="time" class="block text-sm font-medium leading-6 text-gray-900">Heure de début</label>
+                    <div class="mt-2">
+                      <input 
+                        type="time" 
+                        id="time" 
+                        required
+                        v-model="timeForm.time"
+                        @change="updateTimeFromComponents"
+                        class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
+                      />
+                    </div>
+                  </div>
+
+                  <!-- Duration -->
+                  <div>
+                    <label class="block text-sm font-medium leading-6 text-gray-900">Durée</label>
+                    <div class="mt-2 flex space-x-2">
+                      <div class="relative rounded-md shadow-sm">
+                        <input 
+                          type="number" 
+                          v-model.number="timeForm.durationHours"
+                          @change="updateTimeFromComponents"
+                          min="0"
+                          class="block w-full rounded-md border-0 py-1.5 pr-8 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
+                          placeholder="0" 
+                        />
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                          <span class="text-gray-500 sm:text-sm">h</span>
+                        </div>
+                      </div>
+                      <div class="relative rounded-md shadow-sm">
+                        <input 
+                          type="number" 
+                          v-model.number="timeForm.durationMinutes"
+                          @change="updateTimeFromComponents"
+                          min="0"
+                          max="59"
+                          class="block w-full rounded-md border-0 py-1.5 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
+                          placeholder="0" 
+                        />
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                          <span class="text-gray-500 sm:text-sm">min</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -163,7 +228,6 @@
 
           <div class="border-b border-gray-900/10 pb-12">
             <h2 class="text-base font-semibold leading-7 text-gray-900">Liens</h2>
-            <p class="mt-1 text-sm leading-6 text-gray-600">Ajouter jusqu'à 3 liens (optionnel)</p>
 
             <div class="mt-6 space-y-4">
               <div v-for="(link, index) in form.links" :key="index" class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-12">
@@ -194,7 +258,6 @@
                 </div>
               </div>
               <button 
-                v-if="form.links.length < 3"
                 @click="addLink"
                 type="button"
                 class="mt-2 flex items-center text-sm text-indigo-600 hover:text-indigo-700"
@@ -229,6 +292,7 @@ import { useAuth } from '../composables/useAuth'
 import { localToUtc } from '../utils/dateUtils'
 import OrganizationSelector from '../components/OrganizationSelector.vue'
 import ImageUpload from '../components/ImageUpload.vue'
+import CollapsibleCard from '../components/CollapsibleCard.vue'
 import VisibilitySelector from '../components/VisibilitySelector.vue'
 import TagSelector from '../components/TagSelector.vue'
 import { PlusIcon, XMarkIcon } from '@heroicons/vue/24/outline'
@@ -251,12 +315,43 @@ const form = ref({
   group_id: null,
   tag_ids: [],
   show_on_schedule: false,
-  links: []
+  links: [],
+  guest_organization_ids: []
 })
 
 const userOrganizations = ref([])
 const error = ref('')
 const loading = ref(false)
+const allOrganizations = ref([])
+const isGuestOrgsOpen = ref(false)
+
+const timeForm = ref({
+  date: '',
+  time: '',
+  durationHours: 0,
+  durationMinutes: 0
+})
+
+// Helper to format date for datetime-local input
+const formatDateTimeLocal = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
+const updateTimeFromComponents = () => {
+  if (!timeForm.value.date || !timeForm.value.time) return
+  
+  const startDateTime = new Date(`${timeForm.value.date}T${timeForm.value.time}`)
+  form.value.start_time = formatDateTimeLocal(startDateTime)
+  
+  const durationMs = (timeForm.value.durationHours * 60 * 60 * 1000) + (timeForm.value.durationMinutes * 60 * 1000)
+  const endDateTime = new Date(startDateTime.getTime() + durationMs)
+  form.value.end_time = formatDateTimeLocal(endDateTime)
+}
 
 // Watch for changes in organization_id to reset group_id and tag_ids
 watch(() => form.value.organization_id, (newOrgId) => {
@@ -284,10 +379,17 @@ const loadUserOrganizations = async () => {
   }
 }
 
+const loadAllOrganizations = async () => {
+    try {
+        const response = await api.get('/organizations/')
+        allOrganizations.value = response.data
+    } catch (err) {
+         console.error('Failed to load all organizations:', err)
+    }
+}
+
 const addLink = () => {
-  if (form.value.links.length < 3) {
-    form.value.links.push({ name: '', url: '', order: form.value.links.length + 1 })
-  }
+  form.value.links.push({ name: '', url: '', order: form.value.links.length + 1 })
 }
 
 const removeLink = (index) => {
@@ -317,7 +419,8 @@ const createEvent = async () => {
       tag_ids: form.value.tag_ids,
       show_on_schedule: form.value.show_on_schedule,
       hide_details: form.value.hide_details,
-      links: form.value.links.filter(link => link.name && link.url)
+      links: form.value.links.filter(link => link.name && link.url),
+      guest_organization_ids: form.value.guest_organization_ids
     }
 
     const response = await api.post('/events/', eventData)
@@ -332,5 +435,20 @@ const createEvent = async () => {
 
 onMounted(() => {
   loadUserOrganizations()
+  loadAllOrganizations()
+  
+  // Initialize time with defaults (next hour, duration 1h)
+  const now = new Date()
+  now.setMinutes(0)
+  now.setSeconds(0)
+  now.setMilliseconds(0)
+  now.setHours(now.getHours() + 1)
+  
+  timeForm.value.date = formatDateTimeLocal(now).split('T')[0]
+  timeForm.value.time = formatDateTimeLocal(now).split('T')[1]
+  timeForm.value.durationHours = 1
+  timeForm.value.durationMinutes = 0
+  
+  updateTimeFromComponents()
 })
 </script>

@@ -10,7 +10,6 @@
       <div v-if="error" class="rounded-md bg-red-50 p-4 mb-6">
         <p class="text-sm text-red-800">{{ error }}</p>
       </div>
-      
       <form v-if="organization" @submit.prevent="updateOrg">
         <div class="space-y-12">
           <div class="border-b border-gray-900/10 pb-12">
@@ -85,6 +84,37 @@
                   />
                   <span class="text-sm text-gray-500">{{ form.color_hex }}</span>
                 </div>
+                </div>
+
+              
+              <div class="col-span-full">
+                <label class="block text-sm font-medium leading-6 text-gray-900 mb-2">Liens personnalisés</label>
+                <div class="space-y-3">
+                  <div v-for="(link, index) in links" :key="index" class="flex gap-3 items-center">
+                    <div class="flex-none cursor-move text-gray-400">
+                      <!-- Handle for drag drop if implemented, or just index -->
+                      <span class="text-xs">{{ index + 1 }}.</span>
+                    </div>
+                    <input 
+                      v-model="link.name" 
+                      type="text" 
+                      placeholder="Nom (ex: Site web)" 
+                      class="block w-1/3 rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                    />
+                    <input 
+                      v-model="link.url" 
+                      type="url" 
+                      placeholder="URL (https://...)" 
+                      class="block flex-1 rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                    />
+                    <button type="button" @click="removeLink(index)" class="text-red-600 hover:text-red-800 p-1">
+                      <TrashIcon class="h-5 w-5" />
+                    </button>
+                  </div>
+                  <button type="button" @click="addLink" class="text-sm text-indigo-600 hover:text-indigo-800 font-semibold flex items-center">
+                    <PlusIcon class="h-4 w-4 mr-1" /> Ajouter un lien
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -118,6 +148,7 @@ import ImageUpload from '../components/ImageUpload.vue'
 import Dropdown from '../components/Dropdown.vue'
 import api from '../utils/api'
 import { hexToOklch, oklchToHex } from '../utils/colorUtils'
+import { TrashIcon, PlusIcon } from '@heroicons/vue/24/outline'
 
 const router = useRouter()
 const route = useRoute()
@@ -135,6 +166,20 @@ const form = reactive({
 })
 const error = ref('')
 const loading = ref(false)
+const links = ref([])
+const deletedLinkIds = ref([])
+
+const addLink = () => {
+  links.value.push({ name: '', url: '', order: links.value.length + 1 })
+}
+
+const removeLink = (index) => {
+  const link = links.value[index]
+  if (link.id) {
+    deletedLinkIds.value.push(link.id)
+  }
+  links.value.splice(index, 1)
+}
 
 const loadParentOrganizations = async () => {
   try {
@@ -174,6 +219,13 @@ const loadOrganization = async () => {
         form.color_hex = oklchToHex(0.6, organization.value.color_chroma, organization.value.color_hue)
     }
     
+    // Load links
+    if (organization.value.organization_links) {
+        links.value = organization.value.organization_links.map(l => ({...l}))
+    } else {
+        links.value = []
+    }
+
     // Check permissions
     const permResponse = await api.get(`/organizations/${route.params.id}/can-edit`)
     if (!permResponse.data.can_edit) {
@@ -204,6 +256,25 @@ const updateOrg = async () => {
     }
 
     await api.put(`/organizations/${route.params.id}`, payload)
+    
+    // Handle links
+    // 1. Delete removed links
+    for (const id of deletedLinkIds.value) {
+        await api.delete(`/organization-links/${id}`)
+    }
+    
+    // 2. Add/Update links
+    for (const [index, link] of links.value.entries()) {
+        const linkData = { ...link, order: index + 1 }
+        if (link.id) {
+            await api.put(`/organization-links/${link.id}`, linkData)
+        } else {
+            if (link.name && link.url) {
+                await api.post(`/organizations/${route.params.id}/links`, linkData)
+            }
+        }
+    }
+
     router.push(`/organizations/${route.params.id}`)
   } catch (err) {
     console.error('Failed to update organization:', err)

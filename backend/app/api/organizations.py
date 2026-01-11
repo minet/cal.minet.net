@@ -5,9 +5,11 @@ from app.database import get_session
 from app.models import Organization, User, Membership, Role, EventVisibility
 from app.api.auth import get_current_user
 
+from app.schemas import OrganizationRead
+
 router = APIRouter()
 
-@router.post("/", response_model=Organization)
+@router.post("/", response_model=OrganizationRead)
 def create_organization(
     org: Organization, 
     current_user: User = Depends(get_current_user), 
@@ -44,11 +46,11 @@ def create_organization(
     
     return org
 
-@router.get("/", response_model=List[Organization])
+@router.get("/", response_model=List[OrganizationRead])
 def list_organizations(session: Session = Depends(get_session)):
     return session.exec(select(Organization)).all()
 
-@router.get("/{org_id}", response_model=Organization)
+@router.get("/{org_id}", response_model=OrganizationRead)
 def get_organization(org_id: str, session: Session = Depends(get_session)):
     org = session.get(Organization, org_id)
     if not org:

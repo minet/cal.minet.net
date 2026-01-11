@@ -108,7 +108,7 @@ const routes = [
         meta: { layout: 'normal' }
     },
     {
-        path: '/events/:id/countdown',
+        path: '/countdown/:id',
         name: 'EventCountdown',
         component: () => import('../views/EventCountdown.vue'),
         meta: { layout: 'none' }
@@ -150,8 +150,11 @@ router.beforeEach((to, from, next) => {
 
     // Public routes that anyone can access
     const publicRoutes = ['/login', '/', '/events', '/organizations', '/walldisplay']
-    // Also allow organization and event detail pages
-    const isPublicDetailPage = to.path.match(/^\/(organizations|events)\/[^/]+$/) && !to.path.endsWith('/edit')
+    // Also allow organization and event detail pages, and countdown
+    const isPublicDetailPage = (
+        (to.path.match(/^\/(organizations|events)\/[^/]+$/) && !to.path.endsWith('/edit')) ||
+        to.path.match(/^\/countdown\/[^/]+$/)
+    )
 
     if (publicRoutes.includes(to.path) || isPublicDetailPage) {
         // If authenticated and trying to access login, redirect to dashboard
