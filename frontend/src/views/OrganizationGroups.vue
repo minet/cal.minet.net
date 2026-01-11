@@ -15,6 +15,34 @@
         </button>
       </div>
     </header>
+    
+    <!-- Group Explanation -->
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <h3 class="text-sm font-semibold text-blue-800">À quoi servent les groupes ?</h3>
+          <div class="mt-2 text-sm text-blue-700">
+            <p>
+              Les groupes permettent de segmenter les membres de votre organisation pour gérer la visibilité des événements.
+            </p>
+            <ul role="list" class="list-disc space-y-1 pl-5 mt-2">
+              <li>
+                <span class="font-medium">Événements privés :</span> Vous pouvez créer des événements visibles uniquement par les membres d'un groupe spécifique.
+              </li>
+              <li>
+                <span class="font-medium">Exemples :</span>
+                "Bureau" (pour les réunions internes), "1ère année" (pour l'intégration), "Pôle Sponsors" (pour les taches spécifiques).
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div v-if="loading" class="text-center py-12">
       <p class="text-sm text-gray-500">Chargement...</p>

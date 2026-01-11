@@ -11,6 +11,36 @@
       <p class="text-sm text-red-800">{{ error }}</p>
     </div>
 
+    <!-- Role Explanation -->
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <h3 class="text-sm font-semibold text-blue-800">Comprendre les rôles</h3>
+          <div class="mt-2 text-sm text-blue-700">
+            <ul role="list" class="list-disc space-y-1 pl-5">
+              <li>
+                <span class="font-medium">Lecteur (org_viewer) :</span> Accès en lecture seule aux événements (y compris privés/internes).
+                <br><span class="text-blue-600 italic">Exemple : Un adhérent qui consulte le calendrier.</span>
+              </li>
+              <li>
+                <span class="font-medium">Membre (org_member) :</span> Peut créer et proposer des événements.
+                <br><span class="text-blue-600 italic">Exemple : Un membre actif du staff ou un responsable de pôle.</span>
+              </li>
+              <li>
+                <span class="font-medium">Administrateur (org_admin) :</span> Gestion totale (membres, paramètres, validation d'événements).
+                <br><span class="text-blue-600 italic">Exemple : Le président ou le responsable communication.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Add Member Form -->
     <div class="bg-white shadow-sm rounded-lg p-6 mb-6">
       <h2 class="text-lg font-medium text-gray-900 mb-4">Ajouter un membre</h2>

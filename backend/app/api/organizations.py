@@ -16,23 +16,10 @@ def create_organization(
     session: Session = Depends(get_session)
 ):
     # Check if user can create organizations
-    can_create = current_user.is_superadmin
-    
-    # If creating a child organization, check if user is ORG_ADMIN of parent
-    if org.parent_id and not current_user.is_superadmin:
-        parent_membership = session.exec(
-            select(Membership).where(
-                Membership.user_id == current_user.id,
-                Membership.organization_id == org.parent_id,
-                Membership.role == Role.ORG_ADMIN
-            )
-        ).first()
-        can_create = parent_membership is not None
-    
-    if not can_create:
+    if not current_user.is_superadmin:
         raise HTTPException(
             status_code=403, 
-            detail="Only superadmins can create root organizations, or org admins can create child organizations"
+            detail="Only superadmins can create organizations"
         )
     
     session.add(org)

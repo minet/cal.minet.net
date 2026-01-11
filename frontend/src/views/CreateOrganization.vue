@@ -53,7 +53,7 @@
                     { value: null, label: 'Aucune' },
                     ...parentOrganizations.map(org => ({ value: org.id, label: org.name }))
                   ]"
-                  hint="Vous pouvez uniquement ajouter une sous-organisation dans les organisations où vous êtes admin"
+                  hint="Sélectionnez une organisation parente pour créer une sous-organisation."
                 />
               </div>
 
@@ -100,19 +100,14 @@ const error = ref('')
 const loading = ref(false)
 
 const loadParentOrganizations = async () => {
+  if (!user.value?.is_superadmin) {
+    router.push('/organizations')
+    return
+  }
+
   try {
-    // Load memberships where user is ORG_ADMIN
-    const response = await api.get('/users/me/memberships')
+    const response = await api.get('/organizations/')
     parentOrganizations.value = response.data
-      .filter(m => m.role === 'org_admin')
-      .map(m => m.organization)
-      .filter(org => org !== null)
-    
-    // If user is superadmin, load all organizations
-    if (user.value?.is_superadmin) {
-      const allOrgsResponse = await api.get('/organizations/')
-      parentOrganizations.value = allOrgsResponse.data
-    }
   } catch (err) {
     console.error('Failed to load parent organizations:', err)
   }

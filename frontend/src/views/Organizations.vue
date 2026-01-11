@@ -59,15 +59,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import api from '../utils/api'
 import { getOrgColor } from '../utils/colorUtils'
 import { BuildingOfficeIcon } from '@heroicons/vue/24/outline'
 import SubscribeButton from '../components/SubscribeButton.vue'
 
+const { user } = useAuth()
 const organizations = ref([])
 const loading = ref(false)
+
+const isSuperAdmin = computed(() => user.value?.is_superadmin)
 
 const loadOrganizations = async () => {
   loading.value = true
