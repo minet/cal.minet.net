@@ -2,14 +2,14 @@
   <div class="min-h-screen bg-gray-50 pb-20">
     <!-- Hero / Header Section -->
     <div class="bg-white shadow sticky top-0 z-30">
-      <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 flex justify-between items-center">
+      <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center">
         <div>
           <h1 class="text-3xl font-bold tracking-tight text-gray-900">À venir</h1>
           <p class="mt-2 text-sm text-gray-500">Découvrez les prochains événements.</p>
         </div>
         
         <!-- Desktop Actions -->
-        <div class="hidden sm:flex items-center space-x-4">
+        <div class="mt-4 sm:mt-0 flex items-center space-x-4">
           <template v-if="isAuthenticated">
             <router-link to="/dashboard" class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
               <CalendarIcon class="h-5 w-5 mr-2" />

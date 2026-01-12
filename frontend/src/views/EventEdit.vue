@@ -195,25 +195,26 @@
               <div class="col-span-full">
                 <label class="block text-sm font-medium leading-6 text-gray-900 mb-3">Liens</label>
                 <div class="space-y-3">
-                  <div v-for="(link, index) in form.links" :key="index" class="flex gap-3">
+                  <div v-for="(link, index) in form.links" :key="index" class="grid grid-cols-1 gap-3 sm:flex">
                     <input 
                       v-model="link.name"
                       type="text"
                       placeholder="Nom du lien"
-                      class="block w-1/3 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                      class="block w-full sm:w-1/3 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                     />
                     <input 
                       v-model="link.url"
                       type="url"
                       placeholder="https://..."
-                      class="block flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                      class="block w-full sm:flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                     />
                     <button 
                       @click="removeLink(index)"
                       type="button"
-                      class="px-3 py-2 text-sm text-red-600 hover:text-red-700"
+                      class="inline-flex items-center justify-center p-2 text-sm text-red-600 hover:text-red-700 sm:w-auto"
                     >
                       <XMarkIcon class="h-5 w-5" />
+                      <span class="ml-2 sm:hidden">Supprimer</span>
                     </button>
                   </div>
                   <button 
@@ -250,22 +251,22 @@
           </div>
         </div>
 
-        <div class="mt-6 flex items-center justify-between">
+        <div class="mt-6 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-y-6 sm:gap-y-0">
           <button 
             type="button" 
             @click="deleteEvent"
-            class="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+            class="w-full sm:w-auto flex justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
           >
             Supprimer
           </button>
 
-          <div class="flex items-center gap-x-6">
-            <router-link :to="`/events/${eventId}`" class="text-sm font-semibold leading-6 text-gray-900">Annuler</router-link>
+          <div class="flex flex-col-reverse sm:flex-row items-center gap-x-6 gap-y-3 sm:gap-y-0 w-full sm:w-auto">
+            <router-link :to="`/events/${eventId}`" class="w-full text-center sm:w-auto text-sm font-semibold leading-6 text-gray-900">Annuler</router-link>
             
             <button 
               type="submit" 
               :disabled="loading || !form.organization_id"
-              class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50"
+              class="w-full sm:w-auto rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50"
             >
               {{ saveButtonLabel }}
             </button>

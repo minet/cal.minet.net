@@ -1,9 +1,9 @@
 <template>
   <div>
     <header class="bg-white shadow-sm rounded-lg mb-6">
-      <div class="px-4 py-6 sm:px-6 lg:px-8 flex justify-between items-center">
+      <div class="px-4 py-6 sm:px-6 lg:px-8 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 sm:gap-0">
         <h1 class="text-3xl font-bold tracking-tight text-gray-900">Événements</h1>
-        <router-link v-if="canCreateEvent" to="/events/create" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Ajouter un événement</router-link>
+        <router-link v-if="canCreateEvent" to="/events/create" class="w-full sm:w-auto text-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Ajouter un événement</router-link>
       </div>
     </header>
 
@@ -54,7 +54,7 @@
         <li v-for="event in paginatedEvents" :key="event.id">
           <router-link 
             :to="`/events/${event.id}`"
-            class="flex justify-between gap-x-6 py-5 px-6 hover:bg-gray-50 transition-colors"
+            class="flex flex-col sm:flex-row justify-between gap-x-6 py-5 px-6 hover:bg-gray-50 transition-colors"
           >
             <div class="flex min-w-0 gap-x-4">
               <div class="min-w-0 flex-auto">
@@ -68,7 +68,7 @@
                 </div>
               </div>
             </div>
-            <div class="hidden shrink-0 sm:flex sm:flex-col sm:items-end">
+            <div class="mt-2 sm:mt-0 flex flex-row sm:flex-col items-center sm:items-end gap-2 sm:gap-0 shrink-0">
               <p class="text-sm leading-6 text-gray-900">{{ event.organization?.name || 'N/A' }}</p>
               <span v-if="event.is_draft" class="inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">Brouillon</span>
               <span v-else class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">Publié</span>

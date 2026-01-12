@@ -1,10 +1,10 @@
 <template>
   <div>
     <header class="bg-white shadow-sm rounded-lg mb-6">
-      <div class="px-4 py-6 sm:px-6 lg:px-8 flex justify-between items-center">
-        <div class="flex items-center space-x-4">
+      <div class="px-4 py-6 sm:px-6 lg:px-8 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 sm:gap-0">
+        <div class="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
           <h1 class="text-3xl font-bold tracking-tight text-gray-900">Calendrier</h1>
-          <div class="flex items-center space-x-2">
+          <div class="flex items-center justify-between sm:justify-start space-x-2 w-full sm:w-auto">
             <button @click="previousPeriod" class="p-2 hover:bg-gray-100 rounded-lg">
               <ChevronLeftIcon class="h-5 w-5 text-gray-600" />
             </button>
@@ -19,11 +19,11 @@
             </button>
           </div>
         </div>
-        <div class="flex space-x-3">
+        <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <button 
             @click="toggleView" 
             type="button" 
-            class="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+            class="inline-flex w-full justify-center sm:w-auto items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
           >
             <component :is="viewType === 'month' ? CalendarIcon : CalendarDaysIcon" class="h-5 w-5 mr-2 text-gray-500" />
             {{ viewType === 'month' ? 'Semaine' : 'Mois' }}
@@ -31,7 +31,7 @@
           <router-link 
             v-if="canCreateEvent"
             to="/events/create"
-            class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+            class="inline-flex w-full justify-center sm:w-auto items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
           >
             <PlusIcon class="h-5 w-5 mr-2" />
             Ajouter un événement

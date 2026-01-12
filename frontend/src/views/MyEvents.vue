@@ -1,14 +1,14 @@
 <template>
   <div class="max-w-6xl mx-auto">
     <header class="bg-white shadow-sm rounded-lg mb-6">
-      <div class="px-4 py-6 sm:px-6 lg:px-8 flex justify-between items-center">
+      <div class="px-4 py-6 sm:px-6 lg:px-8 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 sm:gap-0">
         <div>
           <h1 class="text-3xl font-bold tracking-tight text-gray-900">Mes événements</h1>
           <p class="mt-2 text-sm text-gray-600">Gérez les événements de vos organisations</p>
         </div>
         <router-link 
           to="/events/create"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-500 transition-colors"
+          class="w-full sm:w-auto justify-center inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-500 transition-colors"
         >
           <PlusIcon class="h-5 w-5" />
           Nouvel événement
@@ -31,7 +31,7 @@
             </option>
           </select>
         </div>
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
           <button
             v-for="filter in statusFilters"
             :key="filter.value"
@@ -75,8 +75,8 @@
         class="bg-white shadow-sm rounded-lg overflow-hidden hover:shadow-md transition-shadow"
       >
         <router-link :to="`/events/${event.id}`" class="block p-6">
-          <div class="flex items-start justify-between">
-            <div class="flex-1">
+          <div class="flex flex-col sm:flex-row items-start justify-between">
+            <div class="flex-1 w-full">
               <div class="flex items-center gap-3 mb-2">
                 <div 
                   v-if="event.organization?.logo_url"
@@ -124,7 +124,7 @@
               </div>
             </div>
 
-            <div class="flex flex-col items-end gap-2 ml-4">
+            <div class="mt-4 sm:mt-0 ml-0 sm:ml-4 flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start w-full sm:w-auto gap-2">
               <!-- Status Badge -->
               <span :class="getStatusClasses(event.visibility)">
                 {{ getStatusLabel(event.visibility) }}

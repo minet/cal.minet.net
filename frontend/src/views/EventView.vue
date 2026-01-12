@@ -28,7 +28,7 @@
               <InformationCircleIcon class="h-3 w-3 mr-1" />
               Interagir ajoute l'événement à votre calendrier
             </div>
-            <div class="mt-2 flex items-center space-x-3">
+            <div class="mt-2 flex flex-wrap items-center gap-2 sm:gap-3">
               <!-- Visibility Badge -->
               <span v-if="event.visibility === 'draft'" class="inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">
                 <DocumentTextIcon class="mr-1.5 h-4 w-4" />

@@ -62,7 +62,7 @@
           class="bg-white shadow-sm rounded-lg overflow-hidden"
         >
           <div class="p-6">
-            <div class="flex items-start justify-between">
+            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between">
               <div class="flex-1">
                 <div class="flex items-center gap-3 mb-2">
                   <img 
@@ -103,7 +103,7 @@
                 </div>
               </div>
 
-              <div class="flex gap-2 ml-4">
+              <div class="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-0 sm:ml-4 w-full sm:w-auto">
                 <button
                   @click="approveEvent(event)"
                   :disabled="processingId === event.id"
@@ -142,7 +142,7 @@
           class="bg-white shadow-sm rounded-lg overflow-hidden"
         >
           <div class="p-6">
-            <div class="flex items-start justify-between">
+            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between">
               <div class="flex-1">
                 <div class="flex items-center gap-3 mb-2">
                   <img 
@@ -187,7 +187,7 @@
                 </div>
               </div>
 
-              <div class="flex gap-2 ml-4">
+              <div class="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-0 sm:ml-4 w-full sm:w-auto">
                 <button
                   @click="resetStatus(event)"
                   :disabled="processingId === event.id"

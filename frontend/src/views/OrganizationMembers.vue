@@ -44,7 +44,7 @@
     <!-- Add Member Form -->
     <div class="bg-white shadow-sm rounded-lg p-6 mb-6">
       <h2 class="text-lg font-medium text-gray-900 mb-4">Ajouter un membre</h2>
-      <div class="flex gap-3">
+      <div class="flex flex-col sm:flex-row gap-3">
         <div class="flex-1">
           <UserSearchSelector
             placeholder="Rechercher un utilisateur par nom ou email..."
@@ -74,7 +74,7 @@
 
       <ul v-else class="divide-y divide-gray-200">
         <li v-for="member in members" :key="member.id" class="p-6">
-          <div class="flex items-center justify-between">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between">
             <div class="flex items-center space-x-3">
               <div class="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
                 <img v-if="member.profile_picture_url" :src="member.profile_picture_url" :alt="getFullName(member)" class="h-full w-full object-cover" />
@@ -90,7 +90,7 @@
               </div>
             </div>
 
-            <div class="flex items-center space-x-3">
+            <div class="mt-2 sm:mt-0 flex items-center space-x-3 w-full sm:w-auto">
               <Dropdown
                 :model-value="member.role"
                 @update:model-value="updateMemberRole(member, $event)"

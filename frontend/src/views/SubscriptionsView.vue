@@ -20,7 +20,7 @@
         </div>
         <div class="border-t border-gray-200">
           <ul v-if="organizationSubscriptions.length > 0" role="list" class="divide-y divide-gray-200">
-            <li v-for="sub in organizationSubscriptions" :key="sub.id" class="px-4 py-4 sm:px-6 flex items-center justify-between">
+            <li v-for="sub in organizationSubscriptions" :key="sub.id" class="px-4 py-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between">
               <div class="flex items-center">
                 <div class="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
                   <span class="text-indigo-600 font-semibold">{{ sub.organization.name.charAt(0) }}</span>
@@ -32,7 +32,7 @@
               </div>
               <button 
                 @click="unsubscribe(sub)"
-                class="ml-4 bg-white text-red-600 hover:text-red-800 text-sm font-medium focus:outline-none"
+                class="mt-4 sm:mt-0 ml-0 sm:ml-4 w-full sm:w-auto text-center bg-white text-red-600 hover:text-red-800 text-sm font-medium focus:outline-none"
               >
                 Se désabonner
               </button>
@@ -42,7 +42,7 @@
             <p class="mb-4">Vous n'êtes abonné à aucune organisation.</p>
             <router-link 
               to="/organizations"
-              class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+              class="w-full justify-center sm:w-auto inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
             >
               Voir toutes les organisations
             </router-link>

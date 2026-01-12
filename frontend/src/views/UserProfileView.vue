@@ -51,19 +51,20 @@
       </div>
     </div>
     <header class="bg-white shadow-sm rounded-lg mb-6">
-      <div class="px-4 py-6 sm:px-6 lg:px-8 flex justify-between items-center">
+      <div class="px-4 py-6 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center">
         <h1 class="text-3xl font-bold tracking-tight text-gray-900">
           {{ isCurrentUser ? 'Mon Profil' : 'Profil utilisateur' }}
         </h1>
-        <button 
-          v-if="isCurrentUser && !isEditing"
-          @click="startEditing"
-          class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-        >
-          <PencilIcon class="h-5 w-5 mr-2" />
-          Modifier
-        </button>
-        <div v-if="isEditing" class="flex space-x-3">
+        <div class="mt-4 sm:mt-0">
+          <button 
+            v-if="isCurrentUser && !isEditing"
+            @click="startEditing"
+            class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+          >
+            <PencilIcon class="h-5 w-5 mr-2" />
+            Modifier
+          </button>
+          <div v-if="isEditing" class="flex space-x-3">
           <button 
             @click="cancelEditing"
             class="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
@@ -78,6 +79,7 @@
             {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
           </button>
         </div>
+      </div>
       </div>
     </header>
 
@@ -158,15 +160,15 @@
             <div v-if="isCurrentUser && !isEditing" class="sm:col-span-2 border-t border-gray-100 pt-4 mt-2">
               <dt class="text-sm font-medium text-gray-500 mb-1">Calendrier personnel (ICS)</dt>
               <dd class="mt-1">
-                <div class="flex items-center space-x-2">
+                <div class="flex flex-col sm:flex-row items-center gap-2">
                   <input 
                     :value="icsUrl"
                     readonly
-                    class="block flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 bg-gray-50 shadow-sm ring-1 ring-inset ring-gray-300 sm:text-sm sm:leading-6"
+                    class="block w-full sm:flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 bg-gray-50 shadow-sm ring-1 ring-inset ring-gray-300 sm:text-sm sm:leading-6"
                   />
                   <button 
                     @click="copyIcsUrl"
-                    class="px-3 py-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                    class="w-full sm:w-auto px-3 py-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700 border border-indigo-200 rounded-md sm:border-0"
                   >
                     {{ copyText }}
                   </button>

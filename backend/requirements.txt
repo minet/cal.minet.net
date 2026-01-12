@@ -12,3 +12,4 @@ authlib==1.3.0
 httpx==0.25.2
 python-dotenv==1.0.0
 itsdangerous==2.1.2
+python-cas>=1.6.0

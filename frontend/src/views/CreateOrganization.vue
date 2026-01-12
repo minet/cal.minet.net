@@ -64,9 +64,9 @@
           </div>
         </div>
 
-        <div class="mt-6 flex items-center justify-end gap-x-6">
-          <router-link to="/organizations" class="text-sm font-semibold leading-6 text-gray-900">Cancel</router-link>
-          <button type="submit" :disabled="loading" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50">
+        <div class="mt-6 flex flex-col-reverse sm:flex-row items-center justify-end gap-x-6 gap-y-3 sm:gap-y-0">
+          <router-link to="/organizations" class="w-full text-center sm:w-auto text-sm font-semibold leading-6 text-gray-900">Cancel</router-link>
+          <button type="submit" :disabled="loading" class="w-full sm:w-auto rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50">
             {{ loading ? 'Enregistrement...' : 'Enregistrer' }}
           </button>
         </div>

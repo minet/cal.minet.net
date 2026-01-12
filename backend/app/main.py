@@ -7,7 +7,7 @@ import logging
 from sqlalchemy.exc import OperationalError
 from contextlib import asynccontextmanager
 from app.database import create_db_and_tables
-from app.api import auth, organizations, events, ics, users, upload, subscriptions, oidc, groups, tags, organization_links
+from app.api import auth, organizations, events, ics, users, upload, subscriptions, cas, groups, tags, organization_links
 
 # Load environment variables
 load_dotenv()
@@ -45,7 +45,7 @@ app.add_middleware(
 
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
-app.include_router(oidc.router, prefix="/auth", tags=["oidc"])
+app.include_router(cas.router, prefix="/auth", tags=["cas"])
 app.include_router(organizations.router, prefix="/organizations", tags=["organizations"])
 app.include_router(events.router, prefix="/events", tags=["events"])
 app.include_router(ics.router, prefix="/calendar", tags=["calendar"])

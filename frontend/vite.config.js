@@ -9,7 +9,7 @@ export default defineConfig({
     port: 5173,
     allowedHosts: ['localhost', '127.0.0.1', 'cal-local.minet.net', 'cal-dev.minet.net', 'cal.minet.net'],
     hmr: {
-      clientPort: 80
+      clientPort: 443
     }
   }
 })

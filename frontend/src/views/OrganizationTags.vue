@@ -1,14 +1,14 @@
 <template>
   <div class="max-w-4xl mx-auto">
     <header class="bg-white shadow-sm rounded-lg mb-6">
-      <div class="px-4 py-6 sm:px-6 lg:px-8 flex items-center justify-between">
+      <div class="px-4 py-6 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0">
         <div>
           <h1 class="text-3xl font-bold tracking-tight text-gray-900">Tags de l'organisation</h1>
           <p class="mt-2 text-sm text-gray-600">{{ organization?.name }}</p>
         </div>
         <button
           @click="showCreateModal = true"
-          class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+          class="w-full sm:w-auto justify-center inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
         >
           <PlusIcon class="h-5 w-5 mr-2" />
           Nouveau tag
@@ -35,9 +35,9 @@
         <div
           v-for="tag in tags"
           :key="tag.id"
-          class="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+          class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
         >
-          <div class="flex items-center space-x-4 flex-1">
+          <div class="flex items-center space-x-4 flex-1 w-full sm:w-auto">
             <div
               class="h-8 w-8 rounded-full border-2"
               :style="{ backgroundColor: tag.color + '30', borderColor: tag.color }"
@@ -58,7 +58,7 @@
               class="h-10 w-20 rounded border-gray-300"
             />
           </div>
-          <div class="flex items-center space-x-2">
+          <div class="mt-2 sm:mt-0 flex gap-2 w-full sm:w-auto">
             <button
               v-if="editingTag === tag.id"
               @click="saveTag(tag)"

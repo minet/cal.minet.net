@@ -1,14 +1,14 @@
 <template>
   <div class="max-w-4xl mx-auto">
     <header class="bg-white shadow-sm rounded-lg mb-6">
-      <div class="px-4 py-6 sm:px-6 lg:px-8 flex items-center justify-between">
+      <div class="px-4 py-6 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0">
         <div>
           <h1 class="text-3xl font-bold tracking-tight text-gray-900">Groupes de l'organisation</h1>
           <p class="mt-2 text-sm text-gray-600">{{ organization?.name }}</p>
         </div>
         <button
           @click="showCreateModal = true"
-          class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+          class="w-full sm:w-auto justify-center inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
         >
           <PlusIcon class="h-5 w-5 mr-2" />
           Nouveau groupe
@@ -64,13 +64,13 @@
         :key="group.id"
         class="bg-white shadow-sm rounded-lg p-6"
       >
-        <div class="flex items-start justify-between mb-4">
+        <div class="flex flex-col sm:flex-row items-start justify-between mb-4">
           <div class="flex-1">
             <h3 class="text-lg font-semibold text-gray-900">{{ group.name }}</h3>
             <p v-if="group.description" class="text-sm text-gray-600 mt-1">{{ group.description }}</p>
             <p class="text-xs text-gray-500 mt-2">{{ group.member_count }} membre(s)</p>
           </div>
-          <div class="flex space-x-2">
+          <div class="mt-2 sm:mt-0 flex gap-2 w-full sm:w-auto">
             <button
               @click="selectedGroup = group.id; loadGroupMembers(group.id)"
               class="px-3 py-1 text-sm text-indigo-600 hover:text-indigo-700"
@@ -107,7 +107,7 @@
             <div
               v-for="member in groupMembers"
               :key="member.membership_id"
-              class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+              class="flex flex-col sm:flex-row items-center justify-between p-3 bg-gray-50 rounded-lg"
             >
               <div class="flex items-center space-x-3">
                 <div class="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
@@ -123,7 +123,7 @@
               </div>
               <button
                 @click="removeMember(group.id, member.user_id)"
-                class="px-3 py-1 text-sm text-red-600 hover:text-red-700"
+                class="mt-2 sm:mt-0 w-full sm:w-auto text-center px-3 py-1 text-sm text-red-600 hover:text-red-700"
               >
                 Retirer
               </button>

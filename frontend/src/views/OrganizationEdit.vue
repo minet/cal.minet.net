@@ -90,25 +90,25 @@
               <div class="col-span-full">
                 <label class="block text-sm font-medium leading-6 text-gray-900 mb-2">Liens personnalisés</label>
                 <div class="space-y-3">
-                  <div v-for="(link, index) in links" :key="index" class="flex gap-3 items-center">
-                    <div class="flex-none cursor-move text-gray-400">
-                      <!-- Handle for drag drop if implemented, or just index -->
+                  <div v-for="(link, index) in links" :key="index" class="grid grid-cols-1 gap-3 sm:flex sm:items-center">
+                    <div class="hidden sm:block flex-none cursor-move text-gray-400">
                       <span class="text-xs">{{ index + 1 }}.</span>
                     </div>
                     <input 
                       v-model="link.name" 
                       type="text" 
                       placeholder="Nom (ex: Site web)" 
-                      class="block w-1/3 rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                      class="block w-full sm:w-1/3 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                     />
                     <input 
                       v-model="link.url" 
                       type="url" 
                       placeholder="URL (https://...)" 
-                      class="block flex-1 rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                      class="block w-full sm:flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                     />
-                    <button type="button" @click="removeLink(index)" class="text-red-600 hover:text-red-800 p-1">
+                    <button type="button" @click="removeLink(index)" class="inline-flex items-center justify-center p-2 text-sm text-red-600 hover:text-red-800 sm:w-auto border border-red-200 rounded sm:border-0">
                       <TrashIcon class="h-5 w-5" />
+                      <span class="ml-2 sm:hidden">Supprimer</span>
                     </button>
                   </div>
                   <button type="button" @click="addLink" class="text-sm text-indigo-600 hover:text-indigo-800 font-semibold flex items-center">
@@ -120,17 +120,17 @@
           </div>
         </div>
 
-        <div class="mt-6 flex items-center justify-end gap-x-6">
+        <div class="mt-6 flex flex-col-reverse sm:flex-row items-center justify-end gap-x-6 gap-y-3 sm:gap-y-0">
           <router-link 
             :to="`/organizations/${organization.id}`"
-            class="text-sm font-semibold leading-6 text-gray-900"
+            class="w-full text-center sm:w-auto text-sm font-semibold leading-6 text-gray-900"
           >
             Annuler
           </router-link>
           <button 
             type="submit" 
             :disabled="loading"
-            class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50"
+            class="w-full sm:w-auto rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50"
           >
             {{ loading ? 'Enregistrement...' : 'Enregistrer' }}
           </button>

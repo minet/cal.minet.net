@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from app.database import get_session
 from app.models import User
 from app.api.auth import create_access_token
+from cas import CASClient
 
 router = APIRouter()
 
@@ -61,22 +62,76 @@ def get_or_create_user(email: str, full_name: Optional[str], session: Session) -
 async def login_campus(request: Request):
     """Initiate CAMPUS OAuth flow"""
     redirect_uri = f"{config('APP_BASE_URL', default='http://localhost')}/api/auth/callback/campus"
+
+    if config('CAS_PROTOCOL', default='OIDC') == 'CAS':
+        cas_client = CASClient(
+            version=3,
+            service_url=redirect_uri,
+            server_url=config('CAS_SERVER_URL')
+        )
+        return RedirectResponse(cas_client.get_login_url(), status_code=302)
+
     return await oauth.campus.authorize_redirect(request, redirect_uri)
 
 @router.get("/callback/campus")
 async def callback_campus(request: Request, session: Session = Depends(get_session)):
     """Handle CAMPUS OAuth callback"""
     try:
-        token = await oauth.campus.authorize_access_token(request)
-        user_info = token.get('userinfo')
-        
-        if not user_info or not user_info.get('email'):
-            raise HTTPException(status_code=400, detail="Could not get user info from CAMPUS")
+        user_email = None
+        user_name = None
+
+        if config('CAS_PROTOCOL', default='OIDC') == 'CAS':
+            ticket = request.query_params.get('ticket')
+            if not ticket:
+                 raise HTTPException(status_code=400, detail="No ticket provided by CAS")
+
+            redirect_uri = f"{config('APP_BASE_URL', default='http://localhost')}/api/auth/callback/campus"
+            cas_client = CASClient(
+                version=3,
+                service_url=redirect_uri,
+                server_url=config('CAS_SERVER_URL', default='https://cas.example.com')
+            )
+
+            print(f"DEBUG: validating ticket={ticket} with service_url={redirect_uri}")
+            
+            # Manual debug request
+            import httpx
+            validate_url = f"{config('CAS_SERVER_URL')}/p3/serviceValidate"
+            params = {
+                "ticket": ticket,
+                "service": redirect_uri
+            }
+            print(f"DEBUG: calling {validate_url} with params={params}")
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(validate_url, params=params)
+                print(f"DEBUG: CAS Response: {resp.text}")
+
+            user, attributes, pgtiou = cas_client.verify_ticket(
+                ticket=ticket
+            )
+            print(f"DEBUG: verify_ticket result: user={user}, attributes={attributes}")
+
+            if not user:
+                 raise HTTPException(status_code=400, detail="CAS validation failed")
+            
+            user_email = user
+            # CAS attributes might vary, trying common ones or fallback to email
+            user_name = attributes.get('display_name') or attributes.get('cn') or user
+            
+        else:
+            token = await oauth.campus.authorize_access_token(request)
+            user_info = token.get('userinfo')
+            
+            if not user_info or not user_info.get('email'):
+                raise HTTPException(status_code=400, detail="Could not get user info from CAMPUS")
+            
+            user_email = user_info['email']
+            user_name = user_info.get('name')
         
         # Get or create user
         user = get_or_create_user(
-            email=user_info['email'],
-            full_name=user_info.get('name'),
+            email=user_email,
+            full_name=user_name,
             session=session
         )
         
@@ -89,8 +144,9 @@ async def callback_campus(request: Request, session: Session = Depends(get_sessi
             status_code=302
         )
         
-    except Exception as e:
-        print(f"CAMPUS OAuth error: {e}")
+    except Exception:
+        import traceback
+        traceback.print_exc()
         return RedirectResponse(
             url=f"{config('APP_BASE_URL', default='http://localhost')}/login?error=oauth_failed",
             status_code=302
