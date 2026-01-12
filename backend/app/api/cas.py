@@ -4,8 +4,6 @@ from sqlmodel import Session, select
 from authlib.integrations.starlette_client import OAuth
 from starlette.config import Config
 from typing import Optional
-import os
-from datetime import datetime, timedelta
 from app.database import get_session
 from app.models import User
 from app.api.auth import create_access_token
@@ -15,6 +13,8 @@ router = APIRouter()
 
 # Load environment variables
 config = Config('.env')
+
+assert config.get("CAS_PROTOCOL") in ["CAS", "OIDC"], f"CAS_PROTOCOL must be either 'CAS' or 'OIDC, got {config.get('CAS_PROTOCOL')}"
 
 # Configure OAuth
 oauth = OAuth(config)
@@ -61,7 +61,7 @@ def get_or_create_user(email: str, full_name: Optional[str], session: Session) -
 @router.get("/login/campus")
 async def login_campus(request: Request):
     """Initiate CAMPUS OAuth flow"""
-    redirect_uri = f"{config('APP_BASE_URL', default='http://localhost')}/api/auth/callback/campus"
+    redirect_uri = f"{config('APP_BASE_URL')}/api/auth/callback/campus"
 
     if config('CAS_PROTOCOL', default='OIDC') == 'CAS':
         cas_client = CASClient(
@@ -85,15 +85,13 @@ async def callback_campus(request: Request, session: Session = Depends(get_sessi
             if not ticket:
                  raise HTTPException(status_code=400, detail="No ticket provided by CAS")
 
-            redirect_uri = f"{config('APP_BASE_URL', default='http://localhost')}/api/auth/callback/campus"
+            redirect_uri = f"{config('APP_BASE_URL')}/api/auth/callback/campus"
             cas_client = CASClient(
                 version=3,
                 service_url=redirect_uri,
-                server_url=config('CAS_SERVER_URL', default='https://cas.example.com')
+                server_url=config('CAS_SERVER_URL')
             )
 
-            print(f"DEBUG: validating ticket={ticket} with service_url={redirect_uri}")
-            
             # Manual debug request
             import httpx
             validate_url = f"{config('CAS_SERVER_URL')}/p3/serviceValidate"
@@ -101,22 +99,19 @@ async def callback_campus(request: Request, session: Session = Depends(get_sessi
                 "ticket": ticket,
                 "service": redirect_uri
             }
-            print(f"DEBUG: calling {validate_url} with params={params}")
             async with httpx.AsyncClient() as client:
                 resp = await client.get(validate_url, params=params)
-                print(f"DEBUG: CAS Response: {resp.text}")
 
             user, attributes, pgtiou = cas_client.verify_ticket(
                 ticket=ticket
             )
-            print(f"DEBUG: verify_ticket result: user={user}, attributes={attributes}")
 
             if not user:
                  raise HTTPException(status_code=400, detail="CAS validation failed")
             
-            user_email = user
+            user_email = attributes.get('mail')
             # CAS attributes might vary, trying common ones or fallback to email
-            user_name = attributes.get('display_name') or attributes.get('cn') or user
+            user_name = (attributes.get('givenName') + " " + attributes.get('sn')).title() if attributes.get('givenName') and attributes.get('sn') else attributes.get('displayName') or attributes.get('cn') or user_email
             
         else:
             token = await oauth.campus.authorize_access_token(request)
