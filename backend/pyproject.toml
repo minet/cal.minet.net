@@ -1,0 +1,24 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Backend for Calendint"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "authlib",
+    "fastapi",
+    "httpx",
+    "icalendar",
+    "itsdangerous",
+    "lockfile",
+    "minio",
+    "passlib[bcrypt]",
+    "psycopg2-binary",
+    "pyjwt",
+    "python-cas",
+    "python-dotenv",
+    "python-jose[cryptography]",
+    "python-multipart",
+    "sqlmodel",
+    "uvicorn[standard]",
+]

@@ -1,13 +1,13 @@
 FROM python:3.11-slim
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY app /app/app
-COPY migrations /app/migrations
-COPY make_superadmin.py .
+# Copy the project into the image
+COPY . /app
+# Disable development dependencies
+ENV UV_NO_DEV=1
+# Sync the project into a new environment, asserting the lockfile is up to date
+RUN uv sync --locked
 
 # Use multiple workers for production
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

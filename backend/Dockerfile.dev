@@ -1,16 +1,12 @@
 FROM python:3.11-slim
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY app /app/app
-COPY load_fixtures.py .
-COPY make_superadmin.py .
-COPY fixtures /app/fixtures
-
+# Copy the project into the image
+COPY . /app
+# Sync the project into a new environment, asserting the lockfile is up to date
+RUN uv sync --locked
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
