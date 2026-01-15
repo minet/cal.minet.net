@@ -59,9 +59,9 @@
         <div 
           v-for="event in pendingEvents" 
           :key="event.id"
-          class="bg-white shadow-sm rounded-lg overflow-hidden"
+          class="bg-white shadow-sm rounded-lg overflow-hidden transition hover:shadow-md"
         >
-          <div class="p-6">
+          <router-link :to="`/events/${event.id}`" class="block p-6">
             <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between">
               <div class="flex-1">
                 <div class="flex items-center gap-3 mb-2">
@@ -78,7 +78,7 @@
                     {{ event.organization?.name?.charAt(0) || '?' }}
                   </div>
                   <div>
-                    <h3 class="text-lg font-semibold text-gray-900">{{ event.title }}</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">{{ event.title }}</h3>
                     <p class="text-sm text-gray-500">{{ event.organization?.name }}</p>
                   </div>
                 </div>
@@ -103,7 +103,7 @@
                 </div>
               </div>
 
-              <div class="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-0 sm:ml-4 w-full sm:w-auto">
+              <div class="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-0 sm:ml-4 w-full sm:w-auto" @click.prevent.stop>
                 <button
                   @click="approveEvent(event)"
                   :disabled="processingId === event.id"
@@ -122,7 +122,7 @@
                 </button>
               </div>
             </div>
-          </div>
+          </router-link>
         </div>
       </div>
     </div>
@@ -139,9 +139,9 @@
         <div 
           v-for="event in processedEvents" 
           :key="event.id"
-          class="bg-white shadow-sm rounded-lg overflow-hidden"
+          class="bg-white shadow-sm rounded-lg overflow-hidden transition hover:shadow-md"
         >
-          <div class="p-6">
+          <router-link :to="`/events/${event.id}`" class="block p-6">
             <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between">
               <div class="flex-1">
                 <div class="flex items-center gap-3 mb-2">
@@ -158,7 +158,7 @@
                     {{ event.organization?.name?.charAt(0) || '?' }}
                   </div>
                   <div>
-                    <h3 class="text-lg font-semibold text-gray-900">{{ event.title }}</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">{{ event.title }}</h3>
                     <p class="text-sm text-gray-500">{{ event.organization?.name }}</p>
                   </div>
                   <span 
@@ -187,7 +187,7 @@
                 </div>
               </div>
 
-              <div class="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-0 sm:ml-4 w-full sm:w-auto">
+              <div class="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-0 sm:ml-4 w-full sm:w-auto" @click.prevent.stop>
                 <button
                   @click="resetStatus(event)"
                   :disabled="processingId === event.id"
@@ -198,7 +198,7 @@
                 </button>
               </div>
             </div>
-          </div>
+          </router-link>
         </div>
       </div>
     </div>

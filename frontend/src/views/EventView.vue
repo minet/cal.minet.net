@@ -38,6 +38,14 @@
                 <LockClosedIcon class="mr-1.5 h-4 w-4" />
                 Privé
               </span>
+              <span v-else-if="event.visibility === 'public_pending'" class="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20">
+                <ClockIcon class="mr-1.5 h-4 w-4" />
+                En attente d'approbation
+              </span>
+               <span v-else-if="event.visibility === 'public_rejected'" class="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/20">
+                <XMarkIcon class="mr-1.5 h-4 w-4" />
+                Refusé
+              </span>
               <span v-else class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
                 <GlobeAltIcon class="mr-1.5 h-4 w-4" />
                 Public

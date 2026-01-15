@@ -382,8 +382,7 @@ def update_event(
         if event_data.start_time is not None or event_data.end_time is not None:
             
             # Put the event back into the pending state
-            event.visibility = EventVisibility.PUBLIC_PENDING
-    
+            event.visibility = EventVisibility.PUBLIC_PENDING    
     # Update fields
     if event_data.title is not None:
         event.title = event_data.title
@@ -399,14 +398,15 @@ def update_event(
         event.location_url = event_data.location_url
     if event_data.visibility is not None:
         try:
-            new_visibility = EventVisibility(event_data.visibility)
-            # Prevent changing approved events to non-approved states (unless superadmin)
-            if is_approved and new_visibility != EventVisibility.PUBLIC_APPROVED and not current_user.is_superadmin:
-                raise HTTPException(
-                    status_code=400, 
-                    detail="Cannot change visibility of approved events"
-                )
-            event.visibility = new_visibility
+            event.visibility = EventVisibility(event_data.visibility)
+            if not is_approved and event.visibility == EventVisibility.PUBLIC_APPROVED and not current_user.is_superadmin:
+                event.visibility = EventVisibility.PUBLIC_PENDING
+                event.approved_at = None
+                event.rejection_message = None
+            elif not is_approved and event.visibility == EventVisibility.PUBLIC_REJECTED and not current_user.is_superadmin:
+                event.visibility = EventVisibility.PUBLIC_PENDING
+                event.approved_at = None
+                event.rejection_message = None                
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid visibility value")
     if event_data.group_id is not None:
