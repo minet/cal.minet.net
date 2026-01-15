@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlmodel import Session, select, and_, or_, col, func
 from typing import List, Optional, Sequence, cast
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 from app.database import get_session
 from app.models import (
@@ -77,6 +77,9 @@ def can_edit_event(event: Event, user: User, session: Session) -> bool:
     """Check if user can edit an event"""
     if user.is_superadmin:
         return True
+
+    if event.end_time < datetime.now():
+        return False
         
     if event.created_by_id == user.id:
         return True
@@ -127,6 +130,11 @@ def create_event(
         if not membership or membership.role not in [Role.ORG_ADMIN, Role.ORG_MEMBER]:
             raise HTTPException(status_code=403, detail="Not authorized to create events")
     
+    # Enforce visibility flow
+    if visibility in [EventVisibility.PUBLIC_APPROVED, EventVisibility.PUBLIC_REJECTED]:
+        visibility = EventVisibility.PUBLIC_PENDING
+
+    
     # Create event
     new_event = Event(
         title=event_data.title,
@@ -140,7 +148,8 @@ def create_event(
         group_id=UUID(event_data.group_id) if event_data.group_id else None,
         created_by_id=current_user.id,
         show_on_schedule=event_data.show_on_schedule,
-        hide_details=event_data.hide_details
+        hide_details=event_data.hide_details,
+        poster_url=event_data.poster_url
     )
     session.add(new_event)
     session.commit()
@@ -148,16 +157,27 @@ def create_event(
     
     # Add tags
     tags = []
+    has_auto_approved = False
     for tag_id in event_data.tag_ids:
-        tag = session.get(Tag, UUID(tag_id))
+        tag_id = UUID(tag_id)
+        tag = session.get(Tag, tag_id)
         if tag and str(tag.organization_id) == event_data.organization_id:
-            event_tag = EventTag(event_id=new_event.id, tag_id=UUID(tag_id))
+            event_tag = EventTag(event_id=new_event.id, tag_id=tag_id)
             session.add(event_tag)
             tags.append({
                 "id": str(tag.id),
                 "name": tag.name,
                 "color": tag.color
             })
+            if tag.is_auto_approved:
+                has_auto_approved = True
+                
+    # Auto-approve if applicable
+    if new_event.visibility == EventVisibility.PUBLIC_PENDING and has_auto_approved:
+        new_event.visibility = EventVisibility.PUBLIC_APPROVED
+        new_event.approved_at = datetime.now(timezone.utc)
+        session.add(new_event)
+        
     session.commit()
     
     # Add guest organizations
@@ -170,40 +190,9 @@ def create_event(
     session.commit()
     session.refresh(new_event)
     
-    # Load organization
-    organization = session.get(Organization, new_event.organization_id)
-
-    # Load guest organizations
-    new_event_guest_organizations = []
-    for guest_org in new_event.guest_organizations:
-        new_event_guest_organizations.append({
-            "id": str(guest_org.id),
-            "name": guest_org.name,
-            "logo_url": guest_org.logo_url,
-            "type": guest_org.type,
-            "slug": guest_org.slug,
-            "color_chroma": guest_org.color_chroma,
-            "color_hue": guest_org.color_hue
-        })
-
-    return {
-        "id": str(new_event.id),
-        "title": new_event.title,
-        "description": new_event.description,
-        "start_time": new_event.start_time,
-        "end_time": new_event.end_time,
-        "location": new_event.location,
-        "location_url": new_event.location_url,
-        "visibility": new_event.visibility,
-        "show_on_schedule": new_event.show_on_schedule,
-        "hide_details": new_event.hide_details,
-        "poster_url": new_event.poster_url,
-        "created_at": new_event.created_at,
-        "organization": organization,
-        "guest_organizations": new_event_guest_organizations,
-        "tags": tags,
-        "created_by_id": str(new_event.created_by_id)
-    }
+    session.refresh(new_event)
+    
+    return new_event.to_read_model(current_user, session)
 
 @router.get("/drafts", response_model=List[EventRead])
 def list_drafts(
@@ -241,60 +230,7 @@ def list_drafts(
         ).all()
     
     drafts = user_drafts + org_drafts
-    
-    # Format response
-    result = []
-    for event in drafts:
-        # Load organization
-        event.organization = session.get(Organization, event.organization_id)
-        
-        # Load tags
-        event_tags = session.exec(
-            select(EventTag).where(EventTag.event_id == event.id)
-        ).all()
-        tags = []
-        for et in event_tags:
-            tag = session.get(Tag, et.tag_id)
-            if tag:
-                tags.append({
-                    "id": str(tag.id),
-                    "name": tag.name,
-                    "color": tag.color
-                })
-        
-        result.append({
-            "id": str(event.id),
-            "title": event.title,
-            "description": event.description,
-            "start_time": event.start_time.isoformat(),
-            "end_time": event.end_time.isoformat(),
-            "location": event.location,
-            "location_url": event.location_url,
-            "visibility": event.visibility.value,
-            "show_on_schedule": event.show_on_schedule,
-            "poster_url": event.poster_url,
-            "organization": {
-                "id": str(event.organization.id),
-                "name": event.organization.name,
-                "logo_url": event.organization.logo_url,
-                "color_chroma": event.organization.color_chroma,
-                "color_hue": event.organization.color_hue,
-            } if event.organization else None,
-            "tags": tags,
-            "is_draft": True, # Helper for frontend
-            "guest_organizations": [{
-                "id": str(g.id),
-                "name": g.name,
-                "logo_url": g.logo_url,
-                "type": g.type.value if g.type else None,
-                "slug": g.slug,
-                "color_chroma": g.color_chroma,
-                "color_hue": g.color_hue
-            } for g in event.guest_organizations],
-            "created_at": event.created_at.isoformat()
-        })
-        
-    return result
+    return [event.to_read_model(current_user, session) for event in drafts]
 
 @router.get("/", response_model=List[EventRead])
 def list_events(
@@ -306,74 +242,8 @@ def list_events(
     
     visible_events = []
     for event in all_events:
-
         if can_view_event(event, current_user, session) or event.show_on_schedule:
-            # Load organization
-            event.organization = session.get(Organization, event.organization_id)
-            
-            # Load tags
-            event_tags = session.exec(
-                select(EventTag).where(EventTag.event_id == event.id)
-            ).all()
-            tags = []
-            for et in event_tags:
-                tag = session.get(Tag, et.tag_id)
-                if tag:
-                    tags.append({
-                        "id": str(tag.id),
-                        "name": tag.name,
-                        "color": tag.color
-                    })
-            
-            # Check if we should hide details for this user
-            should_hide = False
-            if event.hide_details and event.visibility == EventVisibility.PUBLIC_APPROVED:
-                # Hide details for non-org members
-                is_auth = False
-                if current_user:
-                    if current_user.is_superadmin:
-                        is_auth = True
-                    elif get_org_membership(current_user, event.organization_id, session):
-                        is_auth = True
-                
-                if not is_auth:
-                    should_hide = True
-            
-            # Load reactions
-            reactions = get_event_reactions_summary(event.id, current_user.id if current_user else None, session)
-            
-            visible_events.append({
-                "id": str(event.id),
-                "title": event.title,
-                "description": None if should_hide else event.description,
-                "start_time": event.start_time.isoformat(),
-                "end_time": event.end_time.isoformat(),
-                "location": None if should_hide else event.location,
-                "location_url": None if should_hide else event.location_url,
-                "visibility": event.visibility.value,
-                "hide_details": event.hide_details,
-                "show_on_schedule": event.show_on_schedule,
-                "poster_url": None if should_hide else event.poster_url,
-                "organization": {
-                    "id": str(event.organization.id),
-                    "name": event.organization.name,
-                    "logo_url": event.organization.logo_url,
-                    "color_chroma": event.organization.color_chroma,
-                    "color_hue": event.organization.color_hue,
-                } if event.organization else None,
-                "tags": tags,
-                "guest_organizations": [{
-                    "id": str(g.id),
-                    "name": g.name,
-                    "logo_url": g.logo_url,
-                    "type": g.type.value if g.type else None,
-                    "slug": g.slug,
-                    "color_chroma": g.color_chroma,
-                    "color_hue": g.color_hue
-                } for g in event.guest_organizations],
-                "created_at": event.created_at.isoformat(),
-                "reactions": reactions
-            })
+             visible_events.append(event.to_read_model(current_user, session))
     
     return visible_events
 
@@ -402,67 +272,7 @@ def list_my_events(
     
     all_events = session.exec(query).all()
     
-    result = []
-    for event in all_events:
-        event.organization = session.get(Organization, event.organization_id)
-        if not event.organization:
-            continue
-        
-        # Load tags
-        event_tags = session.exec(
-            select(EventTag).where(EventTag.event_id == event.id)
-        ).all()
-        tags = []
-        for et in event_tags:
-            tag = session.get(Tag, et.tag_id)
-            if tag:
-                tags.append({
-                    "id": str(tag.id),
-                    "name": tag.name,
-                    "color": tag.color
-                })
-
-        # Load reactions
-        reactions = get_event_reactions_summary(event.id, current_user.id, session)
-
-        result.append({
-            "id": str(event.id),
-            "title": event.title,
-            "description": event.description,
-            "start_time": event.start_time.isoformat(),
-            "end_time": event.end_time.isoformat(),
-            "location": event.location,
-            "location_url": event.location_url,
-            "organization": {
-                "id": str(event.organization_id),
-                "name": event.organization.name,
-                "slug": event.organization.slug,
-                "description": event.organization.description,
-                "logo_url": event.organization.logo_url,
-                "type": event.organization.type,
-                "parent_id": str(event.organization.parent_id) if event.organization.parent_id else None,
-                "created_at": event.organization.created_at.isoformat(),
-                "updated_at": event.organization.updated_at.isoformat(),
-                "color_chroma": event.organization.color_chroma,
-                "color_hue": event.organization.color_hue
-            },
-            "visibility": event.visibility,
-            "group_id": str(event.group_id) if event.group_id else None,
-            "tags": tags,
-            "guest_organizations": [{
-                "id": str(g.id),
-                "name": g.name,
-                "logo_url": g.logo_url,
-                "type": g.type.value if g.type else None,
-                "slug": g.slug,
-                "color_chroma": g.color_chroma,
-                "color_hue": g.color_hue
-            } for g in event.guest_organizations],
-            "created_at": event.created_at.isoformat(),
-            "reactions": reactions
-        })
-    
-    return result
+    return [e.to_read_model(current_user, session) for e in all_events]
         
 
 @router.get("/pending-approvals", response_model=List[EventRead])
@@ -478,46 +288,7 @@ def list_pending_approvals(
         select(Event).where(Event.visibility == EventVisibility.PUBLIC_PENDING)
     ).all()
     
-    result = []
-    for event in pending_events:
-        event.organization = session.get(Organization, event.organization_id)
-        creator = session.get(User, event.created_by_id)
-        
-        result.append({
-            "id": str(event.id),
-            "title": event.title,
-            "description": event.description,
-            "start_time": event.start_time.isoformat(),
-            "end_time": event.end_time.isoformat(),
-            "location": event.location,
-            "created_at": event.created_at.isoformat(),
-            "organization": {
-                "id": str(event.organization.id),
-                "name": event.organization.name,
-                "name": event.organization.name,
-                "logo_url": event.organization.logo_url,
-                "color_chroma": event.organization.color_chroma,
-                "color_hue": event.organization.color_hue,
-            } if event.organization else None,
-            "created_by": {
-                "id": str(creator.id),
-                "full_name": creator.full_name,
-                "email": creator.email
-            } if creator else None,
-            "visibility": event.visibility.value,
-            "guest_organizations": [{
-                "id": str(g.id),
-                "name": g.name,
-                "logo_url": g.logo_url,
-                "type": g.type.value if g.type else None,
-                "slug": g.slug,
-                "color_chroma": g.color_chroma,
-                "color_hue": g.color_hue
-            } for g in event.guest_organizations],
-            "created_at": event.created_at.isoformat()
-        })
-    
-    return result
+    return [e.to_read_model(current_user, session) for e in pending_events]
 
 @router.get("/processed-approvals", response_model=List[EventRead])
 def list_processed_approvals(
@@ -540,38 +311,7 @@ def list_processed_approvals(
         .limit(50)
     ).all()
     
-    result = []
-    for event in events:
-        event.organization = session.get(Organization, event.organization_id)
-        creator = session.get(User, event.created_by_id)
-        
-        result.append({
-            "id": str(event.id),
-            "title": event.title,
-            "description": event.description,
-            "start_time": event.start_time.isoformat(),
-            "end_time": event.end_time.isoformat(),
-            "location": event.location,
-            "visibility": event.visibility.value,
-            "rejection_message": event.rejection_message,
-            "approved_at": event.approved_at.isoformat() if event.approved_at else None,
-            "organization": {
-                "id": str(event.organization.id),
-                "name": event.organization.name,
-                "name": event.organization.name,
-                "logo_url": event.organization.logo_url,
-                "color_chroma": event.organization.color_chroma,
-                "color_hue": event.organization.color_hue,
-            } if event.organization else None,
-            "created_by": {
-                "id": str(creator.id),
-                "full_name": creator.full_name,
-                "email": creator.email
-            } if creator else None,
-            "created_at": event.created_at.isoformat()
-        })
-    
-    return result
+    return [e.to_read_model(current_user, session) for e in events]
 
 
 @router.post("/{event_id}/reset-status", response_model=Message)
@@ -601,35 +341,7 @@ def reset_event_status(
     
     return {"message": "Event status reset to pending"}
 
-def get_event_reactions_summary(event_id: UUID, current_user_id: Optional[UUID], session: Session) -> List[ReactionSummary]:
-    """Helper to calculate reaction summaries for an event"""
-    # Group by emoji
-    results = session.exec(
-        select(EventReaction.emoji, func.count(EventReaction.id)) #pyright: ignore
-        .where(EventReaction.event_id == event_id)
-        .group_by(EventReaction.emoji)
-    ).all()
-    
-    # Check what user reacted with
-    user_emojis = set()
-    if current_user_id:
-        user_reactions = session.exec(
-            select(EventReaction.emoji).where(
-                EventReaction.event_id == event_id,
-                EventReaction.user_id == current_user_id
-            )
-        ).all()
-        user_emojis = set(user_reactions)
 
-    summary = []
-    for emoji, count in results:
-        summary.append(ReactionSummary(
-            emoji=emoji,
-            count=count,
-            user_reacted=emoji in user_emojis
-        ))
-    
-    return summary
 
 @router.get("/{event_id}", response_model=EventRead)
 def get_event(
@@ -646,91 +358,7 @@ def get_event(
     if not can_view_event(event, current_user, session) and not event.show_on_schedule:
         raise HTTPException(status_code=403, detail="Not authorized to view this event")
     
-    # Load organization
-    event.organization = session.get(Organization, event.organization_id)
-    
-    # Load group if private
-    group_info = None
-    if event.group_id:
-        group = session.get(Group, event.group_id)
-        if group:
-            group_info = {
-                "id": str(group.id),
-                "name": group.name
-            }
-    
-    # Load tags
-    event_tags = session.exec(
-        select(EventTag).where(EventTag.event_id == event.id)
-    ).all()
-    tags = []
-    for et in event_tags:
-        tag = session.get(Tag, et.tag_id)
-        if tag:
-            tags.append({
-                "id": str(tag.id),
-                "name": tag.name,
-                "color": tag.color
-            })
-            
-    # Load guest organizations
-    guest_organizations = [{
-        "id": str(g.id),
-        "name": g.name,
-        "logo_url": g.logo_url,
-        "type": g.type.value if g.type else None,
-        "slug": g.slug,
-        "color_chroma": g.color_chroma,
-        "color_hue": g.color_hue
-    } for g in event.guest_organizations]
-            
-    # Load reactions
-    reactions = get_event_reactions_summary(event.id, current_user.id if current_user else None, session)
-    
-    # Check if we should hide details for this user
-    should_hide = False
-    if event.hide_details and event.visibility == EventVisibility.PUBLIC_APPROVED:
-        is_authorized = False
-        if current_user:
-            if current_user.is_superadmin:
-                is_authorized = True
-            else:
-                membership = get_org_membership(current_user, event.organization_id, session)
-                if membership:
-                    is_authorized = True
-        
-        if not is_authorized:
-            should_hide = True
-    
-    return {
-        "id": str(event.id),
-        "title": event.title,
-        "description": None if should_hide else event.description,
-        "start_time": event.start_time.isoformat(),
-        "end_time": event.end_time.isoformat(),
-        "location": None if should_hide else event.location,
-        "location_url": None if should_hide else event.location_url,
-        "visibility": event.visibility.value,
-        "hide_details": event.hide_details,
-        "rejection_message": event.rejection_message,
-        "approved_at": event.approved_at.isoformat() if event.approved_at else None,
-        "show_on_schedule": event.show_on_schedule,
-        "group": group_info,
-        "poster_url": None if should_hide else event.poster_url,
-        "organization": {
-            "id": str(event.organization.id),
-            "name": event.organization.name,
-            "logo_url": event.organization.logo_url,
-            "type": event.organization.type.value,
-            "color_chroma": event.organization.color_chroma,
-            "color_hue": event.organization.color_hue,
-        } if event.organization else None,
-        "guest_organizations": guest_organizations,
-        "tags": tags,
-        "created_by_id": str(event.created_by_id),
-        "created_at": event.created_at.isoformat(),
-        "reactions": reactions
-    }
+    return event.to_read_model(current_user, session)
 
 @router.put("/{event_id}", response_model=Message)
 def update_event(
@@ -800,11 +428,31 @@ def update_event(
             session.delete(old_tag)
         
         # Add new tags
+        has_auto_approved = False
         for tag_id in event_data.tag_ids:
             tag = session.get(Tag, UUID(tag_id))
-            if tag and tag.organization_id == event.organization_id:
-                event_tag = EventTag(event_id=event.id, tag_id=UUID(tag_id))
-                session.add(event_tag)
+            if tag:
+                session.add(EventTag(event_id=event.id, tag_id=UUID(tag_id)))
+                if tag.is_auto_approved:
+                    has_auto_approved = True
+        
+        # Check if we should auto-approve now
+        if event.visibility == EventVisibility.PUBLIC_PENDING and has_auto_approved:
+            event.visibility = EventVisibility.PUBLIC_APPROVED
+            event.approved_at = datetime.utcnow()
+            event.rejection_message = None
+
+    elif event.visibility == EventVisibility.PUBLIC_PENDING:
+         # Tags didn't change, but maybe visibility changed to pending. 
+         # We need to check existing tags.
+         existing_tags = session.exec(
+             select(Tag).join(EventTag).where(EventTag.event_id == event.id)
+         ).all()
+         if any(t.is_auto_approved for t in existing_tags):
+             event.visibility = EventVisibility.PUBLIC_APPROVED
+             event.approved_at = datetime.utcnow()
+             event.rejection_message = None
+
     
     # Update guest organizations
     if event_data.guest_organization_ids is not None:
@@ -1029,12 +677,7 @@ def list_reactions(
         user = session.get(User, r.user_id)
         if user:
             result.append(ReactionDetail(
-                user=UserPublicRead(
-                    id=user.id,
-                    email=user.email,
-                    full_name=user.full_name,
-                    profile_picture_url=user.profile_picture_url
-                ),
+                user=user.to_public_read_model(),
                 emoji=r.emoji,
                 created_at=r.created_at
             ))

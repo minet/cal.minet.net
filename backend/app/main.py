@@ -7,6 +7,7 @@ import logging
 from sqlalchemy.exc import OperationalError
 from contextlib import asynccontextmanager
 from app.database import create_db_and_tables
+from app.migration_runner import run_migrations
 from app.api import auth, organizations, events, ics, users, upload, subscriptions, cas, groups, tags, organization_links
 
 # Load environment variables
@@ -22,6 +23,7 @@ async def lifespan(app: FastAPI):
         try:
             create_db_and_tables()
             logger.info("Database connection successful and tables created.")
+            run_migrations()
             break
         except OperationalError as e:
             retries -= 1

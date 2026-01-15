@@ -49,7 +49,7 @@
     <div 
       v-else 
       class="relative h-24 flex items-center justify-center p-4 transition-colors rounded-t-xl"
-      :style="{ background: getEventGradient(event.organization, event.guest_organizations) }"
+      :style="{ background: getEventGradient(event.organization, event.guest_organizations, 2, 1) }"
     >
       <div class="absolute -bottom-6 left-6 flex items-center -space-x-2">
         <img 

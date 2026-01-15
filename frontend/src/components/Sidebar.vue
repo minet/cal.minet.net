@@ -85,6 +85,11 @@
             <UsersIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-gray-500 transition-colors" />
             Utilisateurs
           </router-link>
+
+          <router-link to="/admin/tags" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-gray-900">
+            <TagIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-gray-500 transition-colors" />
+            Tags
+          </router-link>
         </nav>
       </div>
 
@@ -157,7 +162,7 @@
   </div>
 
   <!-- Overlay for mobile -->
-  <div v-if="isAuthenticated && isOpen" @click="$emit('close')" class="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"></div>
+  <div v-if="isAuthenticated && isOpen" @click="$emit('close')" class="fixed inset-0 bg-black/50 z-40 md:hidden"></div>
 </template>
 
 <script setup>
@@ -178,7 +183,8 @@ import {
   NewspaperIcon,
   TicketIcon,
   ClipboardDocumentCheckIcon,
-  UsersIcon
+  UsersIcon,
+  TagIcon
 } from '@heroicons/vue/24/outline'
 
 const props = defineProps({

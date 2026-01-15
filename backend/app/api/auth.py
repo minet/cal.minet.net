@@ -16,7 +16,7 @@ oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="auth/token", auto_error=
 
 SECRET_KEY = os.getenv("SECRET_KEY", "CHANGE_THIS_SECRET_KEY")  # Use environment variable
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 30  # 30 days
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -42,7 +42,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), session: Session
     except JWTError:
         raise credentials_exception
     user = session.exec(select(User).where(User.email == email)).first()
-    if user is None:
+    if user is None or not user.is_active:
         raise credentials_exception
     return user
 
@@ -58,6 +58,8 @@ async def get_current_user_optional(token: Optional[str] = Depends(oauth2_scheme
         return None
     
     user = session.exec(select(User).where(User.email == email)).first()
+    if user and not user.is_active:
+        return None
     return user
 
 

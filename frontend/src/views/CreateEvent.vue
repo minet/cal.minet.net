@@ -76,74 +76,11 @@
               </div>
 
               <!-- Date, Time, Duration -->
-              <div class="col-span-full bg-gray-50 p-4 rounded-lg">
-                <h3 class="text-sm font-medium text-gray-900 mb-4">Date et Heure</h3>
-
-                <div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3 items-end">
-                  <!-- Date -->
-                  <div>
-                    <label for="date" class="block text-sm font-medium leading-6 text-gray-900">Date</label>
-                    <div class="mt-2">
-                      <input 
-                        type="date" 
-                        id="date" 
-                        required
-                        v-model="timeForm.date"
-                        @change="updateTimeFromComponents"
-                        class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
-                      />
-                    </div>
-                  </div>
-
-                  <!-- Time -->
-                  <div>
-                    <label for="time" class="block text-sm font-medium leading-6 text-gray-900">Heure de début</label>
-                    <div class="mt-2">
-                      <input 
-                        type="time" 
-                        id="time" 
-                        required
-                        v-model="timeForm.time"
-                        @change="updateTimeFromComponents"
-                        class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
-                      />
-                    </div>
-                  </div>
-
-                  <!-- Duration -->
-                  <div>
-                    <label class="block text-sm font-medium leading-6 text-gray-900">Durée</label>
-                    <div class="mt-2 flex space-x-2">
-                      <div class="relative rounded-md shadow-sm">
-                        <input 
-                          type="number" 
-                          v-model.number="timeForm.durationHours"
-                          @change="updateTimeFromComponents"
-                          min="0"
-                          class="block w-full rounded-md border-0 py-1.5 pr-8 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
-                          placeholder="0" 
-                        />
-                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                          <span class="text-gray-500 sm:text-sm">h</span>
-                        </div>
-                      </div>
-                      <div class="relative rounded-md shadow-sm">
-                        <input 
-                          type="number" 
-                          v-model.number="timeForm.durationMinutes"
-                          @change="updateTimeFromComponents"
-                          min="0"
-                          max="59"
-                          class="block w-full rounded-md border-0 py-1.5 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
-                          placeholder="0" 
-                        />
-                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                          <span class="text-gray-500 sm:text-sm">min</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              <div class="col-span-full">
+                <DateTimeDurationPicker
+                  v-model:start-time="form.start_time"
+                  v-model:end-time="form.end_time"
+                />
               </div>
 
               <div class="sm:col-span-3">
@@ -296,6 +233,7 @@ import CollapsibleCard from '../components/CollapsibleCard.vue'
 import VisibilitySelector from '../components/VisibilitySelector.vue'
 import TagSelector from '../components/TagSelector.vue'
 import { PlusIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import DateTimeDurationPicker from '../components/DateTimeDurationPicker.vue'
 
 const router = useRouter()
 const { user } = useAuth()
@@ -325,12 +263,7 @@ const loading = ref(false)
 const allOrganizations = ref([])
 const isGuestOrgsOpen = ref(false)
 
-const timeForm = ref({
-  date: '',
-  time: '',
-  durationHours: 0,
-  durationMinutes: 0
-})
+// timeForm removed as it is handled in component
 
 // Helper to format date for datetime-local input
 const formatDateTimeLocal = (date) => {
@@ -342,16 +275,7 @@ const formatDateTimeLocal = (date) => {
   return `${year}-${month}-${day}T${hours}:${minutes}`
 }
 
-const updateTimeFromComponents = () => {
-  if (!timeForm.value.date || !timeForm.value.time) return
-  
-  const startDateTime = new Date(`${timeForm.value.date}T${timeForm.value.time}`)
-  form.value.start_time = formatDateTimeLocal(startDateTime)
-  
-  const durationMs = (timeForm.value.durationHours * 60 * 60 * 1000) + (timeForm.value.durationMinutes * 60 * 1000)
-  const endDateTime = new Date(startDateTime.getTime() + durationMs)
-  form.value.end_time = formatDateTimeLocal(endDateTime)
-}
+// updateTimeFromComponents removed
 
 // Watch for changes in organization_id to reset group_id and tag_ids
 watch(() => form.value.organization_id, (newOrgId) => {
@@ -437,6 +361,39 @@ onMounted(() => {
   loadUserOrganizations()
   loadAllOrganizations()
   
+  // Check for duplicate data
+  const duplicateData = history.state.duplicateEvent
+  if (duplicateData) {
+      // Use logic similar to EventEdit loading
+      // Populate form
+      form.value = {
+          title: duplicateData.title,
+          description: duplicateData.description,
+          start_time: duplicateData.start_time,
+          end_time: duplicateData.end_time,
+          location: duplicateData.location,
+          location_url: duplicateData.location_url,
+          organization_id: duplicateData.organization_id,
+          group_id: duplicateData.group_id ? duplicateData.group_id : '', // Ensure empty string if null
+          visibility: 'draft', // Reset to draft
+          poster_url: duplicateData.poster_url,
+          tag_ids: duplicateData.tags?.map(t => t.id) || [],
+          guest_organization_ids: duplicateData.guest_organizations?.map(g => g.id) || [],
+          show_on_schedule: duplicateData.show_on_schedule,
+          hide_details: duplicateData.hide_details,
+          links: duplicateData.links && duplicateData.links.length > 0 ? duplicateData.links.map(l => ({
+              url: l.url,
+              label: l.label,
+              type: l.type
+          })) : [{ url: '', label: '', type: 'website' }]
+      }
+      
+      if (form.value.guest_organization_ids.length > 0) {
+          isGuestOrgsOpen.value = true
+      }
+      return
+  }
+  
   // Initialize time with defaults (next hour, duration 1h)
   const now = new Date()
   now.setMinutes(0)
@@ -444,11 +401,13 @@ onMounted(() => {
   now.setMilliseconds(0)
   now.setHours(now.getHours() + 1)
   
+  /*
   timeForm.value.date = formatDateTimeLocal(now).split('T')[0]
   timeForm.value.time = formatDateTimeLocal(now).split('T')[1]
   timeForm.value.durationHours = 1
   timeForm.value.durationMinutes = 0
   
   updateTimeFromComponents()
+  */
 })
 </script>

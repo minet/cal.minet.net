@@ -8,7 +8,7 @@
     <header 
       class="shadow-sm rounded-lg mb-6 transition-colors"
       :style="{ 
-        background: getEventGradient(event.organization, event.guest_organizations, 2, 1),
+        background: getEventGradient(event.organization, event.guest_organizations, 20, 1),
         borderTop: `4px solid ${getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.6)}`
       }"
     >
@@ -85,6 +85,14 @@
               <PencilIcon class="h-5 w-5 mr-2" />
               Modifier
             </router-link>
+            <button
+               v-if="canEdit"
+               @click="duplicateEvent"
+               class="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+            >
+              <DocumentDuplicateIcon class="h-5 w-5 mr-2 text-gray-500" />
+              Dupliquer
+            </button>
             <router-link 
               :to="`/countdown/${event.id}`"
               target="_blank"
@@ -270,7 +278,8 @@ import {
   GlobeAltIcon,
   Bars3Icon,
   XMarkIcon,
-  InformationCircleIcon
+  InformationCircleIcon,
+  DocumentDuplicateIcon
 } from '@heroicons/vue/24/outline'
 import { formatLocalDate } from '../utils/dateUtils'
 import TagBadge from '../components/TagBadge.vue'
@@ -376,6 +385,13 @@ const toggleTagSubscription = async (tag) => {
   } catch (error) {
     console.error('Failed to toggle subscription:', error)
   }
+}
+
+const duplicateEvent = () => {
+  router.push({
+    name: 'CreateEvent',
+    state: { duplicateEvent: JSON.parse(JSON.stringify(event.value)) }
+  })
 }
 
 onMounted(() => {

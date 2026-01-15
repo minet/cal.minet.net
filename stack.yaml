@@ -33,8 +33,9 @@ services:
       - SMTP_PORT=${SMTP_PORT}
       - SMTP_USER=${SMTP_USER}
       - SMTP_PASSWORD=${SMTP_PASSWORD}
-      - EMAILS_FROM_EMAIL=${EMAILS_FROM_EMAIL}
       - EMAILS_FROM_NAME=${EMAILS_FROM_NAME}
+    volumes:
+      - ${VOLUMES}/cal.minet.net/migration_state:/app/migration_state
     deploy:
       replicas: 1
     depends_on:

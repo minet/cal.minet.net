@@ -24,16 +24,16 @@
           <div class="mt-2 text-sm text-blue-700">
             <ul role="list" class="list-disc space-y-1 pl-5">
               <li>
-                <span class="font-medium">Lecteur (org_viewer) :</span> Accès en lecture seule aux événements (y compris privés/internes).
-                <br><span class="text-blue-600 italic">Exemple : Un adhérent qui consulte le calendrier.</span>
+                <span class="font-medium">Lecteur :</span> Accès en lecture seule aux événements (y compris privés/internes).
+                <br><span class="text-blue-600 italic">Exemple : Un membre du bureau curieux mais qui n'a pas de raison de créer des événements.</span>
               </li>
               <li>
-                <span class="font-medium">Membre (org_member) :</span> Peut créer et proposer des événements.
-                <br><span class="text-blue-600 italic">Exemple : Un membre actif du staff ou un responsable de pôle.</span>
+                <span class="font-medium">Editeur :</span> Peut créer et proposer des événements.
+                <br><span class="text-blue-600 italic">Exemple : Un membre du pôle communication qui peut être amené à créer des événements.</span>
               </li>
               <li>
-                <span class="font-medium">Administrateur (org_admin) :</span> Gestion totale (membres, paramètres, validation d'événements).
-                <br><span class="text-blue-600 italic">Exemple : Le président ou le responsable communication.</span>
+                <span class="font-medium">Administrateur :</span> Gestion totale (membres, paramètres, validation d'événements).
+                <br><span class="text-blue-600 italic">Exemple : Le président, responsable communication ou responsable campagne.</span>
               </li>
             </ul>
           </div>
@@ -55,7 +55,7 @@
           v-model="newMemberRole"
           :options="[
             { value: 'org_viewer', label: 'Lecteur' },
-            { value: 'org_member', label: 'Membre' },
+            { value: 'org_member', label: 'Éditeur' },
             { value: 'org_admin', label: 'Administrateur' }
           ]"
         />
@@ -97,7 +97,7 @@
                 :disabled="member.user_id === currentUserId"
                 :options="[
                   { value: 'org_viewer', label: 'Lecteur' },
-                  { value: 'org_member', label: 'Membre' },
+                  { value: 'org_member', label: 'Éditeur' },
                   { value: 'org_admin', label: 'Administrateur' }
                 ]"
               />

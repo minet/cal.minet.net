@@ -300,7 +300,7 @@ const getRoleLabel = (role) => {
   const labels = {
     'superadmin': 'Superadmin',
     'org_admin': 'Administrateur',
-    'org_member': 'Membre',
+    'org_member': 'Éditeur',
     'org_viewer': 'Lecteur',
   }
   return labels[role] || role

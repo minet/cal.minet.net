@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select, col
-from typing import List
+from typing import List, Optional
 from app.database import get_session
 from app.models import Organization, User, Membership, Role, EventVisibility
-from app.api.auth import get_current_user
+from app.api.auth import get_current_user, get_current_user_optional
 
-from app.schemas import OrganizationRead
+from app.schemas import OrganizationRead, EventRead
 
 router = APIRouter()
 
@@ -31,18 +31,19 @@ def create_organization(
     session.add(membership)
     session.commit()
     
-    return org
+    return org.to_read_model()
 
 @router.get("/", response_model=List[OrganizationRead])
 def list_organizations(session: Session = Depends(get_session)):
-    return session.exec(select(Organization)).all()
+    orgs = session.exec(select(Organization)).all()
+    return [o.to_read_model() for o in orgs]
 
 @router.get("/{org_id}", response_model=OrganizationRead)
 def get_organization(org_id: str, session: Session = Depends(get_session)):
     org = session.get(Organization, org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
-    return org
+    return org.to_read_model()
 
 @router.get("/{org_id}/members")
 def get_organization_members(org_id: str, session: Session = Depends(get_session)):
@@ -204,8 +205,12 @@ def remove_organization_member(
     
     return {"message": "Member removed successfully"}
 
-@router.get("/{org_id}/events")
-def get_organization_events(org_id: str, session: Session = Depends(get_session)):
+@router.get("/{org_id}/events", response_model=List[EventRead])
+def get_organization_events(
+    org_id: str, 
+    session: Session = Depends(get_session),
+    current_user: Optional[User] = Depends(get_current_user_optional)
+):
     """Get future events for an organization"""
     from datetime import datetime
     from app.models import Event
@@ -218,7 +223,7 @@ def get_organization_events(org_id: str, session: Session = Depends(get_session)
         ).order_by(col(Event.start_time))
     ).all()
     
-    return events
+    return [e.to_read_model(current_user, session) for e in events]
 
 @router.get("/{org_id}/can-edit")
 def can_edit_organization(

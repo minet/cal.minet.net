@@ -1,7 +1,7 @@
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID, uuid4
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import SQLModel, Field, Relationship, Session
 from enum import Enum
 
 class OrganizationType(str, Enum):
@@ -40,6 +40,10 @@ class User(SQLModel, table=True):
     memberships: List["Membership"] = Relationship(back_populates="user")
     subscriptions: List["Subscription"] = Relationship(back_populates="user")
 
+    def to_public_read_model(self):
+        from app.schemas import UserPublicRead
+        return UserPublicRead.from_model(self)
+
 class Organization(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     name: str = Field(unique=True, index=True)
@@ -63,6 +67,10 @@ class Organization(SQLModel, table=True):
     organization_links: List["OrganizationLink"] = Relationship(back_populates="organization")
     guest_events: List["Event"] = Relationship(back_populates="guest_organizations", link_model=EventGuestOrganization)
 
+    def to_read_model(self):
+        from app.schemas import OrganizationRead
+        return OrganizationRead.from_model(self)
+
 class Membership(SQLModel, table=True):
     """Link between User and Organization with a specific Role"""
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -77,12 +85,16 @@ class Tag(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     name: str
     color: str
+    is_auto_approved: bool = Field(default=False)
     organization_id: UUID = Field(foreign_key="organization.id")
 
     organization: Organization = Relationship(back_populates="tags")
     event_links: List["EventTag"] = Relationship(back_populates="tag")
     subscribers: List["Subscription"] = Relationship(back_populates="tag")
 
+    def to_read_model(self, user: Optional["User"] = None):
+        from app.schemas import TagRead
+        return TagRead.from_model(self, user)
 
 class OrganizationLink(SQLModel, table=True):
     """Links attached to organizations"""
@@ -139,6 +151,11 @@ class Event(SQLModel, table=True):
     event_tags: List["EventTag"] = Relationship(back_populates="event")
     guest_organizations: List[Organization] = Relationship(back_populates="guest_events", link_model=EventGuestOrganization)
     reactions: List["EventReaction"] = Relationship(back_populates="event")
+
+    def to_read_model(self, current_user: Optional["User"] = None, session: Optional["Session"] = None):
+        from app.schemas import EventRead
+        return EventRead.from_model(self, current_user, session)
+
 
 class Group(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)

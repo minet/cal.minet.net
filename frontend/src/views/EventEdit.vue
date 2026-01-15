@@ -76,101 +76,27 @@
               </div>
 
               <!-- Date, Time, Duration -->
-              <div class="col-span-full bg-gray-50 p-4 rounded-lg">
-                <h3 class="text-sm font-medium text-gray-900 mb-4">Date et Heure</h3>
-                
-                <div v-if="showApprovalWarning" class="mb-4 rounded-md bg-yellow-50 p-4">
-                  <div class="flex">
-                    <div class="flex-shrink-0">
-                      <ExclamationTriangleIcon class="h-5 w-5 text-yellow-400" aria-hidden="true" />
+              <div class="col-span-full">
+                <DateTimeDurationPicker
+                  v-model:start-time="form.start_time"
+                  v-model:end-time="form.end_time"
+                  :warning-message="showApprovalWarning ? 'Modifier la date ou l\'heure d\'un événement approuvé nécessitera une nouvelle validation par un administrateur.' : ''"
+                >
+                  <template #footer>
+                     <!-- Save & Resubmit (Moved here for rejected events) -->
+                    <div v-if="form.visibility === 'public_rejected'" class="mt-4 flex justify-end">
+                       <button 
+                        type="button"
+                        @click="saveAndResubmit"
+                        :disabled="loading"
+                        class="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-50 flex items-center gap-2"
+                      >
+                        <PaperAirplaneIcon class="h-4 w-4" />
+                        {{ loading ? 'Envoi...' : 'Enregistrer et soumettre' }}
+                      </button>
                     </div>
-                    <div class="ml-3">
-                      <h3 class="text-sm font-medium text-yellow-800">Attention</h3>
-                      <div class="mt-2 text-sm text-yellow-700">
-                        <p>Modifier la date ou l'heure d'un événement approuvé nécessitera une nouvelle validation par un administrateur.</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3 items-end">
-                  <!-- Date -->
-                  <div>
-                    <label for="date" class="block text-sm font-medium leading-6 text-gray-900">Date</label>
-                    <div class="mt-2">
-                      <input 
-                        type="date" 
-                        id="date" 
-                        required
-                        v-model="timeForm.date"
-                        @change="updateTimeFromComponents"
-                        class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
-                      />
-                    </div>
-                  </div>
-
-                  <!-- Time -->
-                  <div>
-                    <label for="time" class="block text-sm font-medium leading-6 text-gray-900">Heure de début</label>
-                    <div class="mt-2">
-                      <input 
-                        type="time" 
-                        id="time" 
-                        required
-                        v-model="timeForm.time"
-                        @change="updateTimeFromComponents"
-                        class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
-                      />
-                    </div>
-                  </div>
-
-                  <!-- Duration -->
-                  <div>
-                    <label class="block text-sm font-medium leading-6 text-gray-900">Durée</label>
-                    <div class="mt-2 flex space-x-2">
-                      <div class="relative rounded-md shadow-sm">
-                        <input 
-                          type="number" 
-                          v-model.number="timeForm.durationHours"
-                          @change="updateTimeFromComponents"
-                          min="0"
-                          class="block w-full rounded-md border-0 py-1.5 pr-8 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
-                          placeholder="0" 
-                        />
-                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                          <span class="text-gray-500 sm:text-sm">h</span>
-                        </div>
-                      </div>
-                      <div class="relative rounded-md shadow-sm">
-                        <input 
-                          type="number" 
-                          v-model.number="timeForm.durationMinutes"
-                          @change="updateTimeFromComponents"
-                          min="0"
-                          max="59"
-                          class="block w-full rounded-md border-0 py-1.5 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
-                          placeholder="0" 
-                        />
-                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                          <span class="text-gray-500 sm:text-sm">min</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                 <!-- Save & Resubmit (Moved here for rejected events) -->
-                <div v-if="form.visibility === 'public_rejected'" class="mt-4 flex justify-end">
-                   <button 
-                    type="button"
-                    @click="saveAndResubmit"
-                    :disabled="loading"
-                    class="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-50 flex items-center gap-2"
-                  >
-                    <PaperAirplaneIcon class="h-4 w-4" />
-                    {{ loading ? 'Envoi...' : 'Enregistrer et soumettre' }}
-                  </button>
-                </div>
+                  </template>
+                </DateTimeDurationPicker>
               </div>
 
 
@@ -287,6 +213,7 @@ import ImageUpload from '../components/ImageUpload.vue'
 import CollapsibleCard from '../components/CollapsibleCard.vue'
 import VisibilitySelector from '../components/VisibilitySelector.vue'
 import TagSelector from '../components/TagSelector.vue'
+import DateTimeDurationPicker from '../components/DateTimeDurationPicker.vue'
 import { PlusIcon, XMarkIcon, PaperAirplaneIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 import api from '../utils/api'
 import { getOrgColor } from '../utils/colorUtils'
@@ -314,12 +241,7 @@ const form = ref({
   guest_organization_ids: []
 })
 
-const timeForm = ref({
-  date: '',
-  time: '',
-  durationHours: 0,
-  durationMinutes: 0
-})
+// timeForm removed as it is handled in component
 
 const userOrganizations = ref([])
 const allOrganizations = ref([])
@@ -332,16 +254,7 @@ const originalVisibility = ref(null)
 const currentOrganization = ref(null)
 const isGuestOrgsOpen = ref(false)
 
-const updateTimeFromComponents = () => {
-  if (!timeForm.value.date || !timeForm.value.time) return
-  
-  const startDateTime = new Date(`${timeForm.value.date}T${timeForm.value.time}`)
-  form.value.start_time = formatDateTimeLocal(startDateTime)
-  
-  const durationMs = (timeForm.value.durationHours * 60 * 60 * 1000) + (timeForm.value.durationMinutes * 60 * 1000)
-  const endDateTime = new Date(startDateTime.getTime() + durationMs)
-  form.value.end_time = formatDateTimeLocal(endDateTime)
-}
+// updateTimeFromComponents removed
 
 const showApprovalWarning = computed(() => {
   if (!originalVisibility.value || originalVisibility.value !== 'public_approved') return false
@@ -419,13 +332,15 @@ const loadEvent = async () => {
       guest_organization_ids: event.guest_organizations?.map(o => o.id) || []
     }
     
-    // Initialize Time Components
+    // Initialize Time Components logic removed (handled by component via v-model)
+    /*
     timeForm.value.date = formatDateTimeLocal(startLocal).split('T')[0]
     timeForm.value.time = formatDateTimeLocal(startLocal).split('T')[1]
     
     const diffMs = endLocal - startLocal
     timeForm.value.durationHours = Math.floor(diffMs / (1000 * 60 * 60))
     timeForm.value.durationMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
+    */
     
     originalOrgId.value = event.organization_id
     originalVisibility.value = event.visibility

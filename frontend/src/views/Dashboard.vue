@@ -139,6 +139,39 @@
                   borderLeft: `3px solid ${getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.6)}`
                 }"
               >
+                <!-- Organization Badges -->
+                <div class="flex items-center gap-1 mb-1.5">
+                  <template v-if="event.guest_organizations && event.guest_organizations.length > 0">
+                     <div class="flex -space-x-1.5">
+                        <img 
+                          :src="event.organization?.logo_url || `https://ui-avatars.com/api/?name=${event.organization?.name}&background=random`" 
+                          class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
+                          :title="event.organization?.name"
+                        />
+                        <img 
+                          v-for="guest in event.guest_organizations" 
+                          :key="guest.id"
+                          :src="guest.logo_url || `https://ui-avatars.com/api/?name=${guest.name}&background=random`" 
+                          class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
+                          :title="guest.name"
+                        />
+                     </div>
+                  </template>
+                  <template v-else>
+                     <div class="inline-flex items-center rounded-full bg-white/60 px-1.5 py-0.5 backdrop-blur-sm">
+                        <img 
+                          v-if="event.organization?.logo_url"
+                          :src="event.organization.logo_url" 
+                          class="mr-1 h-3 w-3 rounded-full object-cover"
+                        />
+                        <span class="text-[10px] font-medium leading-none truncate max-w-[100px]" 
+                              :style="{ color: getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.4) }">
+                          {{ event.organization?.name }}
+                        </span>
+                     </div>
+                  </template>
+                </div>
+
                 <p :class="[
                   'text-sm font-medium',
                   event.is_draft ? 'italic' : ''

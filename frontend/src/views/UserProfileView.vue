@@ -49,6 +49,27 @@
           </div>
         </div>
       </div>
+
+      <!-- Danger Zone -->
+      <div class="mt-6 border-t border-purple-200 pt-6">
+        <h3 class="text-sm font-medium text-red-800 mb-4">Zone de danger</h3>
+        <div class="flex flex-col sm:flex-row gap-4">
+          <button 
+            @click="toggleBan"
+            class="inline-flex justify-center items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-red-600 shadow-sm ring-1 ring-inset ring-red-300 hover:bg-red-50"
+          >
+            <NoSymbolIcon class="h-5 w-5 mr-2" />
+            {{ profileUser.is_active ? 'Bannir l\'utilisateur' : 'Débannir l\'utilisateur' }}
+          </button>
+          <button 
+            @click="deleteUser"
+            class="inline-flex justify-center items-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500"
+          >
+            <TrashIcon class="h-5 w-5 mr-2" />
+            Supprimer l'utilisateur
+          </button>
+        </div>
+      </div>
     </div>
     <header class="bg-white shadow-sm rounded-lg mb-6">
       <div class="px-4 py-6 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center">
@@ -243,7 +264,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import TextInput from '../components/TextInput.vue'
 import UserAvatar from '../components/UserAvatar.vue'
@@ -257,10 +278,13 @@ import {
   UserGroupIcon,
   ShieldCheckIcon,
   ArrowRightIcon,
-  BellIcon
+  BellIcon,
+  TrashIcon,
+  NoSymbolIcon
 } from '@heroicons/vue/24/outline'
 
 const route = useRoute()
+const router = useRouter()
 const { user: currentUser, isSuperAdmin } = useAuth()
 const profileUser = ref(null)
 const memberships = ref([])
@@ -445,7 +469,7 @@ const getRoleLabel = (role) => {
   const labels = {
     'superadmin': 'Superadmin',
     'org_admin': 'Administrateur',
-    'org_member': 'Membre',
+    'org_member': 'Éditeur',
     'org_viewer': 'Lecteur',
   }
   return labels[role] || role
@@ -459,6 +483,31 @@ const getRoleBadgeClass = (role) => {
     'org_viewer': 'bg-yellow-50 text-yellow-700 ring-yellow-600/20',
   }
   return classes[role] || 'bg-gray-50 text-gray-700 ring-gray-600/20'
+}
+
+const toggleBan = async () => {
+  const action = profileUser.value.is_active ? 'bannir' : 'débannir'
+  if (!confirm(`Êtes-vous sûr de vouloir ${action} cet utilisateur ?`)) return
+  
+  try {
+    const response = await api.put(`/users/${profileUser.value.id}/active?is_active=${!profileUser.value.is_active}`)
+    profileUser.value = response.data
+  } catch (error) {
+    console.error('Failed to toggle ban:', error)
+    alert('Une erreur est survenue.')
+  }
+}
+
+const deleteUser = async () => {
+  if (!confirm('Êtes-vous sûr de vouloir supprimer définitivement cet utilisateur ? Cette action est irréversible.')) return
+  
+  try {
+    await api.delete(`/users/${profileUser.value.id}`)
+    router.push('/')
+  } catch (error) {
+    console.error('Failed to delete user:', error)
+    alert('Une erreur est survenue lors de la suppression.')
+  }
 }
 
 watch(() => route.params.id, () => {

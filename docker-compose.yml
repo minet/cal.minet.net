@@ -23,6 +23,7 @@ services:
     volumes:
       - ./.env:/app/.env
       - ./backend:/app
+      - migration_data:/app/migration_state
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/calendint
       - SMTP_HOST=mailhog
@@ -123,3 +124,4 @@ services:
 volumes:
   postgres_data:
   minio_data:
+  migration_data:

@@ -257,7 +257,7 @@ async def invite_user(
     session.refresh(user)
     
     # Send email
-    app_url = config.get("APP_BASE_URL", "http://localhost")
+    app_url = config.get("APP_BASE_URL")
     
     html_content = f"""
     <h1>Welcome to Calend'INT!</h1>
@@ -292,3 +292,52 @@ async def toggle_superadmin(
     session.refresh(user)
     
     return user
+
+@router.put("/{user_id}/active", response_model=UserRead)
+async def toggle_active(
+    user_id: str,
+    is_active: bool,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Toggle user active status (Ban/Unban)"""
+    if not current_user.is_superadmin:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    user = session.get(User, UUID(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Prevent banning yourself
+    if user.id == current_user.id and not is_active:
+        raise HTTPException(status_code=400, detail="Cannot ban yourself")
+
+    user.is_active = is_active
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    
+    return user
+
+@router.delete("/{user_id}")
+async def delete_user(
+    user_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Delete a user"""
+    if not current_user.is_superadmin:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    user = session.get(User, UUID(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Prevent deleting yourself
+    if user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot delete yourself")
+    
+    session.delete(user)
+    session.commit()
+    
+    return {"ok": True}

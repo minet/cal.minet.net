@@ -4,6 +4,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 from app.database import get_session
 from app.models import Tag, Organization, Membership, Role, EventTag, User
+from app.schemas import TagRead
 from app.api.auth import get_current_user
 from uuid import UUID
 
@@ -33,9 +34,10 @@ def check_org_admin(user: User, org_id: str, session: Session) -> bool:
     
     return membership is not None
 
-@router.get("/organizations/{org_id}/tags")
+@router.get("/organizations/{org_id}/tags", response_model=List[TagRead])
 def get_organization_tags(
     org_id: str,
+    current_user: Optional[User] = Depends(get_current_user), # Use optional if public access needed, but here likely requires auth
     session: Session = Depends(get_session)
 ):
     """Get all tags for an organization"""
@@ -43,15 +45,12 @@ def get_organization_tags(
         select(Tag).where(Tag.organization_id == UUID(org_id))
     ).all()
     
-    return [
-        {
-            "id": str(tag.id),
-            "name": tag.name,
-            "color": tag.color,
-            "organization_id": str(tag.organization_id)
-        }
-        for tag in tags
-    ]
+    # Map to schema manually to handle logic or let Pydantic, but we need conditional logic
+    # Actually, simpler: just return the objects.
+    # We must ensure sensitive fields are filtered if not authorized.
+    # Since `TagRead` includes `is_auto_approved`, we should unset it if not superadmin.
+    
+    return [tag.to_read_model(current_user) for tag in tags]
 
 @router.post("/organizations/{org_id}/tags")
 def create_tag(
@@ -120,24 +119,26 @@ def update_tag(
         "color": tag.color
     }
 
-@router.delete("/tags/{tag_id}")
-def delete_tag(
+ 
+
+@router.put("/tags/{tag_id}/auto-approve")
+def toggle_auto_approve(
     tag_id: str,
+    is_auto_approved: bool,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    """Delete a tag (org_admin only)"""
-    # Get tag
+    """Toggle auto-approve status for a tag (Superadmin only)"""
+    if not current_user.is_superadmin:
+        raise HTTPException(status_code=403, detail="Not authorized")
+        
     tag = session.get(Tag, UUID(tag_id))
     if not tag:
         raise HTTPException(status_code=404, detail="Tag not found")
-    
-    # Check permissions
-    if not check_org_admin(current_user, str(tag.organization_id), session):
-        raise HTTPException(status_code=403, detail="Not authorized")
-    
-    # Delete tag
-    session.delete(tag)
+        
+    tag.is_auto_approved = is_auto_approved
+    session.add(tag)
     session.commit()
+    session.refresh(tag)
     
-    return {"message": "Tag deleted successfully"}
+    return tag

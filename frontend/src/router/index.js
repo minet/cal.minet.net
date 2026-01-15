@@ -136,6 +136,12 @@ const routes = [
         name: 'WallDisplay',
         component: () => import('../views/WallDisplayView.vue'),
         meta: { layout: 'none' }
+    },
+    {
+        path: '/admin/tags',
+        name: 'AdminTags',
+        component: () => import('../views/AdminTags.vue'),
+        meta: { layout: 'normal', requiresAuth: true }
     }
 ]
 

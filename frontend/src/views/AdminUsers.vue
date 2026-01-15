@@ -68,7 +68,7 @@
                   <div class="mt-3 text-center sm:mt-5">
                     <DialogTitle as="h3" class="text-base font-semibold leading-6 text-gray-900">Inviter un utilisateur</DialogTitle>
                     <div class="mt-2">
-                      <p class="text-sm text-gray-500">Un email sera envoyé à l'utilisateur avec ses identifiants de connexion.</p>
+                      <p class="text-sm text-gray-500">Un email sera envoyé à l'utilisateur pour l'inviter à se connecter, et son compte sera créé pour pouvoir lui assigner un rôle.</p>
                       <div class="mt-4 space-y-4 text-left">
                         <TextInput v-model="inviteForm.email" label="Email" type="email" placeholder="email@exemple.com" />
                       </div>
