@@ -5,6 +5,7 @@ import re
 import importlib.util
 import logging
 from pathlib import Path
+from lockfile import LockFile
 
 logger = logging.getLogger(__name__)
 
@@ -47,40 +48,48 @@ def run_migrations():
         return
 
     max_migration = available[-1][0]
-    last_run = get_last_migration()
-
-    if last_run is None:
-        # First boot (or state lost).
-        # User requested: "on first boot, save the current last migration step as the last one completed when creating the database"
-        # We assume that creating the DB (which happens before this in main.py) brings us up to date with CURRENT models.
-        # Thus we skip all existing migrations and mark the state as up to date.
-        logger.info(f"First run detected. Setting migration state to {max_migration} without running scripts.")
-        set_last_migration(max_migration)
+    lock = LockFile(STATE_FILE)
+    try:
+        lock.acquire(-1)
+    except LockFile.AlreadyLocked:
+        logger.info("Migration is already running, skipping.")
         return
+    try:
+        last_run = get_last_migration()
 
-    logger.info(f"Last applied migration: {last_run}")
+        if last_run is None:
+            # First boot (or state lost).
+            # User requested: "on first boot, save the current last migration step as the last one completed when creating the database"
+            # We assume that creating the DB (which happens before this in main.py) brings us up to date with CURRENT models.
+            # Thus we skip all existing migrations and mark the state as up to date.
+            logger.info(f"First run detected. Setting migration state to {max_migration} without running scripts.")
+            set_last_migration(max_migration)
+            return
 
-    for number, filepath in available:
-        if number > last_run:
-            logger.info(f"Applying migration {number}: {os.path.basename(filepath)}")
-            try:
-                # Load module dynamically
-                spec = importlib.util.spec_from_file_location(f"migration_{number}", filepath)
-                if spec and spec.loader:
-                    module = importlib.util.module_from_spec(spec)
-                    spec.loader.exec_module(module)
-                    
-                    if hasattr(module, "run_migration"):
-                        module.run_migration()
-                    else:
-                        logger.warning(f"Migration {number} has no run_migration() function.")
-                    
-                    # Update state after success
-                    set_last_migration(number)
-                    last_run = number
-            except Exception as e:
-                logger.error(f"Failed to run migration {number}: {e}")
-                # Stop migration process on error
-                raise e
+        logger.info(f"Last applied migration: {last_run}")
 
+        for number, filepath in available:
+            if number > last_run:
+                logger.info(f"Applying migration {number}: {os.path.basename(filepath)}")
+                try:
+                    # Load module dynamically
+                    spec = importlib.util.spec_from_file_location(f"migration_{number}", filepath)
+                    if spec and spec.loader:
+                        module = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(module)
+                        
+                        if hasattr(module, "run_migration"):
+                            module.run_migration()
+                        else:
+                            logger.warning(f"Migration {number} has no run_migration() function.")
+                        
+                        # Update state after success
+                        set_last_migration(number)
+                        last_run = number
+                except Exception as e:
+                    logger.error(f"Failed to run migration {number}: {e}")
+                    # Stop migration process on error
+                    raise e
+    finally:
+        lock.release()
     logger.info("Migrations completed.")

@@ -3,7 +3,7 @@ from sqlmodel import Session, select, or_
 from starlette.config import Config
 from typing import List, Optional
 from app.database import get_session
-from app.models import User, Organization, Membership, Role, Group, GroupMembership
+from app.models import User, Organization, Membership, Role, Group, GroupMembership, Subscription, EventReaction, Event
 from app.api.auth import get_current_user
 from pydantic import BaseModel
 from app.utils.email import send_email
@@ -337,6 +337,41 @@ async def delete_user(
     if user.id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
     
+    
+    # Delete everything that mentions the user
+    
+    # 1. Memberships
+    session.exec(select(Membership).where(Membership.user_id == user.id)).all()
+    # Execute delete directly not supported by sqlmodel session.exec(delete(...)) nicely without some workaround or iteration
+    # Iterate and delete is safer for ORM consistency
+    
+    memberships = session.exec(select(Membership).where(Membership.user_id == user.id)).all()
+    for m in memberships:
+        session.delete(m)
+
+    # 2. Group Memberships
+    group_memberships = session.exec(select(GroupMembership).where(GroupMembership.user_id == user.id)).all()
+    for gm in group_memberships:
+        session.delete(gm)
+
+    # 3. Subscriptions (This was the cause of the reported error)
+    subscriptions = session.exec(select(Subscription).where(Subscription.user_id == user.id)).all()
+    for s in subscriptions:
+        session.delete(s)
+
+    # 4. Event Reactions
+    reactions = session.exec(select(EventReaction).where(EventReaction.user_id == user.id)).all()
+    for r in reactions:
+        session.delete(r)
+
+    # 5. Events created by user
+    # Note: This is destructive for organization events if the creator leaves. 
+    # But necessary to satisfy FK constraints unless we reassign them.
+    # Instruction is "delete everything that mentions him".
+    events = session.exec(select(Event).where(Event.created_by_id == user.id)).all()
+    for e in events:
+        session.delete(e)
+
     session.delete(user)
     session.commit()
     
