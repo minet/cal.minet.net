@@ -260,12 +260,12 @@ async def invite_user(
     app_url = config.get("APP_BASE_URL")
     
     html_content = f"""
-    <h1>Welcome to Calend'INT!</h1>
-    <p>You have been invited to join.</p>
-    <p>Please login to set up your account: <a href="{app_url}/login">{app_url}/login</a></p>
+    <h1>Invitation Calend'INT!</h1>
+    <p>Vous avez été invité à rejoindre Calend'INT.</p>
+    <p>Veuillez vous connecter pour configurer votre compte: <a href="{app_url}/login">{app_url}/login</a></p>
     """
     try:
-        send_email(user.email, "Welcome to Calend'INT", html_content)
+        send_email(user.email, "Calend'INT by MiNET", html_content)
     except Exception as e:
         print(f"Error sending email: {e}")
     

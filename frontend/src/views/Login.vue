@@ -18,6 +18,9 @@
         >
           <span>Se connecter avec Campus</span>
         </a>
+        <p class="mt-4 text-xs text-center text-gray-500">
+          En vous connectant, vous acceptez que votre nom, prénom et email, ainsi que le contenu que vous créerez sur la plateforme soient stockés sur le serveurs de MiNET et mis à disposition des étudiants et associations du campus. Pour en savoir plus sur le traitement de vos données, veuillez contacter <a href="mailto:dpo@minet.net" class="text-indigo-600 hover:text-indigo-500">dpo@minet.net</a>.
+        </p>
       </div>
     </div>
   </div>
