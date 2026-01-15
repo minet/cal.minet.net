@@ -16,5 +16,6 @@ set +a
 
 mkdir -p ${VOLUMES}/cal.minet.net/postgres
 mkdir -p ${VOLUMES}/cal.minet.net/minio
+mkdir -p ${VOLUMES}/cal.minet.net/migration_state
 
 docker stack deploy --with-registry-auth --prune --detach=false -c stack.yaml calendint
