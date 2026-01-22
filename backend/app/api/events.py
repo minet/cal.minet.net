@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, BackgroundTasks
 from sqlmodel import Session, select, and_, or_, col, func
 from typing import List, Optional, Sequence, cast
 from datetime import datetime, timezone
+import os
 from uuid import UUID
 from app.database import get_session
 from app.models import (
@@ -13,6 +14,7 @@ from app.schemas import (
     EventRead, CreateEvent, UpdateEvent, RejectEventRequest, Message, TagRead, OrganizationRead,
     ReactionSummary, ReactionDetail, UserPublicRead
 )
+from app.email.utils import send_email, render_email_template
 
 router = APIRouter()
 
@@ -521,6 +523,7 @@ def delete_event(
 @router.post("/{event_id}/approve", response_model=Message)
 def approve_event(
     event_id: str,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
@@ -536,11 +539,34 @@ def approve_event(
         raise HTTPException(status_code=400, detail="Event is not pending approval")
     
     event.visibility = EventVisibility.PUBLIC_APPROVED
-    event.approved_at = datetime.utcnow()
+    event.approved_at = datetime.now(timezone.utc)
     event.rejection_message = None  # Clear any previous rejection
     
     session.add(event)
     session.commit()
+    
+    # Send email notification
+    creator = session.get(User, event.created_by_id)
+    if creator and creator.email:
+        frontend_url = os.getenv("FRONTEND_URL", "https://cal.minet.net")
+        event_url = f"{frontend_url}/events/{event.id}"
+        
+        html_content = render_email_template("event_approved.html", {
+            "project_name": "Calend'INT",
+            "user_name": creator.full_name or creator.email.split('@')[0],
+            "event_title": event.title,
+            "event_date": event.start_time.strftime("%d/%m/%Y à %H:%M"),
+            "event_location": event.location or "Non spécifié",
+            "event_url": event_url,
+            "year" : datetime.now().year
+        })
+        
+        background_tasks.add_task(
+            send_email,
+            email_to=creator.email,
+            subject="Votre événement a été approuvé !",
+            html_content=html_content
+        )
     
     return {"message": "Event approved successfully"}
 
@@ -549,6 +575,7 @@ def approve_event(
 def reject_event(
     event_id: str,
     request: RejectEventRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
@@ -568,6 +595,29 @@ def reject_event(
     
     session.add(event)
     session.commit()
+    
+    # Send email notification
+    creator = session.get(User, event.created_by_id)
+    if creator and creator.email:
+        frontend_url = os.getenv("FRONTEND_URL", "https://cal.minet.net")
+        # Direct link to edit page might be better, but event detail has "Edit" button if owner
+        event_url = f"{frontend_url}/events/{event.id}/edit"
+        
+        html_content = render_email_template("event_rejected.html", {
+            "project_name": "Calend'INT",
+            "user_name": creator.full_name or creator.email.split('@')[0],
+            "event_title": event.title,
+            "rejection_message": request.message,
+            "event_url": event_url,
+            "year": datetime.now().year
+        })
+        
+        background_tasks.add_task(
+            send_email,
+            email_to=creator.email,
+            subject="Votre événement a été refusé",
+            html_content=html_content
+        )
     
     return {"message": "Event rejected"}
 

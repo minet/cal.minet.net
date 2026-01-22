@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Félicitations ! Votre événement a été approuvé</h2>
+
+<p>Bonjour {{ user_name }},</p>
+
+<p>Nous avons le plaisir de vous informer que votre événement a été approuvé par un administrateur et est maintenant
+    visible publiquement.</p>
+
+<div class="event-details">
+    <div class="event-title">{{ event_title }}</div>
+    <div>Date : {{ event_date }}</div>
+    <div>Lieu : {{ event_location }}</div>
+</div>
+
+<p>Vous pouvez consulter votre événement en cliquant sur le bouton ci-dessous :</p>
+
+<div style="text-align: center;">
+    <a href="{{ event_url }}" class="button">Voir l'événement</a>
+</div>
+{% endblock %}

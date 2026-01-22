@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Mise à jour concernant votre événement</h2>
+
+<p>Bonjour {{ user_name }},</p>
+
+<p>Votre événement "<strong>{{ event_title }}</strong>" a été refusé par un administrateur.</p>
+
+<div class="event-details" style="border-left: 4px solid #EF4444;">
+    <strong>Motif du refus :</strong><br>
+    {{ rejection_message }}
+</div>
+
+<p>Vous pouvez modifier votre événement pour corriger les problèmes signalés et le soumettre à nouveau.</p>
+
+<div style="text-align: center;">
+    <a href="{{ event_url }}" class="button">Modifier l'événement</a>
+</div>
+{% endblock %}

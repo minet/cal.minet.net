@@ -10,6 +10,7 @@ dependencies = [
     "httpx",
     "icalendar",
     "itsdangerous",
+    "jinja2>=3.1.6",
     "lockfile",
     "minio",
     "passlib[bcrypt]",
