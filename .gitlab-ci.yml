@@ -44,8 +44,6 @@ deploy_prod:
     - cp deploy.sh $SWARM_FOLDER/
     - cd $SWARM_FOLDER
     - echo "IMAGE_REGISTRY_BASE='$IMAGE_REGISTRY_BASE'" > .env.deploy
-    - echo "CI_REGISTRY_USER='$CI_REGISTRY_USER'" >> .env.deploy
-    - echo "SWARM_REGISTRY_USER='$SWARM_REGISTRY_USER'" >> .env.deploy
     - echo "SWARM_REGISTRY_PASSWORD='$SWARM_REGISTRY_PASSWORD'" >> .env.deploy
     - echo "CI_REGISTRY='$CI_REGISTRY'" >> .env.deploy
     - ./deploy.sh

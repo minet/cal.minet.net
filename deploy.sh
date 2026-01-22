@@ -14,11 +14,9 @@ set -a
 source .env.deploy
 set +a
 
-# Authenticate with registry to resolve image digests
-REGISTRY_USER=${SWARM_REGISTRY_USER:-$CI_REGISTRY_USER}
 
-if [ ! -z "$REGISTRY_USER" ] && [ ! -z "$SWARM_REGISTRY_PASSWORD" ] && [ ! -z "$CI_REGISTRY" ]; then
-    echo "$SWARM_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u "$REGISTRY_USER" --password-stdin
+if [ ! -z "$SWARM_REGISTRY_PASSWORD" ] && [ ! -z "$CI_REGISTRY" ]; then
+    echo "$SWARM_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u deploy --password-stdin
 fi
 
 mkdir -p ${VOLUMES}/cal.minet.net/postgres
