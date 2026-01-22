@@ -15,12 +15,19 @@ source .env.deploy
 set +a
 
 # Authenticate with registry to resolve image digests
-if [ ! -z "$CI_REGISTRY_USER" ] && [ ! -z "$SWARM_REGISTRY_PASSWORD" ] && [ ! -z "$CI_REGISTRY" ]; then
-    echo "$SWARM_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u "$CI_REGISTRY_USER" --password-stdin
+REGISTRY_USER=${SWARM_REGISTRY_USER:-$CI_REGISTRY_USER}
+
+if [ ! -z "$REGISTRY_USER" ] && [ ! -z "$SWARM_REGISTRY_PASSWORD" ] && [ ! -z "$CI_REGISTRY" ]; then
+    echo "$SWARM_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u "$REGISTRY_USER" --password-stdin
 fi
 
 mkdir -p ${VOLUMES}/cal.minet.net/postgres
 mkdir -p ${VOLUMES}/cal.minet.net/minio
 mkdir -p ${VOLUMES}/cal.minet.net/migration_state
 
-docker stack deploy --with-registry-auth --prune --detach=false -c stack.yaml calendint
+if ! docker stack deploy --with-registry-auth --prune --detach=false -c stack.yaml calendint; then
+    echo "Deployment failed! Fetching service status..."
+    docker service ps --no-trunc calendint_backend
+    docker service ps --no-trunc calendint_nginx
+    exit 1
+fi
