@@ -713,7 +713,38 @@ def delete_user_reaction(
     session.delete(reaction)
     session.commit()
     
+    
     return {"message": "Reaction deleted"}
+
+
+@router.get("/{event_id}/overlapping", response_model=List[EventRead])
+def get_overlapping_events(
+    event_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Get events that overlap with the user's event (Superadmin only for now as requested)"""
+    if not current_user.is_superadmin:
+        raise HTTPException(status_code=403, detail="Superadmin access required")
+    
+    target_event = session.get(Event, UUID(event_id))
+    if not target_event:
+        raise HTTPException(status_code=404, detail="Event not found")
+        
+    # Find overlapping events:
+    # (StartA <= EndB) and (EndA >= StartB)
+    overlapping = session.exec(
+        select(Event).where(
+            Event.id != target_event.id,
+            Event.start_time < target_event.end_time,
+            Event.end_time > target_event.start_time,
+            # We want both confirmed (APPROVED) and unconfirmed (PENDING)
+            # Maybe restrict visibility if needed, but request said "unconfirmed or confirmed"
+            Event.visibility.in_([EventVisibility.PUBLIC_APPROVED, EventVisibility.PUBLIC_PENDING]) #pyright: ignore
+        )
+    ).all()
+    
+    return [e.to_read_model(current_user, session) for e in overlapping]
 
 
 

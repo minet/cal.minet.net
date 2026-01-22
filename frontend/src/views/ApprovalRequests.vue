@@ -91,6 +91,10 @@
                   <div class="flex items-center gap-1">
                     <CalendarIcon class="h-4 w-4" />
                     <span>{{ formatDate(event.start_time) }}</span>
+                    <span class="text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-600 flex items-center gap-0.5 ml-1">
+                      <ClockIcon class="h-3 w-3" />
+                      {{ formatDuration(event.start_time, event.end_time) }}
+                    </span>
                   </div>
                   <div v-if="event.location" class="flex items-center gap-1">
                     <MapPinIcon class="h-4 w-4" />
@@ -99,6 +103,17 @@
                   <div class="flex items-center gap-1">
                     <UserIcon class="h-4 w-4" />
                     <span>{{ event.created_by?.full_name || event.created_by?.email }}</span>
+                  </div>
+                  
+                  <!-- Overlap Indicator -->
+                  <div 
+                    v-if="overlappingEventsMap[event.id]" 
+                    class="flex items-center gap-1 text-orange-600 cursor-pointer hover:bg-orange-50 px-2 py-0.5 rounded-full transition-colors"
+                    @click.prevent.stop="showOverlaps(event, overlappingEventsMap[event.id])"
+                    title="Voir les événements simultanés"
+                  >
+                    <ExclamationTriangleIcon class="h-4 w-4" />
+                    <span class="font-medium">{{ overlappingEventsMap[event.id].length }}</span>
                   </div>
                 </div>
               </div>
@@ -236,6 +251,64 @@
         </div>
       </div>
     </div>
+
+    <!-- Overlap Modal -->
+    <div v-if="showOverlapModal" class="fixed inset-0 z-50 overflow-y-auto">
+      <div class="flex min-h-screen items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/50" @click="closeOverlapModal"></div>
+        <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Événements simultanés</h3>
+            <button @click="closeOverlapModal" class="text-gray-400 hover:text-gray-500">
+               <XMarkIcon class="h-6 w-6" />
+            </button>
+          </div>
+          
+          <div class="space-y-3 max-h-[60vh] overflow-y-auto">
+             <div 
+               v-for="evt in selectedOverlapEvents" 
+               :key="evt.id" 
+               class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer border border-gray-200"
+               @click="$router.push(`/events/${evt.id}`)"
+             >
+                <div 
+                  class="h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-white font-bold text-xs"
+                  :style="{ backgroundColor: getOrgColor(evt.organization.color_chroma/20, evt.organization.color_hue, 1) }"
+                >
+                   <img 
+                      v-if="evt.organization?.logo_url" 
+                      :src="evt.organization.logo_url" 
+                      class="h-full w-full object-cover rounded-full"
+                    />
+                   <span v-else :style="{ color: getOrgColor(evt.organization.color_chroma, evt.organization.color_hue, 0.4) }">
+                     {{ evt.organization?.name?.charAt(0) }}
+                   </span>
+                </div>
+                <div>
+                   <h4 class="text-sm font-medium text-gray-900">{{ evt.title }}</h4>
+                   <div class="flex items-center gap-2 text-xs text-gray-500">
+                     <span>{{ formatDate(evt.start_time) }}</span>
+                     <span class="bg-gray-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                        <ClockIcon class="h-3 w-3" />
+                        {{ formatDuration(evt.start_time, evt.end_time) }}
+                     </span>
+                   </div>
+                   <p class="text-xs text-indigo-600 mt-0.5" v-if="evt.visibility === 'public_pending'">En attente</p>
+                </div>
+             </div>
+          </div>
+          
+          <div class="mt-4 flex justify-end">
+            <button
+              @click="closeOverlapModal"
+              class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -248,10 +321,13 @@ import {
   CheckIcon, 
   XMarkIcon,
   ClipboardDocumentCheckIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  ExclamationTriangleIcon,
+  ClockIcon
 } from '@heroicons/vue/24/outline'
 import { CheckBadgeIcon } from '@heroicons/vue/24/solid'
 import api from '../utils/api'
+import { getOrgColor } from '../utils/colorUtils'
 
 const pendingEvents = ref([])
 const processedEvents = ref([])
@@ -261,6 +337,32 @@ const showRejectModal = ref(false)
 const selectedEvent = ref(null)
 const rejectMessage = ref('')
 const currentTab = ref('pending')
+const overlappingEventsMap = ref({})
+const showOverlapModal = ref(false)
+const selectedOverlapEvents = ref([])
+
+const loadOverlaps = async (events) => {
+  for (const event of events) {
+    try {
+      const res = await api.get(`/events/${event.id}/overlapping`)
+      if (res.data && res.data.length > 0) {
+        overlappingEventsMap.value[event.id] = res.data
+      }
+    } catch (e) {
+      console.error("Failed to load overlaps for event", event.id, e)
+    }
+  }
+}
+
+const showOverlaps = (event, overlaps) => {
+  selectedOverlapEvents.value = overlaps
+  showOverlapModal.value = true
+}
+
+const closeOverlapModal = () => {
+  showOverlapModal.value = false
+  selectedOverlapEvents.value = []
+}
 
 const formatDate = (dateStr) => {
   const date = new Date(dateStr)
@@ -274,12 +376,28 @@ const formatDate = (dateStr) => {
   })
 }
 
+const formatDuration = (startStr, endStr) => {
+  if (!startStr || !endStr) return ''
+  const start = new Date(startStr)
+  const end = new Date(endStr)
+  const diffMs = end - start
+  const diffHrs = Math.floor(diffMs / 3600000)
+  const diffMins = Math.round((diffMs % 3600000) / 60000)
+  
+  if (diffHrs > 0) {
+    return `${diffHrs}h${diffMins > 0 ? diffMins : ''}`
+  }
+  return `${diffMins}min`
+}
+
 const loadPendingEvents = async () => {
   if (currentTab.value !== 'pending') return
   loading.value = true
   try {
     const response = await api.get('/events/pending-approvals')
     pendingEvents.value = response.data
+    // Load overlaps for these events (async, don't wait)
+    loadOverlaps(pendingEvents.value)
   } catch (err) {
     console.error('Failed to load pending events:', err)
   } finally {
