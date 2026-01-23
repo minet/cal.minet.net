@@ -32,7 +32,7 @@ api.interceptors.response.use(
             if (!isPublicPath) {
                 // Store current location for redirect after login
                 const currentUrl = window.location.pathname + window.location.search
-                sessionStorage.setItem('auth_redirect_url', currentUrl)
+                localStorage.setItem('auth_redirect_url', currentUrl)
                 window.location.href = '/login'
             } else {
                 // window.location.reload()

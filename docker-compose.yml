@@ -29,8 +29,8 @@ services:
       - SMTP_PORT=1025
       - SMTP_USER=
       - SMTP_PASSWORD=
-      - EMAILS_FROM_EMAIL=admin@calendint.fr
-      - EMAILS_FROM_NAME=Calend'INT
+      - EMAILS_FROM_EMAIL=calendint@minet.net
+      - EMAILS_FROM_NAME=Calend'INT by MiNET
     depends_on:
       db:
         condition: service_healthy

@@ -32,20 +32,15 @@ build_nginx:
     - docker build --cache-from $IMAGE_REGISTRY_BASE/nginx:stable --build-arg BUILDKIT_INLINE_CACHE=1 -f nginx/Dockerfile -t $IMAGE_REGISTRY_BASE/nginx:stable .
     - docker push $IMAGE_REGISTRY_BASE/nginx:stable
 
-deploy_prod:
+deploy:
   stage: deploy
-  image: docker:latest
-  tags:
-    - swarm
-  script:
-    - chmod +x deploy.sh
-    - mkdir -p $SWARM_FOLDER
-    - cp stack.yaml $SWARM_FOLDER/
-    - cp deploy.sh $SWARM_FOLDER/
-    - cd $SWARM_FOLDER
-    - echo "IMAGE_REGISTRY_BASE='$IMAGE_REGISTRY_BASE'" > .env.deploy
-    - echo "SWARM_REGISTRY_PASSWORD='$SWARM_REGISTRY_PASSWORD'" >> .env.deploy
-    - echo "CI_REGISTRY='$CI_REGISTRY'" >> .env.deploy
-    - ./deploy.sh
-  only:
-    - main
+  trigger:
+    project: minet/configurations/push/swarm-prod
+    branch: main
+    strategy: depend
+  needs:
+    - build_backend
+    - build_nginx
+  variables:
+    FOLDER_NAME: cal.minet.net
+    IMAGE_REGISTRY_BASE: $CI_REGISTRY_IMAGE

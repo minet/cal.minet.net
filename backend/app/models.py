@@ -64,6 +64,8 @@ class Organization(SQLModel, table=True):
     tags: List["Tag"] = Relationship(back_populates="organization")
     subscribers: List["Subscription"] = Relationship(back_populates="organization")
     groups: List["Group"] = Relationship(back_populates="organization")
+
+
     organization_links: List["OrganizationLink"] = Relationship(back_populates="organization")
     guest_events: List["Event"] = Relationship(back_populates="guest_organizations", link_model=EventGuestOrganization)
 
@@ -201,3 +203,10 @@ class EventReaction(SQLModel, table=True):
 
     event: Optional[Event] = Relationship(back_populates="reactions")
     user: Optional[User] = Relationship()
+
+class LDAPUser(SQLModel, table=True):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    email: str = Field(unique=True, index=True)
+    full_name: Optional[str] = None
+    uid: Optional[str] = Field(default=None, index=True) 
+    synced_at: datetime = Field(default_factory=datetime.now)

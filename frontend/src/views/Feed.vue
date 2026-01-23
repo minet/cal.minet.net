@@ -151,9 +151,9 @@ onMounted(async () => {
     window.history.replaceState({}, document.title, '/')
     
     // Check for redirect URL
-    const redirectUrl = sessionStorage.getItem('auth_redirect_url')
+    const redirectUrl = localStorage.getItem('auth_redirect_url')
     if (redirectUrl) {
-      sessionStorage.removeItem('auth_redirect_url')
+      localStorage.removeItem('auth_redirect_url')
       // Use router if it's a path, or window location if it's full URL (though we stored path)
       router.push(redirectUrl)
       return // Don't fetch events if redirecting

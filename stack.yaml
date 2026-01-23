@@ -11,6 +11,8 @@ services:
         condition: on-failure
     depends_on:
       - backend
+    environment:
+      - WAIT_FOR_SERVICES=backend:8000 minio:9000
     networks:
       - calendint_net
 

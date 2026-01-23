@@ -175,7 +175,7 @@ router.beforeEach((to, from, next) => {
     // Protected routes - require authentication
     if (!isAuthenticated) {
         // Store target path for redirect after login
-        sessionStorage.setItem('auth_redirect_url', to.fullPath)
+        localStorage.setItem('auth_redirect_url', to.fullPath)
         next('/login')
     } else {
         next()

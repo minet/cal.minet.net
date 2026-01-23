@@ -19,25 +19,29 @@
           <p class="mt-1 max-w-2xl text-sm text-gray-500">Les organisations que vous suivez.</p>
         </div>
         <div class="border-t border-gray-200">
-          <ul v-if="organizationSubscriptions.length > 0" role="list" class="divide-y divide-gray-200">
-            <li v-for="sub in organizationSubscriptions" :key="sub.id" class="px-4 py-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between">
-              <div class="flex items-center">
-                <div class="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                  <span class="text-indigo-600 font-semibold">{{ sub.organization.name.charAt(0) }}</span>
-                </div>
-                <div class="ml-4">
-                  <div class="text-sm font-medium text-gray-900">{{ sub.organization.name }}</div>
-                  <div class="text-sm text-gray-500">{{ sub.organization.type }}</div>
-                </div>
-              </div>
-              <button 
-                @click="unsubscribe(sub)"
-                class="mt-4 sm:mt-0 ml-0 sm:ml-4 w-full sm:w-auto text-center bg-white text-red-600 hover:text-red-800 text-sm font-medium focus:outline-none"
+          <div v-if="organizationSubscriptions.length > 0" class="divide-y divide-gray-200">
+            <div 
+              v-for="sub in organizationSubscriptions" 
+              :key="sub.id" 
+              class="px-4 py-2 sm:px-6 hover:bg-gray-50 transition-colors"
+            >
+              <OrganizationCard 
+                :organization="sub.organization" 
+                :show-type="true" 
+                :no-border="true"
+                :clickable="true"
               >
-                Se désabonner
-              </button>
-            </li>
-          </ul>
+                <template #side>
+                  <button 
+                    @click.prevent.stop="unsubscribe(sub)"
+                    class="ml-4 text-sm font-medium text-red-600 hover:text-red-800 focus:outline-none bg-transparent whitespace-nowrap"
+                  >
+                    Se désabonner
+                  </button>
+                </template>
+              </OrganizationCard>
+            </div>
+          </div>
           <div v-else class="px-4 py-12 sm:px-6 text-center text-gray-500 text-sm">
             <p class="mb-4">Vous n'êtes abonné à aucune organisation.</p>
             <router-link 
@@ -104,6 +108,7 @@ import { ref, computed, onMounted } from 'vue'
 import api from '../utils/api'
 import TagBadge from '../components/TagBadge.vue'
 import GroupBadge from '../components/GroupBadge.vue'
+import OrganizationCard from '../components/OrganizationCard.vue'
 
 const subscriptions = ref({ organizations: [], tags: [] })
 const groups = ref([])

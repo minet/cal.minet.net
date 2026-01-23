@@ -8,7 +8,7 @@ from sqlalchemy.exc import OperationalError
 from contextlib import asynccontextmanager
 from app.database import create_db_and_tables
 from app.migration_runner import run_migrations
-from app.api import auth, organizations, events, ics, users, upload, subscriptions, cas, groups, tags, organization_links
+from app.api import auth, organizations, events, ics, users, upload, subscriptions, cas, groups, tags, organization_links, admin
 
 # Load environment variables
 load_dotenv()
@@ -45,9 +45,9 @@ app.add_middleware(
     secret_key=os.getenv("SECRET_KEY", "your-secret-key-change-in-production-please-make-it-long-and-random")
 )
 
-
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(cas.router, prefix="/auth", tags=["cas"])
+app.include_router(admin.router, prefix="/admin", tags=["admin"])
 app.include_router(organizations.router, prefix="/organizations", tags=["organizations"])
 app.include_router(events.router, prefix="/events", tags=["events"])
 app.include_router(ics.router, prefix="/calendar", tags=["calendar"])
