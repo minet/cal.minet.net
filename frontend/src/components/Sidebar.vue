@@ -3,7 +3,7 @@
     <!-- User Section -->
     <div class="p-6 border-b border-gray-200">
       <div class="flex items-center justify-between mb-4">
-        <h3 class="text-lg font-semibold text-gray-900">Calend'INT</h3>
+        <img src="/CalendINT_text.svg" alt="Calend'INT" class="h-16 w-auto" />
         <button @click="$emit('close')" class="md:hidden text-gray-500 hover:text-gray-700">
           <XMarkIcon class="h-6 w-6" />
         </button>
