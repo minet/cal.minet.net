@@ -3,11 +3,15 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 # Copy the project into the image
-COPY . /app
 # Disable development dependencies
 ENV UV_NO_DEV=1
+
+# First, copy only the files needed for dependency installation
+COPY pyproject.toml uv.lock ./
 # Sync the project into a new environment, asserting the lockfile is up to date
 RUN uv sync --locked
 
+# Then copy the rest of the project
+COPY . /app
 # Use multiple workers for production
 CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
