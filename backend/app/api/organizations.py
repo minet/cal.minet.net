@@ -26,11 +26,6 @@ def create_organization(
     session.commit()
     session.refresh(org)
     
-    # Add creator as Org Admin
-    membership = Membership(user_id=current_user.id, organization_id=org.id, role=Role.ORG_ADMIN) # type: ignore
-    session.add(membership)
-    session.commit()
-    
     return org.to_read_model()
 
 @router.get("/", response_model=List[OrganizationRead])
