@@ -27,7 +27,7 @@
             >
               <OrganizationCard 
                 :organization="sub.organization" 
-                :show-type="true" 
+                :show-type="false" 
                 :no-border="true"
                 :clickable="true"
               >

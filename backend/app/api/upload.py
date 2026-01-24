@@ -7,7 +7,7 @@ import os
 router = APIRouter()
 
 # Allowed image extensions
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 def allowed_file(filename: str) -> bool:

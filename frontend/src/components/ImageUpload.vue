@@ -60,12 +60,104 @@
 
     <!-- Error message -->
     <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
+
+    <!-- Crop Modal -->
+    <TransitionRoot appear :show="showCropper" as="template">
+      <Dialog as="div" @close="closeCropper" class="relative z-50">
+        <TransitionChild
+          as="template"
+          enter="duration-300 ease-out"
+          enter-from="opacity-0"
+          enter-to="opacity-100"
+          leave="duration-200 ease-in"
+          leave-from="opacity-100"
+          leave-to="opacity-0"
+        >
+          <div class="fixed inset-0 bg-black/25" />
+        </TransitionChild>
+
+        <div class="fixed inset-0 overflow-y-auto">
+          <div class="flex min-h-full items-center justify-center p-4 text-center">
+            <TransitionChild
+              as="template"
+              enter="duration-300 ease-out"
+              enter-from="opacity-0 scale-95"
+              enter-to="opacity-100 scale-100"
+              leave="duration-200 ease-in"
+              leave-from="opacity-100 scale-100"
+              leave-to="opacity-0 scale-95"
+            >
+              <DialogPanel class="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                <DialogTitle as="h3" class="text-lg font-medium leading-6 text-gray-900 mb-4">
+                  Ajuster l'image
+                </DialogTitle>
+                
+                <div class="mt-2 h-96 bg-gray-100 rounded-lg overflow-hidden relative">
+                   <Cropper
+                      ref="cropper"
+                      class="cropper"
+                      background-class="cropper__background"
+                      image-class="cropper__image"
+                      area-class="cropper__area"
+                      foreground-class="cropper__foreground"
+                      :src="cropperImage"
+                      :stencil-component="CircleStencil"
+                      image-restriction="none"
+                   />
+                </div>
+
+                <div class="mt-4 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    class="inline-flex justify-center rounded-md border border-transparent bg-gray-100 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2"
+                    @click="closeCropper"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    class="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                    @click="cropAndUpload"
+                    :disabled="uploading"
+                  >
+                    {{ uploading ? 'Upload...' : 'Valider' }}
+                  </button>
+                </div>
+              </DialogPanel>
+            </TransitionChild>
+          </div>
+        </div>
+      </Dialog>
+    </TransitionRoot>
   </div>
 </template>
+
+
+<style>
+.cropper {
+  border: solid 1px #EEE;
+  min-height: 300px;
+  width: 100%;
+}
+.cropper__area {
+    background: rgba(black, 1.0);
+}
+
+.cropper__background {
+    background: #FFF;
+}
+
+.cropper__foreground {
+    background: rgba(black, .0);
+}
+</style>
 
 <script setup>
 import { ref } from 'vue'
 import { PhotoIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
+import { Cropper, CircleStencil } from 'vue-advanced-cropper'
+import 'vue-advanced-cropper/dist/style.css'
 import api from '../utils/api'
 
 const props = defineProps({
@@ -76,6 +168,10 @@ const props = defineProps({
   label: {
     type: String,
     default: 'Image'
+  },
+  crop: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -87,6 +183,12 @@ const uploading = ref(false)
 const uploadProgress = ref(0)
 const error = ref('')
 
+// Cropper state
+const showCropper = ref(false)
+const cropperImage = ref(null)
+const currentFile = ref(null)
+const cropper = ref(null)
+
 const triggerFileInput = () => {
   fileInput.value?.click()
 }
@@ -94,7 +196,11 @@ const triggerFileInput = () => {
 const handleFileChange = async (event) => {
   const file = event.target.files[0]
   if (file) {
-    await uploadFile(file)
+    if (props.crop) {
+      openCropper(file)
+    } else {
+      await uploadFile(file)
+    }
   }
 }
 
@@ -102,9 +208,49 @@ const handleDrop = async (event) => {
   dragover.value = false
   const file = event.dataTransfer.files[0]
   if (file && file.type.startsWith('image/')) {
-    await uploadFile(file)
+    if (props.crop) {
+      openCropper(file)
+    } else {
+      await uploadFile(file)
+    }
   } else {
     error.value = 'Veuillez déposer un fichier image'
+  }
+}
+
+const openCropper = (file) => {
+  currentFile.value = file
+  cropperImage.value = URL.createObjectURL(file)
+  showCropper.value = true
+}
+
+const closeCropper = () => {
+  showCropper.value = false
+  if (cropperImage.value) {
+    URL.revokeObjectURL(cropperImage.value)
+    cropperImage.value = null
+  }
+  currentFile.value = null
+  // Reset input just in case
+  if (fileInput.value) {
+    fileInput.value.value = ''
+  }
+}
+
+const cropAndUpload = async () => {
+  if (!cropper.value) return
+  
+  const { canvas } = cropper.value.getResult()
+  if (canvas) {
+    canvas.toBlob(async (blob) => {
+      if (blob) {
+        // Create a new File object from the blob to preserve name/type if needed
+        // or just pass blob. API expects multipart/form-data with 'file'.
+        const fileToUpload = new File([blob], currentFile.value.name, { type: currentFile.value.type })
+        await uploadFile(fileToUpload)
+        closeCropper()
+      }
+    }, currentFile.value.type)
   }
 }
 

@@ -58,7 +58,7 @@
               </div>
 
               <div class="col-span-full">
-                <ImageUpload v-model="form.logo_url" label="Logo de l'organisation (optionnel)" />
+                <ImageUpload v-model="form.logo_url" label="Logo de l'organisation (optionnel)" crop />
               </div>
             </div>
           </div>

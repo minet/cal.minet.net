@@ -24,3 +24,5 @@ for service in $WAIT_FOR_SERVICES; do
   done
   echo "$host:$port is up!"
 done
+
+echo "All services are up!"
