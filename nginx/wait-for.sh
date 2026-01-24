@@ -13,11 +13,11 @@ for service in $WAIT_FOR_SERVICES; do
   
   echo "Waiting for $host:$port..."
   # Timeout after 60 seconds loop to avoid infinite hang
-  retries=60
-  while ! nc -z $host $port; do
+  retries=120
+  while ! nc -z $host $port 2>/dev/null; do
     retries=$((retries-1))
     if [ $retries -le 0 ]; then
-       echo "Timeout waiting for $host:$port"
+       echo "Timeout waiting for $host:$port" >&2
        exit 1
     fi
     sleep 2
