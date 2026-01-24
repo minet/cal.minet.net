@@ -120,22 +120,86 @@
           </div>
         </div>
 
-        <div class="mt-6 flex flex-col-reverse sm:flex-row items-center justify-end gap-x-6 gap-y-3 sm:gap-y-0">
-          <router-link 
+        <div class="mt-6 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-y-6 sm:gap-y-0">
+          <!-- Delete Button -->
+          <button 
+            type="button" 
+            @click="showDeleteModal1 = true"
+            class="w-full sm:w-auto flex justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+          >
+            Supprimer l'organisation
+          </button>
+
+          <div class="flex flex-col-reverse sm:flex-row items-center gap-x-6 gap-y-3 sm:gap-y-0 w-full sm:w-auto">
+            <router-link 
             :to="`/organizations/${organization.id}`"
             class="w-full text-center sm:w-auto text-sm font-semibold leading-6 text-gray-900"
-          >
+            >
             Annuler
-          </router-link>
-          <button 
-            type="submit" 
-            :disabled="loading"
-            class="w-full sm:w-auto rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50"
-          >
-            {{ loading ? 'Enregistrement...' : 'Enregistrer' }}
-          </button>
+            </router-link>
+            <button 
+                type="submit" 
+                :disabled="loading"
+                class="w-full sm:w-auto rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50"
+            >
+                {{ loading ? 'Enregistrement...' : 'Enregistrer' }}
+            </button>
+          </div>
         </div>
       </form>
+    </div>
+    <!-- Delete Confirmation Modal 1 -->
+    <div v-if="showDeleteModal1" class="relative z-50" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+      <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+      <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
+        <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+          <div class="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
+            <div class="sm:flex sm:items-start">
+              <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                <ExclamationTriangleIcon class="h-6 w-6 text-red-600" aria-hidden="true" />
+              </div>
+              <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
+                <h3 class="text-base font-semibold leading-6 text-gray-900" id="modal-title">Supprimer l'organisation ?</h3>
+                <div class="mt-2">
+                  <p class="text-sm text-gray-500">Êtes-vous sûr de vouloir supprimer cette organisation ? Cette action supprimera également tous les événements, membres, tags et abonnements associés.</p>
+                </div>
+              </div>
+            </div>
+            <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
+              <button type="button" class="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto" @click="showDeleteModal1 = false; showDeleteModal2 = true">Continuer</button>
+              <button type="button" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto" @click="showDeleteModal1 = false">Annuler</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Modal 2 -->
+    <div v-if="showDeleteModal2" class="relative z-50" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+      <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+      <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
+        <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+          <div class="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
+            <div class="sm:flex sm:items-start">
+               <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                <ExclamationTriangleIcon class="h-6 w-6 text-red-600" aria-hidden="true" />
+              </div>
+              <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
+                <h3 class="text-base font-semibold leading-6 text-gray-900" id="modal-title">Confirmation définitive</h3>
+                <div class="mt-2">
+                  <p class="text-sm text-gray-500">Cette action est <strong>IRRÉVERSIBLE</strong>. Toutes les données seront définitivement effacées. Confirmez-vous la suppression ?</p>
+                </div>
+              </div>
+            </div>
+            <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
+              <button type="button" :disabled="isDeleting" class="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto disabled:opacity-50" @click="deleteOrg">
+                {{ isDeleting ? 'Suppression...' : 'Supprimer définitivement' }}
+              </button>
+              <button type="button" :disabled="isDeleting" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto" @click="showDeleteModal2 = false">Annuler</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -148,7 +212,7 @@ import ImageUpload from '../components/ImageUpload.vue'
 import Dropdown from '../components/Dropdown.vue'
 import api from '../utils/api'
 import { hexToOklch, oklchToHex } from '../utils/colorUtils'
-import { TrashIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import { TrashIcon, PlusIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 
 const router = useRouter()
 const route = useRoute()
@@ -168,6 +232,10 @@ const error = ref('')
 const loading = ref(false)
 const links = ref([])
 const deletedLinkIds = ref([])
+
+const showDeleteModal1 = ref(false)
+const showDeleteModal2 = ref(false)
+const isDeleting = ref(false)
 
 const addLink = () => {
   links.value.push({ name: '', url: '', order: links.value.length + 1 })
@@ -282,6 +350,21 @@ const updateOrg = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const deleteOrg = async () => {
+    isDeleting.value = true
+    error.value = ''
+    try {
+        await api.delete(`/organizations/${route.params.id}`)
+        router.push('/')
+    } catch (err) {
+        console.error('Failed to delete organization:', err)
+        error.value = err.response?.data?.detail || 'Échec de la suppression de l\'organisation'
+    } finally {
+        isDeleting.value = false
+        showDeleteModal2.value = false
+    }
 }
 
 onMounted(() => {
