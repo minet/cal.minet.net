@@ -420,6 +420,15 @@ def update_event(
     if event_data.hide_details is not None:
         event.hide_details = event_data.hide_details
     
+    # Only superadmin can set featured
+    if event_data.featured is not None:
+        if current_user.is_superadmin:
+            event.featured = event_data.featured
+        # else: ignore silently or raise error? ignoring is usually fine unless we want to be strict.
+        # Strict is better for API contract.
+        elif event.featured != event_data.featured:
+            raise HTTPException(status_code=403, detail="Only superadmins can set featured status")
+    
     # Update tags
     if event_data.tag_ids is not None:
         # Remove old tags

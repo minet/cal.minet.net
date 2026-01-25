@@ -113,6 +113,27 @@
                   />
                 </div>
               </div>
+
+               <!-- Featured Field (Superadmin Only) -->
+              <div v-if="isSuperAdmin" class="col-span-full">
+                <label for="featured" class="block text-sm font-medium leading-6 text-gray-900">
+                  Mise en avant (jours avant l'événement)
+                </label>
+                <div class="mt-2">
+                  <input
+                    type="number"
+                    name="featured"
+                    id="featured"
+                    v-model.number="form.featured"
+                    min="0"
+                    class="block w-full rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                    placeholder="0 = Pas de mise en avant"
+                  />
+                  <p class="mt-1 text-sm text-gray-500">
+                    Nombre de jours avant l'événement où celui-ci apparaîtra en tête de liste et dans les calendriers de tous les utilisateurs. 0 pour désactiver.
+                  </p>
+                </div>
+              </div>
               
               <div class="col-span-full">
                  <ImageUpload v-model="form.poster_url" label="Affiche de l'événement (optionnel)" />
@@ -238,7 +259,9 @@ const form = ref({
   group_id: null,
   tag_ids: [],
   links: [],
-  guest_organization_ids: []
+  links: [],
+  guest_organization_ids: [],
+  featured: 0
 })
 
 // timeForm removed as it is handled in component
@@ -329,7 +352,10 @@ const loadEvent = async () => {
       tag_ids: event.tags?.map(t => t.id) || [],
       tag_ids: event.tags?.map(t => t.id) || [],
       links: event.event_links || [],
-      guest_organization_ids: event.guest_organizations?.map(o => o.id) || []
+      tag_ids: event.tags?.map(t => t.id) || [],
+      links: event.event_links || [],
+      guest_organization_ids: event.guest_organizations?.map(o => o.id) || [],
+      featured: event.featured || 0
     }
     
     // Initialize Time Components logic removed (handled by component via v-model)
@@ -426,7 +452,9 @@ const updateEvent = async (shouldRedirect = true) => {
       tag_ids: form.value.tag_ids,
       tag_ids: form.value.tag_ids,
       guest_organization_ids: form.value.guest_organization_ids,
-      links: form.value.links.filter(link => link.name && link.url)
+      guest_organization_ids: form.value.guest_organization_ids,
+      links: form.value.links.filter(link => link.name && link.url),
+      featured: form.value.featured
     }
     
     await api.put(`/events/${eventId}`, eventData)

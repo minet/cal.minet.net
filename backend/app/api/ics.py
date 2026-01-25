@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Response
-from sqlmodel import Session, select, or_
+from sqlmodel import Session, select, or_, and_, func
 from app.database import get_session
 from starlette.config import Config
 from app.models import (
@@ -108,6 +108,21 @@ def export_user_calendar(securekey: str, user_id: str, session: Session = Depend
     if reacted_event_ids:
         conditions.append(Event.id.in_(reacted_event_ids))
             
+    if reacted_event_ids:
+        conditions.append(Event.id.in_(reacted_event_ids))
+    
+    # 5. Featured Events (in valid window)
+    # Logic: Event.featured > 0 AND Now >= Start - Featured
+    # => Start <= Now + Featured
+    # We use a SQL expression for this.
+    # Postgres specific: make_interval(days=>featured)
+    conditions.append(
+        and_(
+            Event.featured > 0,
+            Event.start_time <= func.now() + func.make_interval(days=Event.featured)
+        )
+    )
+
     if not conditions:
         events = []
     else:

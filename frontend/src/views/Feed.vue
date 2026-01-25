@@ -50,8 +50,54 @@
         <p class="mt-1 text-sm text-gray-500">Revenez plus tard pour voir les nouveautés !</p>
       </div>
 
+      <!-- Featured Events Section -->
+      <div v-if="featuredEvents.length > 0" class="mb-12">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+           <div 
+            v-for="event in featuredEvents" 
+            :key="event.id"
+            class="relative overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 group cursor-pointer h-64 sm:h-80"
+            @click="router.push(`/events/${event.id}`)"
+           >
+              <!-- Background Image / Poster -->
+              <div class="absolute inset-0">
+                 <img 
+                  v-if="event.poster_url" 
+                  :src="event.poster_url" 
+                  class="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  alt=""
+                 />
+                 <div v-else class="h-full w-full bg-gradient-to-br from-indigo-500 to-purple-600"></div>
+                 
+                 <!-- Overlay -->
+                 <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+              </div>
+
+              <!-- Content -->
+              <div class="absolute inset-x-0 bottom-0 p-6 sm:p-8">
+                  <div class="flex items-center gap-x-2 text-indigo-300 text-sm font-medium mb-2">
+                    <span v-if="event.organization" class="px-2 py-0.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20">
+                      {{ event.organization.name }}
+                    </span>
+                    <span>{{ formatLocalDate(new Date(event.start_time)) }}</span>
+                  </div>
+                  <h3 class="text-2xl sm:text-3xl font-bold text-white mb-2 line-clamp-2 drop-shadow-lg">
+                    {{ event.title }}
+                  </h3>
+                   <p v-if="event.location" class="text-gray-300 text-sm flex items-center">
+                      <MapPinIcon class="h-4 w-4 mr-1" />
+                      {{ event.location }}
+                   </p>
+              </div>
+              
+              <!-- Glowing effect border -->
+              <div class="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/10 group-hover:ring-indigo-400/50 transition-colors"></div>
+           </div>
+        </div>
+      </div>
+
       <!-- Events Grid -->
-      <div v-else class="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,18rem)] gap-6 justify-center">
+      <div class="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,18rem)] gap-6 justify-center">
         <EventCard
           v-for="event in visibleEvents"
           :key="event.id"
@@ -90,12 +136,14 @@ import { useRouter } from 'vue-router'
 import api from '../utils/api'
 import EventCard from '../components/EventCard.vue'
 import { useAuth } from '../composables/useAuth'
-import { CalendarIcon, UserIcon, ArrowRightOnRectangleIcon } from '@heroicons/vue/24/outline'
+import { CalendarIcon, UserIcon, ArrowRightOnRectangleIcon, MapPinIcon } from '@heroicons/vue/24/outline'
+import { formatLocalDate } from '../utils/dateUtils'
 
 const { initialize, setToken, isAuthenticated } = useAuth()
 const router = useRouter()
 const allEvents = ref([])
 const visibleEvents = ref([])
+const featuredEvents = ref([])
 const loading = ref(true)
 const page = ref(1)
 const pageSize = 12
@@ -108,11 +156,23 @@ const fetchEvents = async () => {
     
     // Filter and Sort
     const now = new Date()
+
     const events = response.data
       .filter(e => new Date(e.start_time) >= now) // upcoming only
       .sort((a, b) => new Date(a.start_time) - new Date(b.start_time)) // closest date first
 
-    allEvents.value = events
+    // Separate Featured Events
+    // Featured if featured > 0 AND Now >= Start - FeaturedDays
+    // Which means Start <= Now + FeaturedDays
+    featuredEvents.value = events.filter(e => e.is_featured)
+    
+    // Do not show featured events in the main list to avoid duplication?
+    // Or keep them? User didn't specify. Usually featured implies "also in list" or "pinned".
+    // "Displayed on top ... " implies pinned.
+    // Let's remove them from the main list if they are in featured list, to avoid displaying twice near each other.
+    const featuredIds = new Set(featuredEvents.value.map(e => e.id))
+    allEvents.value = events.filter(e => !featuredIds.has(e.id))
+    
     loadMore() // Initial load
   } catch (error) {
     console.error('Error fetching events:', error)

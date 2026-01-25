@@ -1,7 +1,7 @@
 <template>
   <div>
     <label class="block text-sm font-medium text-gray-700 mb-3">Visibilité de l'événement</label>
-    <div class="grid grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
       <!-- Draft Card -->
       <button
         type="button"
@@ -67,7 +67,7 @@
           Privé
         </h3>
         <p class="text-xs text-gray-500 text-center leading-relaxed">
-          Visible uniquement par les membres du groupe sélectionné
+          Visible uniquement par les membres du groupe sélectionné et les admins de l'organisation
         </p>
         <div v-if="visibility === 'private'" class="absolute top-3 right-3">
           <CheckCircleIcon class="h-5 w-5 text-violet-500" />

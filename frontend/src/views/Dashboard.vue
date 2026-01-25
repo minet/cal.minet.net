@@ -26,7 +26,7 @@
           <button 
             @click="toggleView" 
             type="button" 
-            class="inline-flex w-full justify-center sm:w-auto items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+            class="hidden sm:inline-flex w-full justify-center sm:w-auto items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
           >
             <component :is="viewType === 'month' ? CalendarIcon : CalendarDaysIcon" class="h-5 w-5 mr-2 text-gray-500" />
             {{ viewType === 'month' ? 'Semaine' : 'Mois' }}
@@ -221,7 +221,7 @@ import { PlusIcon, CalendarIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRight
 import api from '../utils/api'
 import { getOrgColor } from '../utils/colorUtils'
 
-const viewType = ref('month') // 'month' or 'week'
+const viewType = ref('week') // 'month' or 'week'
 const { user, initialize, setToken, isSuperAdmin } = useAuth()
 const currentDate = ref(new Date())
 const events = ref([])
@@ -433,6 +433,10 @@ onMounted(async () => {
   
   await initialize()
   await loadEvents()
+  
+  if (viewType.value === 'week') {
+    nextTick(scrollToToday)
+  }
 })
 </script>
 

@@ -146,6 +146,7 @@ class Event(SQLModel, table=True):
     rejection_message: Optional[str] = None
     hide_details: bool = Field(default=False)
     approved_at: Optional[datetime] = None
+    featured: int = Field(default=0)
 
     organization: Optional[Organization] = Relationship(back_populates="events")
     group: Optional["Group"] = Relationship(back_populates="events")

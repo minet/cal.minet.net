@@ -131,6 +131,7 @@ class UpdateEvent(BaseModel):
     show_on_schedule: Optional[bool] = None
     poster_url: Optional[str] = None
     hide_details: Optional[bool] = None
+    featured: Optional[int] = None
 
 class RejectEventRequest(BaseModel):
     message: str
@@ -159,7 +160,12 @@ class EventRead(BaseModel):
     poster_url: Optional[str] = None
     rejection_message: Optional[str] = None
     approved_at: Optional[datetime] = None
+    approved_at: Optional[datetime] = None
     created_at: datetime
+    
+    # New Fields
+    featured: int = 0
+    is_featured: bool = False
     
     organization: Optional[OrganizationRead] = None
     guest_organizations: List[OrganizationRead] = []
@@ -242,7 +248,7 @@ class EventRead(BaseModel):
         if event.group:
              group_read = GroupRead(id=event.group.id, name=event.group.name)
 
-        from datetime import timezone
+        from datetime import timezone, timedelta
 
         # Ensure timezone context is preserved/added
         start_time = event.start_time.replace(tzinfo=timezone.utc) if event.start_time.tzinfo is None else event.start_time
@@ -261,6 +267,8 @@ class EventRead(BaseModel):
             hide_details=event.hide_details,
             poster_url=None if should_hide else event.poster_url,
             created_at=event.created_at,
+            featured=event.featured,
+            is_featured=(event.featured > 0 and start_time.replace(tzinfo=None) <= (datetime.utcnow() + timedelta(days=event.featured))),
             approved_at=event.approved_at,
             rejection_message=event.rejection_message if (
                 current_user and (
