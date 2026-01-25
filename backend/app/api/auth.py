@@ -16,14 +16,11 @@ oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="auth/token", auto_error=
 
 SECRET_KEY = os.getenv("SECRET_KEY", "CHANGE_THIS_SECRET_KEY")  # Use environment variable
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 30  # 30 days
+ACCESS_TOKEN_EXPIRE_HOURS = 24 * 30  # 30 days
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+def create_access_token(data: dict):
     to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+    expire = datetime.now() + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt

@@ -92,16 +92,6 @@ async def callback_campus(request: Request, session: Session = Depends(get_sessi
                 server_url=config('CAS_SERVER_URL')
             )
 
-            # Manual debug request
-            import httpx
-            validate_url = f"{config('CAS_SERVER_URL')}/p3/serviceValidate"
-            params = {
-                "ticket": ticket,
-                "service": redirect_uri
-            }
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(validate_url, params=params)
-
             user, attributes, pgtiou = cas_client.verify_ticket(
                 ticket=ticket
             )
