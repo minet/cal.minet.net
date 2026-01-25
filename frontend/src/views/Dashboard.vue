@@ -4,17 +4,20 @@
       <div class="px-4 py-6 sm:px-6 lg:px-8 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 sm:gap-0">
         <div class="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
           <h1 class="text-3xl font-bold tracking-tight text-gray-900">Calendrier</h1>
-          <div class="flex items-center justify-between sm:justify-start space-x-2 w-full sm:w-auto">
+          <div class="flex items-center justify-center sm:justify-start space-x-2 w-full sm:w-auto">
             <button @click="previousPeriod" class="p-2 hover:bg-gray-100 rounded-lg">
               <ChevronLeftIcon class="h-5 w-5 text-gray-600" />
             </button>
-            <span class="text-sm font-medium text-gray-700 min-w-[200px] text-center">
+            <span 
+              @click="goToToday" 
+              class="text-sm font-medium text-gray-700 min-w-[200px] text-center cursor-pointer select-none hover:bg-gray-50 rounded py-1 transition-colors"
+            >
               {{ currentPeriodLabel }}
             </span>
             <button @click="nextPeriod" class="p-2 hover:bg-gray-100 rounded-lg">
               <ChevronRightIcon class="h-5 w-5 text-gray-600" />
             </button>
-            <button @click="goToToday" class="ml-2 px-3 py-1 text-sm font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg">
+            <button @click="goToToday" class="hidden sm:block ml-2 px-3 py-1 text-sm font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg">
               Aujourd'hui
             </button>
           </div>
@@ -109,95 +112,100 @@
     </div>
 
     <!-- Week View -->
-    <div v-else class="bg-white shadow-sm rounded-lg overflow-hidden">
-      <!-- Day Headers -->
-      <div class="grid grid-cols-7 gap-px border-b border-gray-300 bg-gray-200 text-center text-xs font-semibold leading-6 text-gray-700">
-        <div v-for="day in weekDays" :key="day.date" class="bg-white py-3">
-          <div class="text-gray-900">{{ day.dayName }}</div>
-          <div 
-            class="mt-1 flex items-center justify-center"
-            :class="day.isToday ? 'mx-auto flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 font-semibold text-white' : 'text-gray-500'"
-          >
-            {{ day.dayNumber }}
-          </div>
-        </div>
-      </div>
-      
-      <!-- Week Grid -->
-      <div class="grid grid-cols-7 gap-px bg-gray-200 auto-rows-fr" style="min-height: 500px;">
-        <div v-for="day in weekDays" :key="day.date" class="relative bg-white px-2 py-4">
-          <ol v-if="day.events.length > 0" class="space-y-2">
-            <li v-for="event in day.events" :key="event.id">
-              <router-link 
-                :to="`/events/${event.id}`"
-                :class="[
-                  'group block p-2 rounded-lg transition-colors',
-                  event.is_draft ? 'opacity-60' : ''
-                ]"
-                :style="{ 
-                  backgroundColor: getOrgColor(event.organization?.color_chroma/20, event.organization?.color_hue, 1),
-                  borderLeft: `3px solid ${getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.6)}`
-                }"
+    <!-- Week View -->
+    <div v-else class="bg-white shadow-sm rounded-lg overflow-hidden flex flex-col">
+      <div ref="weekScrollContainer" class="overflow-x-auto w-full no-scrollbar">
+        <div class="min-w-[1050px] bg-gray-200">
+          <!-- Day Headers -->
+          <div class="grid grid-cols-7 gap-px border-b border-gray-300 bg-gray-200 text-center text-xs font-semibold leading-6 text-gray-700">
+            <div v-for="day in weekDays" :key="day.date" class="bg-white py-3">
+              <div class="text-gray-900">{{ day.dayName }}</div>
+              <div 
+                class="mt-1 flex items-center justify-center"
+                :class="day.isToday ? 'mx-auto flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 font-semibold text-white' : 'text-gray-500'"
               >
-                <!-- Organization Badges -->
-                <div class="flex items-center gap-1 mb-1.5">
-                  <template v-if="event.guest_organizations && event.guest_organizations.length > 0">
-                     <div class="flex -space-x-1.5">
-                        <img 
-                          :src="event.organization?.logo_url || `https://ui-avatars.com/api/?name=${event.organization?.name}&background=random`" 
-                          class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
-                          :title="event.organization?.name"
-                        />
-                        <img 
-                          v-for="guest in event.guest_organizations" 
-                          :key="guest.id"
-                          :src="guest.logo_url || `https://ui-avatars.com/api/?name=${guest.name}&background=random`" 
-                          class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
-                          :title="guest.name"
-                        />
-                     </div>
-                  </template>
-                  <template v-else>
-                     <div class="inline-flex items-center rounded-full bg-white/60 px-1.5 py-0.5 backdrop-blur-sm">
-                        <img 
-                          v-if="event.organization?.logo_url"
-                          :src="event.organization.logo_url" 
-                          class="mr-1 h-3 w-3 rounded-full object-cover"
-                        />
-                        <span class="text-[10px] font-medium leading-none truncate max-w-[100px]" 
-                              :style="{ color: getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.4) }">
-                          {{ event.organization?.name }}
-                        </span>
-                     </div>
-                  </template>
-                </div>
+                {{ day.dayNumber }}
+              </div>
+            </div>
+          </div>
+          
+          <!-- Week Grid -->
+          <div class="grid grid-cols-7 gap-px bg-gray-200 auto-rows-fr" style="min-height: 500px;">
+            <div v-for="day in weekDays" :key="day.date" class="relative bg-white px-2 py-4">
+              <ol v-if="day.events.length > 0" class="space-y-2">
+                <li v-for="event in day.events" :key="event.id">
+                  <router-link 
+                    :to="`/events/${event.id}`"
+                    :class="[
+                      'group block p-2 rounded-lg transition-colors',
+                      event.is_draft ? 'opacity-60' : ''
+                    ]"
+                    :style="{ 
+                      backgroundColor: getOrgColor(event.organization?.color_chroma/20, event.organization?.color_hue, 1),
+                      borderLeft: `3px solid ${getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.6)}`
+                    }"
+                  >
+                    <!-- Organization Badges -->
+                    <div class="flex items-center gap-1 mb-1.5">
+                      <template v-if="event.guest_organizations && event.guest_organizations.length > 0">
+                         <div class="flex -space-x-1.5">
+                            <img 
+                              :src="event.organization?.logo_url || `https://ui-avatars.com/api/?name=${event.organization?.name}&background=random`" 
+                              class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
+                              :title="event.organization?.name"
+                            />
+                            <img 
+                              v-for="guest in event.guest_organizations" 
+                              :key="guest.id"
+                              :src="guest.logo_url || `https://ui-avatars.com/api/?name=${guest.name}&background=random`" 
+                              class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
+                              :title="guest.name"
+                            />
+                         </div>
+                      </template>
+                      <template v-else>
+                         <div class="inline-flex items-center rounded-full bg-white/60 px-1.5 py-0.5 backdrop-blur-sm">
+                            <img 
+                              v-if="event.organization?.logo_url"
+                              :src="event.organization.logo_url" 
+                              class="mr-1 h-3 w-3 rounded-full object-cover"
+                            />
+                            <span class="text-[10px] font-medium leading-none truncate max-w-[100px]" 
+                                  :style="{ color: getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.4) }">
+                              {{ event.organization?.name }}
+                            </span>
+                         </div>
+                      </template>
+                    </div>
 
-                <p :class="[
-                  'text-sm font-medium',
-                  event.is_draft ? 'italic' : ''
-                ]"
-                :style="{ color: getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.3) }"
-                >
-                  {{ event.is_draft ? '(Brouillon) ' : '' }}{{ event.title }}
-                </p>
-                <div 
-                  class="flex items-center text-xs mt-1" 
-                  :style="{ color: getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.5) }"
-                >
-                  <ClockIcon class="h-3 w-3 mr-1" />
-                  {{ formatTime(event.start_time) }}
-                </div>
-                <div 
-                  v-if="event.location" 
-                  class="flex items-center text-xs mt-1"
-                  :style="{ color: getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.5) }"
-                >
-                  <MapPinIcon class="h-3 w-3 mr-1" />
-                  {{ event.location }}
-                </div>
-              </router-link>
-            </li>
-          </ol>
+                    <p :class="[
+                      'text-sm font-medium',
+                      event.is_draft ? 'italic' : ''
+                    ]"
+                    :style="{ color: getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.3) }"
+                    >
+                      {{ event.is_draft ? '(Brouillon) ' : '' }}{{ event.title }}
+                    </p>
+                    <div 
+                      class="flex items-center text-xs mt-1" 
+                      :style="{ color: getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.5) }"
+                    >
+                      <ClockIcon class="h-3 w-3 mr-1" />
+                      {{ formatTime(event.start_time) }}
+                    </div>
+                    <div 
+                      v-if="event.location" 
+                      class="flex items-center text-xs mt-1"
+                      :style="{ color: getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.5) }"
+                    >
+                      <MapPinIcon class="h-3 w-3 mr-1" />
+                      {{ event.location }}
+                    </div>
+                  </router-link>
+                </li>
+              </ol>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -205,7 +213,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { formatLocalDate } from '../utils/dateUtils'
@@ -222,6 +230,9 @@ const loading = ref(false)
 
 const toggleView = () => {
   viewType.value = viewType.value === 'month' ? 'week' : 'month'
+  if (viewType.value === 'week') {
+    nextTick(scrollToToday)
+  }
 }
 
 const canCreateEvent = computed(() => {
@@ -260,6 +271,34 @@ const nextPeriod = () => {
 
 const goToToday = () => {
   currentDate.value = new Date()
+  if (viewType.value === 'week') {
+    nextTick(scrollToToday)
+  }
+}
+
+const weekScrollContainer = ref(null)
+
+const scrollToToday = () => {
+  if (!weekScrollContainer.value) return
+  
+  const todayIndex = weekDays.value.findIndex(day => day.isToday)
+  if (todayIndex !== -1) {
+    const container = weekScrollContainer.value
+    const scrollWidth = container.scrollWidth
+    const clientWidth = container.clientWidth
+    
+    // If not overflowing, no need to scroll
+    if (scrollWidth <= clientWidth) return
+
+    const colWidth = scrollWidth / 7
+    // Center the element
+    const scrollPos = (colWidth * todayIndex) - (clientWidth / 2) + (colWidth / 2)
+    
+    container.scrollTo({
+      left: scrollPos,
+      behavior: 'smooth'
+    })
+  }
 }
 
 const getWeekStart = (date) => {

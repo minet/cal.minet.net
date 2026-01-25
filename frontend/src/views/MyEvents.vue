@@ -193,6 +193,8 @@ const filteredEvents = computed(() => {
     }
     return true
   })
+  .filter(event => new Date(event.end_time || event.start_time) >= new Date())
+  .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
 })
 
 const formatDate = (dateStr) => {

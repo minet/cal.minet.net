@@ -147,6 +147,13 @@ const filteredEvents = computed(() => {
     )
   }
 
+  // Filter out past events
+  const now = new Date()
+  result = result.filter(e => new Date(e.end_time || e.start_time) >= now)
+
+  // Sort by date (ascending)
+  result.sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
+
   return result
 })
 

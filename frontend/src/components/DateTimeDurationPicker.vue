@@ -22,11 +22,12 @@
         <label for="date" class="block text-sm font-medium leading-6 text-gray-900">Date</label>
         <div class="mt-2">
           <input 
-            type="date" 
+            type="text" 
             id="date" 
             required
             v-model="date"
-            class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
+            placeholder="JJ/MM/AAAA"
+            class="block w-full rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
           />
         </div>
       </div>
@@ -36,11 +37,12 @@
         <label for="time" class="block text-sm font-medium leading-6 text-gray-900">Heure de début</label>
         <div class="mt-2">
           <input 
-            type="time" 
+            type="text" 
             id="time" 
             required
             v-model="time"
-            class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
+            placeholder="HH:MM"
+            class="block w-full rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
           />
         </div>
       </div>
@@ -49,25 +51,26 @@
       <div>
         <label class="block text-sm font-medium leading-6 text-gray-900">Durée</label>
         <div class="mt-2 flex space-x-2">
-          <div class="relative rounded-md shadow-sm">
+          <div class="relative rounded-md shadow-sm flex-1">
             <input 
               type="number" 
               v-model.number="durationHours"
               min="0"
-              class="block w-full rounded-md border-0 py-1.5 pr-8 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
+              class="block w-full rounded-md border-0 py-1.5 pl-3 pr-8 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
               placeholder="0" 
             />
             <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
               <span class="text-gray-500 sm:text-sm">h</span>
             </div>
           </div>
-          <div class="relative rounded-md shadow-sm">
+          <div class="relative rounded-md shadow-sm flex-1">
             <input 
               type="number" 
               v-model.number="durationMinutes"
               min="0"
               max="59"
-              class="block w-full rounded-md border-0 py-1.5 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
+              :step="15"
+              class="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
               placeholder="0" 
             />
             <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
@@ -108,13 +111,17 @@ const time = ref('')
 const durationHours = ref(0)
 const durationMinutes = ref(0)
 
-const formatDateTimeLocal = (dateObj) => {
+const formatDateFR = (dateObj) => {
   const year = dateObj.getFullYear()
   const month = String(dateObj.getMonth() + 1).padStart(2, '0')
   const day = String(dateObj.getDate()).padStart(2, '0')
+  return `${day}/${month}/${year}`
+}
+
+const formatTimeFR = (dateObj) => {
   const hours = String(dateObj.getHours()).padStart(2, '0')
   const minutes = String(dateObj.getMinutes()).padStart(2, '0')
-  return `${year}-${month}-${day}T${hours}:${minutes}`
+  return `${hours}:${minutes}`
 }
 
 const updateInternalState = () => {
@@ -127,8 +134,6 @@ const updateInternalState = () => {
         now.setMilliseconds(0)
         now.setHours(now.getHours() + 1)
         
-        const end = new Date(now.getTime() + 60 * 60 * 1000)
-        
         // We trigger an emit, but we also set local first to avoid loops if we careful
         // Actually, better to just set local state from props if they exist, else wait.
         // But for "Create", they are empty initially. The parent likely sets them or expects us to init.
@@ -140,14 +145,13 @@ const updateInternalState = () => {
   }
 
   // Parse strings to local Date objects
-  // The props are expected to be "YYYY-MM-DDTHH:mm" format (datetime-local safe) or ISO
-  // View 49/50 use `formatDateTimeLocal` which returns "YYYY-MM-DDTHH:mm"
+  // The props are expected to be "YYYY-MM-DDTHH:mm:ss" ISO format or similar
   
   if (props.startTime) {
     const start = new Date(props.startTime)
     if (!isNaN(start.getTime())) {
-       date.value = formatDateTimeLocal(start).split('T')[0]
-       time.value = formatDateTimeLocal(start).split('T')[1]
+       date.value = formatDateFR(start)
+       time.value = formatTimeFR(start)
     }
   }
   
@@ -167,7 +171,23 @@ const updateInternalState = () => {
 const emitUpdates = () => {
   if (!date.value || !time.value) return
 
-  const startDateTime = new Date(`${date.value}T${time.value}`)
+  // Parse date DD/MM/YYYY and time HH:MM
+  const dateParts = date.value.split('/')
+  const timeParts = time.value.split(':')
+  
+  if (dateParts.length !== 3 || timeParts.length !== 2) return
+  
+  const [day, month, year] = dateParts
+  const [hours, minutes] = timeParts
+  
+  // Basic validation
+  if (day.length !== 2 || month.length !== 2 || year.length !== 4) return
+  if (hours.length !== 2 || minutes.length !== 2) return
+
+  const startDateTime = new Date(`${year}-${month}-${day}T${hours}:${minutes}:00`)
+  
+  if (isNaN(startDateTime.getTime())) return
+
   const formattedStart = startDateTime.toISOString()
   
   const durationMs = (durationHours.value * 60 * 60 * 1000) + (durationMinutes.value * 60 * 1000)

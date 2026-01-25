@@ -8,7 +8,7 @@
           <XMarkIcon class="h-6 w-6" />
         </button>
       </div>
-      <router-link v-if="user" to="/profile" class="flex items-center space-x-3 hover:bg-gray-50 p-2 -m-2 rounded-lg transition-colors group">
+      <router-link @click="closeSidebar" v-if="user" to="/profile" class="flex items-center space-x-3 hover:bg-gray-50 p-2 -m-2 rounded-lg transition-colors group">
         <UserAvatar 
           :src="user.profile_picture_url" 
           :name="user.full_name || user.email" 
@@ -27,12 +27,12 @@
       <div>
         <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Accès rapide</h4>
         <nav class="space-y-1">
-          <router-link to="/" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-slate-50 hover:text-slate-700">
+          <router-link @click="closeSidebar" to="/" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-slate-50 hover:text-slate-700">
             <NewspaperIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-slate-500 transition-colors" />
             À venir
           </router-link>
 
-          <router-link 
+          <router-link @click="closeSidebar" 
             v-if="isSuperAdmin || organizations.length > 0"
             to="/events/create" 
             class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-indigo-50 hover:text-indigo-700"
@@ -41,7 +41,7 @@
             Nouvel événement
           </router-link>
 
-          <router-link 
+          <router-link @click="closeSidebar" 
             v-if="isSuperAdmin || organizations.length > 0" 
             to="/my-events" 
             class="group flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-slate-50 hover:text-slate-700"
@@ -65,7 +65,7 @@
       <div v-if="isSuperAdmin">
         <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Administration</h4>
         <nav class="space-y-1">
-          <router-link 
+          <router-link @click="closeSidebar" 
             to="/approval-requests" 
             class="group flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-amber-50 hover:text-amber-700"
           >
@@ -81,12 +81,12 @@
             </span>
           </router-link>
 
-          <router-link to="/admin/users" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-gray-900">
+          <router-link @click="closeSidebar" to="/admin/users" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-gray-900">
             <UsersIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-gray-500 transition-colors" />
             Utilisateurs
           </router-link>
 
-          <router-link to="/admin/tags" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-gray-900">
+          <router-link @click="closeSidebar" to="/admin/tags" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-gray-900">
             <TagIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-gray-500 transition-colors" />
             Tags
           </router-link>
@@ -97,22 +97,22 @@
       <div>
         <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Découvrir</h4>
         <nav class="space-y-1">
-          <router-link to="/dashboard" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-emerald-50 hover:text-emerald-700">
+          <router-link @click="closeSidebar" to="/dashboard" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-emerald-50 hover:text-emerald-700">
             <CalendarIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-emerald-500 transition-colors" />
             Calendrier
           </router-link>
 
-          <router-link to="/events" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-pink-50 hover:text-pink-700">
+          <router-link @click="closeSidebar" to="/events" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-pink-50 hover:text-pink-700">
             <CalendarDaysIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-pink-500 transition-colors" />
             Tous les événements
           </router-link>
 
-          <router-link to="/subscriptions" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-purple-50 hover:text-purple-700">
+          <router-link @click="closeSidebar" to="/subscriptions" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-purple-50 hover:text-purple-700">
             <BellIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-purple-500 transition-colors" />
             Mes abonnements
           </router-link>
 
-          <router-link to="/organizations" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700">
+          <router-link @click="closeSidebar" to="/organizations" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700">
             <BuildingOfficeIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-blue-500 transition-colors" />
             Toutes les organisations
           </router-link>
@@ -129,7 +129,7 @@
       <nav class="">
         <div v-for="org in organizations" :key="org.id" class="group">
           <div class="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors">
-            <router-link :to="`/organizations/${org.id}`" class="flex items-center space-x-3 flex-1 min-w-0">
+            <router-link @click="closeSidebar" :to="`/organizations/${org.id}`" class="flex items-center space-x-3 flex-1 min-w-0">
               <div 
                 class="flex-shrink-0 h-6 w-6 rounded-full flex items-center justify-center overflow-hidden transition-colors"
                 :style="{ backgroundColor: getOrgColor(org.color_chroma/20, org.color_hue, 1) }"
@@ -143,7 +143,7 @@
               </div>
             </router-link>
             <div class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <router-link :to="`/organizations/${org.id}/edit`" class="p-1 text-gray-400 hover:text-indigo-600" title="Modifier">
+              <router-link @click="closeSidebar" :to="`/organizations/${org.id}/edit`" class="p-1 text-gray-400 hover:text-indigo-600" title="Modifier">
                 <Cog6ToothIcon class="h-4 w-4" />
               </router-link>
             </div>
@@ -194,7 +194,11 @@ const props = defineProps({
   }
 })
 
-defineEmits(['close'])
+const emit = defineEmits(['close'])
+
+const closeSidebar = () => {
+  emit('close')
+}
 
 const { user, isAuthenticated, isSuperAdmin, logout } = useAuth()
 const organizations = ref([])
