@@ -3,6 +3,7 @@ from minio.error import S3Error
 import os
 from io import BytesIO
 from uuid import uuid4
+import json
 
 # MinIO client configuration
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "minio:9000")
@@ -36,7 +37,6 @@ def ensure_bucket_exists():
                     }
                 ]
             }
-            import json
             minio_client.set_bucket_policy(MINIO_BUCKET, json.dumps(policy))
     except S3Error as e:
         print(f"Error ensuring bucket exists: {e}")

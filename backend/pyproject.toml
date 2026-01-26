@@ -21,6 +21,7 @@ dependencies = [
     "python-dotenv",
     "python-jose[cryptography]",
     "python-multipart",
+    "pywebpush",
     "sqlmodel",
     "uvicorn[standard]",
 ]

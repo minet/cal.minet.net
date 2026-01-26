@@ -254,6 +254,31 @@
           </router-link>
         </div>
       </div>
+
+
+      <!-- Notifications Card -->
+      <div v-if="isCurrentUser" class="bg-white shadow-sm rounded-lg overflow-hidden">
+        <div class="px-4 py-5 sm:p-6">
+          <div class="flex items-center mb-2">
+            <BellIcon class="h-6 w-6 text-gray-400 mr-3" />
+            <h2 class="text-lg font-medium text-gray-900">Notifications Push</h2>
+          </div>
+          <p class="text-sm text-gray-500 mb-4 max-w-2xl">
+            Activez les notifications push sur cet appareil pour être averti des événements à venir.
+          </p>
+          <button 
+            @click="toggleNotifications"
+            :class="[
+              notificationsEnabled 
+                ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500' 
+                : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500',
+              'inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white focus:outline-none focus:ring-2 focus:ring-offset-2'
+            ]"
+          >
+            {{ notificationsEnabled ? 'Désactiver les notifications' : 'Activer les notifications' }}
+          </button>
+        </div>
+      </div>
     </div>
   </div>
   
@@ -305,6 +330,7 @@ const editForm = ref({
   profile_picture_url: '',
   facebook_link: '',
   phone_number: '',
+  notification_delay: 15
 })
 
 const isCurrentUser = computed(() => {
@@ -330,6 +356,7 @@ const loadUser = async () => {
         profile_picture_url: profileUser.value.profile_picture_url || '',
         facebook_link: profileUser.value.facebook_link || '',
         phone_number: profileUser.value.phone_number || '',
+        notification_delay: profileUser.value.notification_delay || 15
       }
     }
   } catch (error) {
@@ -410,6 +437,7 @@ const cancelEditing = () => {
       profile_picture_url: profileUser.value.profile_picture_url || '',
       facebook_link: profileUser.value.facebook_link || '',
       phone_number: profileUser.value.phone_number || '',
+      notification_delay: profileUser.value.notification_delay || 15
     }
   }
 }
@@ -514,10 +542,45 @@ watch(() => route.params.id, () => {
   loadUser().then(() => loadMemberships()).then(() => loadSecurekey())
 })
 
+import { askPermissionAndSubscribe, unsubscribeUserFromPush } from '../utils/push'
+
+const notificationsEnabled = ref(false)
+
+const checkNotificationStatus = async () => {
+  if ('serviceWorker' in navigator && 'PushManager' in window) {
+    const registration = await navigator.serviceWorker.ready
+    const subscription = await registration.pushManager.getSubscription()
+    notificationsEnabled.value = !!subscription
+  }
+}
+
+const toggleNotifications = async () => {
+  if (notificationsEnabled.value) {
+    if (confirm("Voulez-vous vraiment désactiver les notifications push ?")) {
+      const success = await unsubscribeUserFromPush()
+      if (success) {
+        notificationsEnabled.value = false
+        alert("Notifications désactivées.")
+      } else {
+        alert("Erreur lors de la désactivation.")
+      }
+    }
+  } else {
+    const success = await askPermissionAndSubscribe()
+    if (success) {
+      notificationsEnabled.value = true
+      alert("Notifications activées avec succès !")
+    } else {
+      alert("Impossible d'activer les notifications.")
+    }
+  }
+}
+
 onMounted(() => {
   loadUser().then(() => {
     loadMemberships()
     loadSecurekey()
+    checkNotificationStatus()
     if (isSuperAdmin.value) {
       loadAllOrganizations()
     }

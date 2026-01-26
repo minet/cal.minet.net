@@ -20,6 +20,15 @@ class EventGuestOrganization(SQLModel, table=True):
     event_id: UUID = Field(foreign_key="event.id", primary_key=True)
     organization_id: UUID = Field(foreign_key="organization.id", primary_key=True)
 
+class UserPushToken(SQLModel, table=True):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    user_id: UUID = Field(foreign_key="user.id")
+    endpoint: str = Field(index=True)
+    keys: str # JSON string of keys
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    user: "User" = Relationship(back_populates="push_tokens")
+
 class EventVisibility(str, Enum):
     DRAFT = "draft"
     PRIVATE = "private"
@@ -36,9 +45,11 @@ class User(SQLModel, table=True):
     phone_number: Optional[str] = None
     is_active: bool = Field(default=True)
     is_superadmin: bool = Field(default=False)
+    notification_delay: int = Field(default=45) # Minutes before event
 
     memberships: List["Membership"] = Relationship(back_populates="user")
     subscriptions: List["Subscription"] = Relationship(back_populates="user")
+    push_tokens: List["UserPushToken"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
     def to_public_read_model(self):
         from app.schemas import UserPublicRead

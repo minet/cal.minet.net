@@ -8,7 +8,7 @@ from sqlalchemy.exc import OperationalError
 from contextlib import asynccontextmanager
 from app.database import create_db_and_tables
 from app.migration_runner import run_migrations
-from app.api import auth, organizations, events, ics, users, upload, subscriptions, cas, groups, tags, organization_links, admin
+from app.api import auth, organizations, events, ics, users, upload, subscriptions, cas, groups, tags, organization_links, admin, notifications
 
 # Load environment variables
 load_dotenv()
@@ -34,8 +34,37 @@ async def lifespan(app: FastAPI):
     if retries == 0:
         logger.error("Could not connect to the database after multiple attempts.")
         raise Exception("Database connection failed")
+
+    # Start notification loop
+    import asyncio
+    from app.api.notifications import process_notifications
+    from app.database import engine
+    from sqlmodel import Session
+
+    async def notification_loop():
+        def run_check():
+            with Session(engine) as session:
+                return process_notifications(session)
+
+        while True:
+            try:
+                cron_delay = int(os.getenv("CRON_DELAY", "900"))
+                logger.info("Running notification check...")
+                
+                count = await asyncio.to_thread(run_check)
+                
+                if count > 0:
+                    logger.info(f"Sent {count} notifications")
+                await asyncio.sleep(cron_delay)
+            except Exception as e:
+                logger.error(f"Error in notification loop: {e}")
+                await asyncio.sleep(60) # Wait a bit before retrying
+
+    task = asyncio.create_task(notification_loop())
         
     yield
+
+    task.cancel()
 
 app = FastAPI(title="Calend'INT API", lifespan=lifespan)
 
@@ -57,6 +86,7 @@ app.include_router(subscriptions.router, prefix="/subscriptions", tags=["subscri
 app.include_router(groups.router, tags=["groups"])
 app.include_router(tags.router, tags=["tags"])
 app.include_router(organization_links.router, tags=["organization-links"])
+app.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 
 @app.get("/")
 def read_root():

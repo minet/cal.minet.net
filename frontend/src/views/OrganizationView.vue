@@ -401,6 +401,8 @@ const checkCanEdit = async () => {
   }
 }
 
+import { askPermissionAndSubscribe } from '../utils/push'
+
 const isSubscribedToTag = (tagId) => {
   return subscriptions.value.some(sub => sub.tag?.id === tagId)
 }
@@ -418,6 +420,7 @@ const toggleTagSubscription = async (tag) => {
         id: response.data.subscription_id,
         tag: { id: tag.id }
       })
+      askPermissionAndSubscribe()
     }
   } catch (error) {
     console.error('Failed to toggle subscription:', error)

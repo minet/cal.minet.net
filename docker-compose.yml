@@ -29,8 +29,10 @@ services:
       - SMTP_PORT=1025
       - SMTP_USER=
       - SMTP_PASSWORD=
-      - EMAILS_FROM_EMAIL=calendint@minet.net
       - EMAILS_FROM_NAME=Calend'INT by MiNET
+      - CRON_DELAY=${CRON_DELAY:-900} # Default 15 minutes
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
     depends_on:
       db:
         condition: service_healthy

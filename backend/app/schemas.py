@@ -73,9 +73,21 @@ class UserRead(BaseModel):
     facebook_link: Optional[str] = None
     is_superadmin: bool = False
     is_active: bool = True
+    notification_delay: int = 15
 
     class Config:
         from_attributes = True
+
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    profile_picture_url: Optional[str] = None
+    phone_number: Optional[str] = None
+    facebook_link: Optional[str] = None
+    notification_delay: Optional[int] = None
+
+class PushTokenCreate(BaseModel):
+    endpoint: str
+    keys: str
 
 class UserPublicRead(BaseModel):
     id: UUID

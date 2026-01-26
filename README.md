@@ -66,6 +66,24 @@ Calend'INT is an associative calendar platform designed for campus students to d
 
 ### Make a superadmin
 
-```sh
 docker compose exec backend python make_superadmin.py <email>
 ```
+
+### Push Notifications
+
+To enable push notifications, you need to generate VAPID keys.
+
+1. Generate keys:
+   ```bash
+   # You can use the web-push library or an online generator
+   # Example using npx:
+   npx web-push generate-vapid-keys
+   ```
+
+2. Add them to your `.env` file (create if needed):
+   ```env
+   VAPID_PUBLIC_KEY=<your_public_key>
+   VAPID_PRIVATE_KEY=<your_private_key>
+   ADMIN_EMAIL=mailto:admin@example.com
+   CRON_DELAY=900
+   ```

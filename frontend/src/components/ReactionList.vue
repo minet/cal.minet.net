@@ -49,6 +49,8 @@ import { PlusIcon } from '@heroicons/vue/24/outline'
 import EmojiPicker from './EmojiPicker.vue'
 import api from '../utils/api'
 
+import { askPermissionAndSubscribe } from '../utils/push'
+
 const props = defineProps({
   eventId: {
     type: String,
@@ -79,8 +81,13 @@ const toggleReaction = async (emoji) => {
   loading.value = true
   
   try {
-    await api.post(`/events/${props.eventId}/react`, { emoji })
+    const response = await api.post(`/events/${props.eventId}/react`, { emoji })
     emit('update')
+    
+    // Check if added (message says "Reaction added")
+    if (response.data.message === "Reaction added" || response.data.message === "Reaction updated") {
+        askPermissionAndSubscribe()
+    }
   } catch (error) {
     console.error('Failed to react:', error)
   } finally {

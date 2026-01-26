@@ -21,6 +21,8 @@ import { ref, onMounted } from 'vue'
 import { BellIcon, BellSlashIcon } from '@heroicons/vue/24/outline'
 import api from '../utils/api'
 
+import { askPermissionAndSubscribe } from '../utils/push'
+
 const props = defineProps({
   organizationId: {
     type: String,
@@ -51,6 +53,8 @@ const toggleSubscription = async () => {
     } else {
       await api.post(`/subscriptions/organizations/${props.organizationId}`)
       isSubscribed.value = true
+      // Ask for push permission
+      askPermissionAndSubscribe()
     }
   } catch (error) {
     console.error('Failed to toggle subscription:', error)
