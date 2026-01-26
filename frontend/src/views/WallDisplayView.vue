@@ -224,7 +224,7 @@ const fetchEvents = async () => {
       const endTime = new Date(event.end_time)
       
       const isPublic = event.visibility === 'public_approved'
-      const isUpcoming = startTime <= threeDaysLater
+      const isUpcoming = startTime <= threeDaysLater || event.is_featured
       const isNotOver = endTime > now
       
       return isPublic && isUpcoming && isNotOver
