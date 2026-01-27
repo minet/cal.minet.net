@@ -1,11 +1,11 @@
 <template>
   <div 
-    class="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 h-full flex flex-col border-2"
+    class="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 h-full flex flex-col"
     :class="{
+      'border-2': ['public_rejected', 'public_pending', 'private'].includes(event.visibility),
       'border-red-500': event.visibility === 'public_rejected',
       'border-yellow-500': event.visibility === 'public_pending',
       'border-blue-500': event.visibility === 'private',
-      'border-transparent': !['public_rejected', 'public_pending', 'private'].includes(event.visibility),
       'opacity-75': event.visibility === 'draft'
     }"
   >

@@ -220,6 +220,10 @@ const groupedEvents = computed(() => {
     dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2)
     const threeDaysLimit = new Date(today)
     threeDaysLimit.setDate(threeDaysLimit.getDate() + 3)
+    
+    // 3 Weeks + Today Limit (21 days)
+    const threeWeeksLimit = new Date(today)
+    threeWeeksLimit.setDate(threeWeeksLimit.getDate() + 21)
 
     // Helper to check same day
     const isSameDay = (d1, d2) => {
@@ -236,6 +240,13 @@ const groupedEvents = computed(() => {
         // Re-format
         const options = { day: 'numeric', month: 'long' }
         return `Semaine du ${d.toLocaleDateString('fr-FR', options)}`
+    }
+    
+    // Helper to get Month Label
+    const getMonthLabel = (d) => {
+        const options = { month: 'long', year: 'numeric' }
+        const label = d.toLocaleDateString('fr-FR', options)
+        return `Mois de ${label}` // e.g. "Mois de février 2026"
     }
 
     const eventsCopy = [...allEvents.value]
@@ -262,13 +273,15 @@ const groupedEvents = computed(() => {
                 label = eventDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
                 label = label.charAt(0).toUpperCase() + label.slice(1) // Capitalize
             } else {
-                // Souldn't happen given the if condition but fallback
+                // Should't happen given the if condition but fallback
                 label = eventDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
             }
-        } else {
-            // It's later -> Group by Week
-            // Get week start string
+        } else if (eventDay < threeWeeksLimit) {
+            // It's later but within 3 weeks -> Group by Week
             label = getWeekLabel(new Date(eventDay)) // Pass copy to avoid mutation
+        } else {
+            // After 3 weeks -> Group by Month
+            label = getMonthLabel(new Date(eventDay))
         }
 
         if (!currentGroup || currentGroup.label !== label) {

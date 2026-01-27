@@ -282,16 +282,17 @@ def apply_common_filters(
 
 def get_visibility_conditions(current_user: Optional[User], session: Session):
     """Build the complex visibility conditions based on user role and memberships"""
-    if current_user and current_user.is_superadmin:
-        return None  # Superadmins see everything
-
+    # TODO: Use some join statements to make this more efficient
     # 1. Base public visibility
     conditions = [
             Event.visibility == EventVisibility.PUBLIC_APPROVED
     ]
     
-    if not current_user:
+    if current_user and current_user.is_superadmin:
+        conditions= [Event.visibility.in_([EventVisibility.PUBLIC_APPROVED, EventVisibility.PUBLIC_PENDING])]
+    elif not current_user:
         return or_(*conditions)
+
 
     # 2. Own events (always visible to creator)
     conditions.append(Event.created_by_id == current_user.id)
@@ -364,12 +365,6 @@ def list_events(
         query, upcoming, featured, start_date, end_date, search, organization_id
     )
     
-    # Apply Ordering
-    if featured:
-         # Prioritize featured events value if asking for them
-         query = query.order_by(Event.featured.desc(), Event.start_time.asc()) #pyright: ignore
-    else:
-         query = query.order_by(Event.start_time.asc()) #pyright: ignore
 
     # Apply Visibility Security Logic
     visibility_cond = get_visibility_conditions(current_user, session)
@@ -377,12 +372,14 @@ def list_events(
         query = query.where(visibility_cond)
     
     # Execute Count Query
-    # Efficiently count matches before pagination
-    # We clone the query to remove order_by for count, allowing the DB optimizer to work better
-    # Note: SQLModel doesn't have a clean 'remove order_by', but count(*) usually ignores it or we can subquery.
-    # Subquery method:
-    count_query = select(func.count()).select_from(query.subquery()) 
+    count_query = select(func.count()).select_from(query.subquery())
     total = session.exec(count_query).one()
+    # Apply Ordering
+    if featured:
+         # Prioritize featured events value if asking for them
+         query = query.order_by(Event.featured.desc(), Event.start_time.asc()) #pyright: ignore
+    else:
+         query = query.order_by(Event.start_time.asc()) #pyright: ignore
     
     # Apply Pagination
     events = session.exec(query.offset((page - 1) * size).limit(size)).all()
