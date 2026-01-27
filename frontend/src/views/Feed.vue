@@ -4,7 +4,7 @@
     <div class="bg-white shadow sticky top-0 z-30">
       <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center">
         <div class="flex items-center">
-          <img src="/CalendINT_text.svg" alt="Calend'INT" class="hidden md:block h-16 w-auto mr-6" />
+          <img v-if="!isAuthenticated" src="/CalendINT_text.svg" alt="Calend'INT" class="hidden md:block h-16 w-auto mr-6" />
           <div>
             <h1 class="text-3xl font-bold tracking-tight text-gray-900">À venir</h1>
             <p class="mt-2 text-sm text-gray-500">Découvrez les prochains événements.</p>

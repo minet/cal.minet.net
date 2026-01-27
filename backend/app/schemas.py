@@ -135,7 +135,6 @@ class CreateEvent(BaseModel):
     group_id: Optional[str] = None
     tag_ids: List[str] = []
     guest_organization_ids: List[str] = []
-    show_on_schedule: bool = False
     hide_details: bool = False
     poster_url: Optional[str] = None
 
@@ -150,7 +149,6 @@ class UpdateEvent(BaseModel):
     group_id: Optional[str] = None
     tag_ids: Optional[List[str]] = None
     guest_organization_ids: Optional[List[str]] = None
-    show_on_schedule: Optional[bool] = None
     poster_url: Optional[str] = None
     hide_details: Optional[bool] = None
     featured: Optional[int] = None
@@ -178,7 +176,6 @@ class EventRead(BaseModel):
     location_url: Optional[str] = None
     visibility: EventVisibility
     hide_details: bool = False
-    show_on_schedule: bool = False
     poster_url: Optional[str] = None
     rejection_message: Optional[str] = None
     approved_at: Optional[datetime] = None
@@ -285,7 +282,6 @@ class EventRead(BaseModel):
             location=None if should_hide else event.location,
             location_url=None if should_hide else event.location_url,
             visibility=event.visibility,
-            show_on_schedule=event.show_on_schedule,
             hide_details=event.hide_details,
             poster_url=None if should_hide else event.poster_url,
             created_at=event.created_at,

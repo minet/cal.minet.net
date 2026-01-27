@@ -126,33 +126,6 @@
                 />
               </div>
 
-              <!-- Show on Weekly Schedule Toggle -->
-              <div class="col-span-full" v-if="form.visibility === 'public_approved'">
-                <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <div class="flex items-center justify-between">
-                    <div class="flex-1">
-                      <h4 class="text-sm font-medium text-gray-900">Afficher sur l'emploi du temps global</h4>
-                      <p class="text-xs text-gray-500 mt-1">
-                        Si activé, cet événement apparaîtra sur l'emploi du temps de tous les utilisateurs qui ont activé l'option "Afficher les événements globaux", même s'ils ne sont pas abonnés à votre organisation.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      @click="form.show_on_schedule = !form.show_on_schedule"
-                      :class="[
-                        'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2',
-                        form.show_on_schedule ? 'bg-indigo-600' : 'bg-gray-200'
-                      ]"
-                    >
-                      <span :class="[
-                        'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                        form.show_on_schedule ? 'translate-x-5' : 'translate-x-0'
-                      ]" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
               <!-- Tags Selector -->
               <div class="col-span-full">
                 <TagSelector
@@ -252,7 +225,6 @@ const form = ref({
   hide_details: false,
   group_id: null,
   tag_ids: [],
-  show_on_schedule: false,
   links: [],
   guest_organization_ids: []
 })
@@ -341,7 +313,6 @@ const createEvent = async () => {
       visibility: form.value.visibility,
       group_id: form.value.group_id,
       tag_ids: form.value.tag_ids,
-      show_on_schedule: form.value.show_on_schedule,
       hide_details: form.value.hide_details,
       links: form.value.links.filter(link => link.name && link.url),
       guest_organization_ids: form.value.guest_organization_ids
@@ -379,7 +350,6 @@ onMounted(() => {
           poster_url: duplicateData.poster_url,
           tag_ids: duplicateData.tags?.map(t => t.id) || [],
           guest_organization_ids: duplicateData.guest_organizations?.map(g => g.id) || [],
-          show_on_schedule: duplicateData.show_on_schedule,
           hide_details: duplicateData.hide_details,
           links: duplicateData.links && duplicateData.links.length > 0 ? duplicateData.links.map(l => ({
               url: l.url,

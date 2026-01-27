@@ -18,15 +18,15 @@
         </div>
 
         <!-- Sign in button for unauthenticated users -->
-        <div v-else class="sticky top-0 z-40 flex h-16 items-center justify-end gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:px-6">
+        <div v-else-if="$route.name !== 'Feed'" class="sticky top-0 z-40 flex h-16 items-center justify-end gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:px-6">
           <router-link to="/login" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
             Se connecter
           </router-link>
         </div>
 
         <!-- Main content -->
-        <main class="flex-1 py-10">
-          <div class="px-4 sm:px-6 lg:px-8">
+        <main class="flex-1" :class="[$route.name !== 'Feed' ? 'py-10' : '']">
+          <div :class="[$route.name !== 'Feed' ? 'px-4 sm:px-6 lg:px-8' : '']">
             <router-view />
           </div>
         </main>

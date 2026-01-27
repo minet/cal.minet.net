@@ -150,7 +150,6 @@ def create_event(
         visibility=visibility,
         group_id=UUID(event_data.group_id) if event_data.group_id else None,
         created_by_id=current_user.id,
-        show_on_schedule=event_data.show_on_schedule,
         hide_details=event_data.hide_details,
         poster_url=event_data.poster_url
     )
@@ -288,10 +287,7 @@ def get_visibility_conditions(current_user: Optional[User], session: Session):
 
     # 1. Base public visibility
     conditions = [
-        and_(
-            Event.visibility == EventVisibility.PUBLIC_APPROVED,
-            Event.show_on_schedule == True
-        )
+            Event.visibility == EventVisibility.PUBLIC_APPROVED
     ]
     
     if not current_user:
@@ -508,7 +504,7 @@ def get_event(
         raise HTTPException(status_code=404, detail="Event not found")
     
     # Check visibility
-    if not can_view_event(event, current_user, session) and not event.show_on_schedule:
+    if not can_view_event(event, current_user, session):
         raise HTTPException(status_code=403, detail="Not authorized to view this event")
     
     return event.to_read_model(current_user, session)
@@ -564,8 +560,6 @@ def update_event(
             raise HTTPException(status_code=400, detail="Invalid visibility value")
     if event_data.group_id is not None:
         event.group_id = UUID(event_data.group_id) if event_data.group_id else None
-    if event_data.show_on_schedule is not None:
-        event.show_on_schedule = event_data.show_on_schedule
     if event_data.poster_url is not None:
         event.poster_url = event_data.poster_url
     if event_data.hide_details is not None:

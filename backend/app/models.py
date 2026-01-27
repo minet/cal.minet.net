@@ -147,7 +147,6 @@ class Event(SQLModel, table=True):
     location: Optional[str] = None
     location_url: Optional[str] = None
     visibility: EventVisibility = Field(default=EventVisibility.PUBLIC_PENDING)
-    show_on_schedule: bool = Field(default=False)
     group_id: Optional[UUID] = Field(default=None, foreign_key="group.id")
     poster_url: Optional[str] = None
     organization_id: UUID = Field(foreign_key="organization.id")

@@ -8,7 +8,7 @@ const routes = [
         path: '/',
         name: 'Feed',
         component: Feed,
-        meta: { layout: 'none' }
+        meta: { layout: 'normal' }
     },
     {
         path: '/dashboard',
