@@ -75,86 +75,10 @@
             </div>
           </div>
           
-          <!-- Desktop Actions -->
-          <div class="hidden md:flex space-x-3">
-             <button
-              v-if="canEdit"
-              @click="showReactionModal = true"
-               class="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-            >
-              <FaceSmileIcon class="h-5 w-5 mr-2 text-gray-500" />
-              Réactions
-            </button>
-            <router-link 
-              v-if="canEdit"
-              :to="`/events/${event.id}/edit`"
-              class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-            >
-              <PencilIcon class="h-5 w-5 mr-2" />
-              Modifier
-            </router-link>
-            <button
-               v-if="canEdit"
-               @click="duplicateEvent"
-               class="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-            >
-              <DocumentDuplicateIcon class="h-5 w-5 mr-2 text-gray-500" />
-              Dupliquer
-            </button>
-            <router-link 
-              :to="`/countdown/${event.id}`"
-              target="_blank"
-              class="inline-flex items-center rounded-md bg-gray-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500"
-            >
-              <ClockIcon class="h-5 w-5 mr-2" />
-              Compte à rebours
-            </router-link>
-          </div>
 
-          <!-- Mobile Menu Button -->
-          <div class="md:hidden">
-            <button 
-              @click="mobileMenuOpen = !mobileMenuOpen"
-              type="button" 
-              class="inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
-            >
-              <span class="sr-only">Open menu</span>
-              <Bars3Icon v-if="!mobileMenuOpen" class="h-6 w-6" aria-hidden="true" />
-              <XMarkIcon v-else class="h-6 w-6" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
 
-        <!-- Mobile Actions Pane -->
-        <div v-if="mobileMenuOpen" class="mt-4 md:hidden border-t border-gray-200 pt-4">
-          <div class="flex flex-col space-y-3">
-             <button
-              v-if="canEdit"
-              @click="showReactionModal = true"
-               class="inline-flex items-center justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-            >
-              <FaceSmileIcon class="h-5 w-5 mr-2 text-gray-500" />
-              Gérer réactions
-            </button>
-            <router-link 
-              v-if="canEdit"
-              :to="`/events/${event.id}/edit`"
-              class="inline-flex items-center justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-            >
-              <PencilIcon class="h-5 w-5 mr-2" />
-              Modifier
-            </router-link>
-            <router-link 
-              :to="`/events/${event.id}/countdown`"
-              target="_blank"
-              class="inline-flex items-center justify-center rounded-md bg-gray-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500"
-            >
-              <ClockIcon class="h-5 w-5 mr-2" />
-              Compte à rebours
-            </router-link>
-          </div>
-        </div>
       </div>
+    </div>
     </header>
 
     <!-- Event Details Grid -->
@@ -175,6 +99,50 @@
 
       <!-- Sidebar -->
       <div class="space-y-6">
+        <ActionPanel title="Actions">
+             <ShareButton :item-id="event.id" item-type="event" :block="true" variant="indigo" />
+             
+             <ActionPanelButton
+              v-if="canEdit"
+              :icon="FaceSmileIcon"
+              @click="showReactionModal = true"
+              variant="amber"
+              class="w-full"
+            >
+              Réactions
+            </ActionPanelButton>
+            
+            <ActionPanelButton
+              v-if="canEdit"
+              :to="`/events/${event.id}/edit`"
+              :icon="PencilIcon"
+              variant="sky"
+              class="w-full"
+            >
+              Modifier
+            </ActionPanelButton>
+            
+            <ActionPanelButton
+               v-if="canEdit"
+               :icon="DocumentDuplicateIcon"
+               @click="duplicateEvent"
+               variant="cyan"
+               class="w-full"
+            >
+              Dupliquer
+            </ActionPanelButton>
+            
+            <ActionPanelButton
+              :to="`/countdown/${event.id}`"
+              target="_blank"
+              :icon="ClockIcon"
+              variant="rose"
+              class="w-full"
+            >
+              Compte à rebours
+            </ActionPanelButton>
+        </ActionPanel>
+
         <!-- Date & Time -->
         <div class="bg-white shadow-sm rounded-lg p-6">
           <h3 class="text-sm font-medium text-gray-900 mb-4">Date et heure</h3>
@@ -217,7 +185,8 @@
         <div v-if="event.visibility === 'private' && event.group" class="bg-white shadow-sm rounded-lg p-6">
           <h3 class="text-sm font-medium text-gray-900 mb-2">Groupe</h3>
           <p class="text-sm text-gray-700 flex items-center">
-            🔒 {{ event.group.name }}
+            <LockClosedIcon class="h-5 w-5 text-gray-400 mr-2" />
+            <span class="font-medium text-gray-900">{{ event.group.name }}</span>
           </p>
           <p class="text-xs text-gray-500 mt-1">Événement privé, visible uniquement par les membres du groupe</p>
         </div>
@@ -284,8 +253,6 @@ import {
   DocumentTextIcon,
   LockClosedIcon,
   GlobeAltIcon,
-  Bars3Icon,
-  XMarkIcon,
   InformationCircleIcon,
   DocumentDuplicateIcon
 } from '@heroicons/vue/24/outline'
@@ -296,6 +263,9 @@ import ReactionList from '../components/ReactionList.vue'
 import ReactionAdminModal from '../components/ReactionAdminModal.vue'
 import { FaceSmileIcon } from '@heroicons/vue/24/outline'
 import { getOrgColor, getEventGradient } from '../utils/colorUtils'
+import ShareButton from '../components/ShareButton.vue'
+import ActionPanel from '../components/ActionPanel.vue'
+import ActionPanelButton from '../components/ActionPanelButton.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -304,7 +274,6 @@ const event = ref(null)
 const userMemberships = ref([])
 const subscriptions = ref([])
 const loading = ref(true)
-const mobileMenuOpen = ref(false)
 const showReactionModal = ref(false)
 
 const canEdit = computed(() => {

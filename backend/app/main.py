@@ -8,7 +8,7 @@ from sqlalchemy.exc import OperationalError
 from contextlib import asynccontextmanager
 from app.database import create_db_and_tables
 from app.migration_runner import run_migrations
-from app.api import auth, organizations, events, ics, users, upload, subscriptions, cas, groups, tags, organization_links, admin, notifications
+from app.api import auth, organizations, events, ics, users, upload, subscriptions, cas, groups, tags, organization_links, admin, notifications, short_links
 
 # Load environment variables
 load_dotenv()
@@ -87,6 +87,7 @@ app.include_router(groups.router, tags=["groups"])
 app.include_router(tags.router, tags=["tags"])
 app.include_router(organization_links.router, tags=["organization-links"])
 app.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
+app.include_router(short_links.router, prefix="/short-links", tags=["short-links"])
 
 @app.get("/")
 def read_root():

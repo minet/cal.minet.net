@@ -34,104 +34,77 @@
             </div>
           </div>
           
-          <!-- Desktop Actions -->
-          <div class="hidden md:flex flex-col items-end space-y-1">
-            <div class="flex items-center space-x-3">
-              <SubscribeButton v-if="!isMember" :organization-id="organization.id" />
-              <router-link 
-                v-if="canEdit"
-                :to="`/organizations/${organization.id}/tags`"
-                class="inline-flex items-center rounded-md bg-purple-400 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-purple-300"
-              >
-                <TagIcon class="h-5 w-5 mr-2" />
-                Tags
-              </router-link>
-              <router-link 
-                v-if="canEdit"
-                :to="`/organizations/${organization.id}/groups`"
-                class="inline-flex items-center rounded-md bg-emerald-400 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-300"
-              >
-                <UsersIcon class="h-5 w-5 mr-2" />
-                Groupes
-              </router-link>
-              <router-link 
-                v-if="canEdit"
-                :to="`/organizations/${organization.id}/members`"
-                class="inline-flex items-center rounded-md bg-gray-400 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-300"
-              >
-                <UserGroupIcon class="h-5 w-5 mr-2" />
-                Membres
-              </router-link>
-              <router-link 
-                v-if="canEdit"
-                :to="`/organizations/${organization.id}/edit`"
-                class="inline-flex items-center rounded-md bg-indigo-400 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-300"
-              >
-                <PencilIcon class="h-5 w-5 mr-2" />
-                Modifier
-              </router-link>
-            </div>
-            <p v-if="!isMember" class="text-xs text-gray-500">
-              S'abonner ajoute les événements à votre <router-link to="/profile" class="text-indigo-600 hover:underline">calendrier</router-link>
-            </p>
-          </div>
 
-          <!-- Mobile Menu Button -->
-          <div class="md:hidden">
-            <button 
-              @click="mobileMenuOpen = !mobileMenuOpen"
-              type="button" 
-              class="inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
-            >
-              <span class="sr-only">Open menu</span>
-              <Bars3Icon v-if="!mobileMenuOpen" class="h-6 w-6" aria-hidden="true" />
-              <XMarkIcon v-else class="h-6 w-6" aria-hidden="true" />
-            </button>
-          </div>
         </div>
 
-        <!-- Mobile Actions Pane -->
-        <div v-if="mobileMenuOpen" class="mt-4 md:hidden border-t border-gray-200 pt-4">
-          <div class="flex flex-col space-y-3">
-            <div v-if="!isMember" class="w-full">
-              <SubscribeButton :organization-id="organization.id" class="w-full justify-center" />
-            </div>
-            <router-link 
-              v-if="canEdit"
-              :to="`/organizations/${organization.id}/tags`"
-              class="inline-flex items-center justify-center rounded-md bg-purple-400 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-purple-300"
-            >
-              <TagIcon class="h-5 w-5 mr-2" />
-              Tags
-            </router-link>
-            <router-link 
-              v-if="canEdit"
-              :to="`/organizations/${organization.id}/groups`"
-              class="inline-flex items-center justify-center rounded-md bg-emerald-400 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-300"
-            >
-              <UsersIcon class="h-5 w-5 mr-2" />
-              Groupes
-            </router-link>
-            <router-link 
-              v-if="canEdit"
-              :to="`/organizations/${organization.id}/members`"
-              class="inline-flex items-center justify-center rounded-md bg-gray-400 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-300"
-            >
-              <UserGroupIcon class="h-5 w-5 mr-2" />
-              Membres
-            </router-link>
-            <router-link 
-              v-if="canEdit"
-              :to="`/organizations/${organization.id}/edit`"
-              class="inline-flex items-center justify-center rounded-md bg-indigo-400 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-300"
-            >
-              <PencilIcon class="h-5 w-5 mr-2" />
-              Modifier
-            </router-link>
-          </div>
-        </div>
       </div>
     </header>
+
+    <ActionPanel 
+       title="Actions"
+       content-class="flex flex-col lg:flex-row lg:flex-wrap lg:gap-3 lg:space-y-0"
+    >
+         <ShareButton 
+            v-if="isMember || (user && user.is_superadmin)"
+            :item-id="organization.id" 
+            item-type="organization" 
+            :block="true"
+            variant="indigo"
+            class="lg:w-auto"
+         />
+         
+         <SubscribeButton 
+            v-if="!isMember" 
+            :organization-id="organization.id" 
+            class="w-full lg:w-auto" 
+         />
+         
+         <ActionPanelButton 
+            v-if="canEdit"
+            :to="`/organizations/${organization.id}/tags`"
+            :icon="TagIcon"
+            variant="purple"
+            class="w-full lg:w-auto"
+          >
+            Tags
+          </ActionPanelButton>
+          
+          <ActionPanelButton 
+            v-if="canEdit"
+            :to="`/organizations/${organization.id}/groups`"
+            :icon="UsersIcon"
+            variant="emerald"
+            class="w-full lg:w-auto"
+          >
+            Groupes
+          </ActionPanelButton>
+          
+          <ActionPanelButton 
+            v-if="canEdit"
+            :to="`/organizations/${organization.id}/members`"
+            :icon="UserGroupIcon"
+            variant="gray"
+            class="w-full lg:w-auto"
+          >
+            Membres
+          </ActionPanelButton>
+          
+          <ActionPanelButton 
+            v-if="canEdit"
+            :to="`/organizations/${organization.id}/edit`"
+            :icon="PencilIcon"
+            variant="sky"
+            class="w-full lg:w-auto"
+          >
+            Modifier
+          </ActionPanelButton>
+
+          <template #footer>
+            <p v-if="!isMember" class="text-xs text-gray-500 mt-2 text-center" >
+              S'abonner ajoute les événements à votre <router-link to="/profile" class="text-indigo-600 hover:underline">calendrier</router-link>
+            </p>
+          </template>
+    </ActionPanel>
 
     <!-- Description -->
     <div v-if="organization.description" class="bg-white shadow-sm rounded-lg p-6 mb-6">
@@ -188,7 +161,9 @@
           :organization="organization"
           :subscribed="isSubscribedToTag(tag.id)"
           :show-subscribe="true"
+          :show-share="isMember || (user && user.is_superadmin)"
           @toggle-subscription="toggleTagSubscription"
+          @share="openTagShare"
         />
       </div>
     </div>
@@ -254,14 +229,25 @@
         </li>
       </ul>
     </div>
+    <!-- Hidden Share Button for Tags -->
+    <ShareButton 
+      v-if="activeShareTag" 
+      ref="tagShareButton" 
+      :item-id="activeShareTag.id" 
+      item-type="tag" 
+      class="hidden" 
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import SubscribeButton from '../components/SubscribeButton.vue'
+import ShareButton from '../components/ShareButton.vue'
+import ActionPanel from '../components/ActionPanel.vue'
+import ActionPanelButton from '../components/ActionPanelButton.vue'
 import UserAvatar from '../components/UserAvatar.vue'
 
 import TagBadge from '../components/TagBadge.vue'
@@ -273,8 +259,6 @@ import {
   UserGroupIcon, 
   TagIcon, 
   UsersIcon,
-  Bars3Icon,
-  XMarkIcon,
   LinkIcon
 } from '@heroicons/vue/24/outline'
 
@@ -290,7 +274,16 @@ const canEdit = ref(false)
 const loading = ref(true)
 const loadingMembers = ref(false)
 const loadingEvents = ref(false)
-const mobileMenuOpen = ref(false)
+
+const activeShareTag = ref(null)
+const tagShareButton = ref(null)
+
+const openTagShare = (tag) => {
+  activeShareTag.value = tag
+  nextTick(() => {
+    tagShareButton.value?.openModal()
+  })
+}
 
 const isMember = computed(() => {
   return members.value.some(m => m.user_id === user.value?.id)

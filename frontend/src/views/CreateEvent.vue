@@ -16,9 +16,35 @@
           <div class="border-b border-gray-900/10 pb-12">
             <!-- Organization Selector -->
             <div class="mb-8">
+              <div v-if="isSuperAdmin" class="flex flex-col mb-4 bg-indigo-50/50 p-3 rounded-lg border border-indigo-100">
+                 <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium text-indigo-900">Mode SuperAdmin</span>
+                    <button 
+                        @click="toggleSuperAdminMode"
+                        type="button"
+                        class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2"
+                        :class="[showAllForSuperAdmin ? 'bg-indigo-600' : 'bg-gray-200']"
+                    >
+                        <span 
+                            class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                            :class="[showAllForSuperAdmin ? 'translate-x-4' : 'translate-x-0']"
+                        />
+                    </button>
+                 </div>
+                 
+                 <div v-if="showAllForSuperAdmin" class="mt-3">
+                    <input
+                        ref="superAdminSearchInput"
+                        v-model="superAdminSearchQuery"
+                        type="text"
+                        placeholder="Rechercher une organisation..."
+                        class="block w-full rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-xs sm:leading-6"
+                    />
+                 </div>
+              </div>
               <OrganizationSelector
                 v-model="form.organization_id"
-                :organizations="userOrganizations"
+                :organizations="displayedOrganizations"
                 label="Choisir l'organisation"
                 emptyMessage="Vous devez être membre d'au moins une organisation pour créer un événement"
               />
@@ -36,12 +62,22 @@
                         </span>
                     </template>
                     
+                    <div class="mb-3">
+                         <input
+                            ref="guestOrgSearchInput"
+                            v-model="guestOrgSearchQuery"
+                            type="text"
+                            placeholder="Rechercher une organisation invitée..."
+                            class="block w-full rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-xs sm:leading-6"
+                        />
+                    </div>
+
                     <OrganizationSelector
                         v-model="form.guest_organization_ids"
-                        :organizations="allOrganizations"
+                        :organizations="displayedGuestOrganizations"
                         :multiple="true"
                         label=""
-                        emptyMessage="Aucune organisation disponible"
+                        emptyMessage="Aucune organisation trouvée"
                     />
                 </CollapsibleCard>
             </div>
@@ -146,7 +182,7 @@
                     type="text" 
                     v-model="link.name" 
                     placeholder="Nom du lien" 
-                    class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
+                    class="block w-full rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
                   />
                 </div>
                 <div class="sm:col-span-6">
@@ -154,7 +190,7 @@
                     v-model="link.url"
                     type="url"
                     placeholder="https://..."
-                    class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                    class="block w-full rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                   />
                 </div>
                 <div class="sm:col-span-1 flex items-center">
@@ -195,8 +231,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
+
 import api from '../utils/api'
 import { useAuth } from '../composables/useAuth'
 import { localToUtc } from '../utils/dateUtils'
@@ -209,7 +246,6 @@ import { PlusIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import DateTimeDurationPicker from '../components/DateTimeDurationPicker.vue'
 
 const router = useRouter()
-const { user } = useAuth()
 
 const form = ref({
   organization_id: '',
@@ -234,6 +270,53 @@ const error = ref('')
 const loading = ref(false)
 const allOrganizations = ref([])
 const isGuestOrgsOpen = ref(false)
+const { user, isSuperAdmin } = useAuth()
+
+const showAllForSuperAdmin = ref(false)
+const superAdminSearchQuery = ref('')
+const superAdminSearchInput = ref(null)
+
+const displayedOrganizations = computed(() => {
+    if (showAllForSuperAdmin.value) {
+        if (!superAdminSearchQuery.value) return allOrganizations.value
+        const query = superAdminSearchQuery.value.toLowerCase()
+        return allOrganizations.value.filter(org => org.name.toLowerCase().includes(query))
+    }
+    return userOrganizations.value
+})
+
+const toggleSuperAdminMode = async () => {
+    showAllForSuperAdmin.value = !showAllForSuperAdmin.value
+    form.value.organization_id = ''
+    
+    if (showAllForSuperAdmin.value) {
+        // Auto focus
+        setTimeout(() => {
+             superAdminSearchInput.value?.focus()
+        }, 100)
+    } else {
+        superAdminSearchQuery.value = ''
+    }
+}
+
+// Guest Orgs Search
+const guestOrgSearchQuery = ref('')
+const guestOrgSearchInput = ref(null)
+
+const displayedGuestOrganizations = computed(() => {
+    if (!guestOrgSearchQuery.value) return allOrganizations.value
+    const query = guestOrgSearchQuery.value.toLowerCase()
+    return allOrganizations.value.filter(org => org.name.toLowerCase().includes(query))
+})
+
+// Watch collapsible open to focus search
+watch(isGuestOrgsOpen, (isOpen) => {
+    if (isOpen) {
+        setTimeout(() => {
+            guestOrgSearchInput.value?.focus()
+        }, 100)
+    }
+})
 
 // timeForm removed as it is handled in component
 

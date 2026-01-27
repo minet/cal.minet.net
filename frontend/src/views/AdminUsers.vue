@@ -36,7 +36,7 @@
                 <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-0">
                   <div class="flex items-center">
                     <UserAvatar :src="user.profile_picture_url" :name="user.full_name || user.email" size="sm" class="mr-3"/>
-                    {{ user.full_name || 'Sans nom' }}
+                    {{ user.full_name || 'Jamais connecté' }}
                   </div>
                 </td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ user.email }}</td>

@@ -23,22 +23,34 @@
     </div>
 
     <!-- Right: Subscribe Button -->
-    <button 
-      v-if="showSubscribe"
-      @click.stop="toggleSubscription"
-      class="flex-shrink-0 p-1.5 rounded-full hover:bg-black/5 focus:outline-none transition-colors"
-      :class="subscribed ? 'text-white hover:bg-white/20' : 'text-gray-400 hover:text-gray-600'"
-      :title="subscribed ? 'Se désabonner' : 'S\'abonner'"
-    >
-      <BellSlashIcon v-if="subscribed" class="h-4 w-4" />
-      <BellIcon v-else class="h-4 w-4" />
-    </button>
+    <div class="flex items-center -mr-1">
+        <button 
+          v-if="showSubscribe"
+          @click.stop="toggleSubscription"
+          class="flex-shrink-0 p-1.5 rounded-full hover:bg-black/5 focus:outline-none transition-colors mr-1"
+          :class="subscribed ? 'text-white hover:bg-white/20' : 'text-gray-400 hover:text-gray-600'"
+          :title="subscribed ? 'Se désabonner' : 'S\'abonner'"
+        >
+          <BellSlashIcon v-if="subscribed" class="h-4 w-4" />
+          <BellIcon v-else class="h-4 w-4" />
+        </button>
+
+        <button 
+          v-if="showShare"
+          @click.stop="$emit('share', tag)"
+          class="flex-shrink-0 p-1.5 rounded-full hover:bg-black/5 focus:outline-none transition-colors"
+          :class="subscribed ? 'text-white hover:bg-white/20' : 'text-gray-400 hover:text-gray-600'"
+          title="Partager"
+        >
+          <ShareIcon class="h-4 w-4" />
+        </button>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
-import { BellIcon, BellSlashIcon } from '@heroicons/vue/24/outline'
+import { BellIcon, BellSlashIcon, ShareIcon } from '@heroicons/vue/24/outline'
 
 const props = defineProps({
   tag: {
@@ -54,6 +66,10 @@ const props = defineProps({
     default: false
   },
   showSubscribe: {
+    type: Boolean,
+    default: false
+  },
+  showShare: {
     type: Boolean,
     default: false
   },

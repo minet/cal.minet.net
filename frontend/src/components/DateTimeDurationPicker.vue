@@ -20,30 +20,50 @@
       <!-- Date -->
       <div>
         <label for="date" class="block text-sm font-medium leading-6 text-gray-900">Date</label>
-        <div class="mt-2">
-          <input 
-            type="text" 
-            id="date" 
-            required
-            v-model="date"
-            placeholder="JJ/MM/AAAA"
-            class="block w-full rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
-          />
+        <div class="mt-2 flex rounded-md shadow-sm">
+          <div class="relative flex-grow focus-within:z-10">
+            <input 
+              type="date" 
+              id="date" 
+              ref="dateInput"
+              required
+              v-model="date"
+              @click="openDatePicker"
+              class="block w-full rounded-none rounded-l-md border-0 py-1.5 pl-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
+            />
+          </div>
+          <button 
+            type="button" 
+            @click="openDatePicker"
+            class="relative -ml-px inline-flex items-center gap-x-1.5 rounded-r-md px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 hidden sm:block"
+          >
+            <CalendarIcon class="-ml-0.5 h-5 w-5 text-gray-400" aria-hidden="true" />
+          </button>
         </div>
       </div>
 
       <!-- Time -->
       <div>
         <label for="time" class="block text-sm font-medium leading-6 text-gray-900">Heure de début</label>
-        <div class="mt-2">
-          <input 
-            type="text" 
-            id="time" 
-            required
-            v-model="time"
-            placeholder="HH:MM"
-            class="block w-full rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
-          />
+        <div class="mt-2 flex rounded-md shadow-sm">
+          <div class="relative flex-grow focus-within:z-10">
+             <input 
+              type="time" 
+              id="time" 
+              ref="timeInput"
+              required
+              v-model="time"
+              @click="openTimePicker"
+              class="block w-full rounded-none rounded-l-md border-0 py-1.5 pl-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
+            />
+          </div>
+          <button 
+            type="button"
+            @click="openTimePicker" 
+            class="relative -ml-px inline-flex items-center gap-x-1.5 rounded-r-md px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 hidden sm:block"
+          >
+            <ClockIcon class="-ml-0.5 h-5 w-5 text-gray-400" aria-hidden="true" />
+          </button>
         </div>
       </div>
 
@@ -87,7 +107,7 @@
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
-import { ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
+import { ExclamationTriangleIcon, CalendarIcon, ClockIcon } from '@heroicons/vue/24/outline'
 
 const props = defineProps({
   startTime: {
@@ -110,48 +130,40 @@ const date = ref('')
 const time = ref('')
 const durationHours = ref(0)
 const durationMinutes = ref(0)
+const dateInput = ref(null)
+const timeInput = ref(null)
 
-const formatDateFR = (dateObj) => {
-  const year = dateObj.getFullYear()
-  const month = String(dateObj.getMonth() + 1).padStart(2, '0')
-  const day = String(dateObj.getDate()).padStart(2, '0')
-  return `${day}/${month}/${year}`
+const openDatePicker = () => {
+  if (dateInput.value && dateInput.value.showPicker) {
+    dateInput.value.showPicker()
+  }
 }
 
-const formatTimeFR = (dateObj) => {
-  const hours = String(dateObj.getHours()).padStart(2, '0')
-  const minutes = String(dateObj.getMinutes()).padStart(2, '0')
-  return `${hours}:${minutes}`
+const openTimePicker = () => {
+  if (timeInput.value && timeInput.value.showPicker) {
+    timeInput.value.showPicker()
+  }
 }
 
 const updateInternalState = () => {
-  if (!props.startTime || !props.endTime) {
-     // Initialize defaults if empty (start next hour, duration 1h)
-     if (!props.startTime && !props.endTime) {
-        const now = new Date()
-        now.setMinutes(0)
-        now.setSeconds(0)
-        now.setMilliseconds(0)
-        now.setHours(now.getHours() + 1)
-        
-        // We trigger an emit, but we also set local first to avoid loops if we careful
-        // Actually, better to just set local state from props if they exist, else wait.
-        // But for "Create", they are empty initially. The parent likely sets them or expects us to init.
-        // Let's rely on parent passing valid strings, or we init them.
-        
-        // Ideally, parent handles initialization.
-        return
-     }
+  if (!props.startTime && !props.endTime) {
+     // Default initialization handled by parent usually, but if we wanted defaults:
+     return
   }
 
-  // Parse strings to local Date objects
-  // The props are expected to be "YYYY-MM-DDTHH:mm:ss" ISO format or similar
-  
   if (props.startTime) {
     const start = new Date(props.startTime)
     if (!isNaN(start.getTime())) {
-       date.value = formatDateFR(start)
-       time.value = formatTimeFR(start)
+       // Format to YYYY-MM-DD for input type="date"
+       const year = start.getFullYear()
+       const month = String(start.getMonth() + 1).padStart(2, '0')
+       const day = String(start.getDate()).padStart(2, '0')
+       date.value = `${year}-${month}-${day}`
+       
+       // Format to HH:MM for input type="time"
+       const hours = String(start.getHours()).padStart(2, '0')
+       const minutes = String(start.getMinutes()).padStart(2, '0')
+       time.value = `${hours}:${minutes}`
     }
   }
   
@@ -171,20 +183,8 @@ const updateInternalState = () => {
 const emitUpdates = () => {
   if (!date.value || !time.value) return
 
-  // Parse date DD/MM/YYYY and time HH:MM
-  const dateParts = date.value.split('/')
-  const timeParts = time.value.split(':')
-  
-  if (dateParts.length !== 3 || timeParts.length !== 2) return
-  
-  const [day, month, year] = dateParts
-  const [hours, minutes] = timeParts
-  
-  // Basic validation
-  if (day.length !== 2 || month.length !== 2 || year.length !== 4) return
-  if (hours.length !== 2 || minutes.length !== 2) return
-
-  const startDateTime = new Date(`${year}-${month}-${day}T${hours}:${minutes}:00`)
+  // date is YYYY-MM-DD, time is HH:MM
+  const startDateTime = new Date(`${date.value}T${time.value}:00`)
   
   if (isNaN(startDateTime.getTime())) return
 
@@ -198,14 +198,9 @@ const emitUpdates = () => {
   emit('update:endTime', formattedEnd)
 }
 
-watch(() => props.startTime, (newVal) => {
-    // Only update if divergent to avoid loop with rounded minutes?
-    // Simple approach: Always update internal state if prop changes from outside 
-    // (We need to distinguish external change vs internal change triggered emit)
-    // But since `formatDateTimeLocal` is stable, it should be fine.
-    
-    // We check if reconstructing gives same result to avoid overwriting user input while typing?
-    // Unlikely to type partial props.
+watch(() => props.startTime, () => {
+    // Only update if external change? 
+    // Ideally compare values, but simple re-sync for now
     updateInternalState()
 })
 

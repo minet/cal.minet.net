@@ -142,6 +142,12 @@ const routes = [
         name: 'AdminTags',
         component: () => import('../views/AdminTags.vue'),
         meta: { layout: 'normal', requiresAuth: true }
+    },
+    {
+        path: '/consent/:shortId',
+        name: 'ShortLinkConsent',
+        component: () => import('../views/ShortLinkConsent.vue'),
+        meta: { layout: 'normal' }
     }
 ]
 

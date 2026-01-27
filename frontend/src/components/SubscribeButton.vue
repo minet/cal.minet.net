@@ -1,25 +1,22 @@
 <template>
-  <button 
+  <ActionPanelButton 
     @click="toggleSubscription"
     :disabled="loading"
+    :variant="isSubscribed ? 'neutral' : 'amber'"
+    :icon="isSubscribed ? BellSlashIcon : BellIcon"
     :class="[
-      'inline-flex items-center px-4 py-2 text-sm font-semibold rounded-md transition-colors',
-      isSubscribed 
-        ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' 
-        : 'bg-indigo-600 text-white hover:bg-indigo-700',
       loading ? 'opacity-50 cursor-not-allowed' : ''
     ]"
   >
-    <BellIcon v-if="!isSubscribed" class="h-5 w-5 mr-2" />
-    <BellSlashIcon v-else class="h-5 w-5 mr-2" />
     {{ isSubscribed ? 'Se désabonner' : 'S\'abonner' }}
-  </button>
+  </ActionPanelButton>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { BellIcon, BellSlashIcon } from '@heroicons/vue/24/outline'
 import api from '../utils/api'
+import ActionPanelButton from './ActionPanelButton.vue' // Import ActionPanelButton
 
 import { askPermissionAndSubscribe } from '../utils/push'
 

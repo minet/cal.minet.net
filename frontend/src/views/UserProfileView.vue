@@ -129,7 +129,7 @@
               </div>
             </div>
             <div>
-              <h2 class="text-2xl font-bold text-gray-900">{{ profileUser.full_name || 'Sans nom' }}</h2>
+              <h2 class="text-2xl font-bold text-gray-900">{{ profileUser.full_name || 'Jamais connecté' }}</h2>
               <p class="text-sm text-gray-500">{{ profileUser.email }}</p>
             </div>
           </div>
@@ -221,7 +221,7 @@
               v-for="membership in memberships"
               :key="membership.id"
               :organization="membership.organization"
-              :show-type="true"
+              :show-type="!isCurrentUser"
             >
               <template #side>
                 <div class="ml-4 flex-shrink-0">

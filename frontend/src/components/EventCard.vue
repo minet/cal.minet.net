@@ -132,7 +132,7 @@
       <!-- Footer/Action -->
       <div class="mt-auto pt-4 border-t border-gray-100 flex justify-between items-center">
         <span 
-          class="text-xs font-medium px-2 py-1 rounded-full border transition-colors"
+          class="max-w-[150px] truncate inline-block align-middle text-xs font-medium px-2 py-1 rounded-full border transition-colors"
           :class="{ 'bg-gray-100 text-gray-500 border-gray-100': event.organization?.color_chroma === null }"
           :style="{ 
             backgroundColor: getOrgColor(event.organization?.color_chroma/20, event.organization?.color_hue, 1),

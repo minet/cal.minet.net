@@ -699,8 +699,8 @@ def approve_event(
     # Send email notification
     creator = session.get(User, event.created_by_id)
     if creator and creator.email:
-        frontend_url = os.getenv("FRONTEND_URL", "https://cal.minet.net")
-        event_url = f"{frontend_url}/events/{event.id}"
+        app_base_url = os.getenv("APP_BASE_URL", "https://cal.minet.net")
+        event_url = f"{app_base_url}/events/{event.id}"
         
         html_content = render_email_template("event_approved.html", {
             "project_name": "Calend'INT",
@@ -750,9 +750,9 @@ def reject_event(
     # Send email notification
     creator = session.get(User, event.created_by_id)
     if creator and creator.email:
-        frontend_url = os.getenv("FRONTEND_URL", "https://cal.minet.net")
+        app_base_url = os.getenv("APP_BASE_URL", "https://cal.minet.net")
         # Direct link to edit page might be better, but event detail has "Edit" button if owner
-        event_url = f"{frontend_url}/events/{event.id}/edit"
+        event_url = f"{app_base_url}/events/{event.id}/edit"
         
         html_content = render_email_template("event_rejected.html", {
             "project_name": "Calend'INT",

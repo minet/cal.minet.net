@@ -4,9 +4,7 @@
     <div class="p-6 border-b border-gray-200">
       <div class="flex items-center justify-between mb-4">
         <img src="/CalendINT_horiz.svg" alt="Calend'INT" class="h-16 w-auto" />
-        <button @click="$emit('close')" class="md:hidden text-gray-500 hover:text-gray-700">
-          <XMarkIcon class="h-6 w-6" />
-        </button>
+
       </div>
       <router-link @click="closeSidebar" v-if="user" to="/profile" class="flex items-center space-x-3 hover:bg-gray-50 p-2 -m-2 rounded-lg transition-colors group">
         <UserAvatar 

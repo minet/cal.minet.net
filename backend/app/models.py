@@ -221,3 +221,24 @@ class LDAPUser(SQLModel, table=True):
     full_name: Optional[str] = None
     uid: Optional[str] = Field(default=None, index=True) 
     synced_at: datetime = Field(default_factory=datetime.now)
+
+class ShortLinkType(str, Enum):
+    EVENT = "event"
+    ORGANIZATION = "organization"
+    TAG = "tag"
+
+class ShortLinkActionType(str, Enum):
+    VIEW = "view"
+    SUBSCRIBE = "subscribe" 
+    COUNTDOWN = "countdown"
+
+class ShortLink(SQLModel, table=True):
+    id: str = Field(primary_key=True)
+    item_type: ShortLinkType
+    action_type: ShortLinkActionType
+    item_id: UUID
+    created_by_id: UUID = Field(foreign_key="user.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_used_at: datetime = Field(default_factory=datetime.utcnow)
+
+    user: Optional[User] = Relationship()

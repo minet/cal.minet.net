@@ -306,5 +306,25 @@ class EventRead(BaseModel):
             is_draft=(event.visibility == EventVisibility.DRAFT)
         )
 
+class ShortLinkCreate(BaseModel):
+    item_type: str
+    item_id: str
+    action_type: str
+
+class ShortLinkRead(BaseModel):
+    id: str
+    url: str
+
+class ShortLinkInfo(BaseModel):
+    id: str
+    title: str
+    description: Optional[str] = None
+    item_type: str
+    item_id: UUID
+    logo_url: Optional[str] = None
+    color_chroma: Optional[float] = None
+    color_hue: Optional[float] = None
+    tag_color: Optional[str] = None
+
 class Message(BaseModel):
     message: str
