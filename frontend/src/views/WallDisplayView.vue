@@ -214,12 +214,17 @@ const currentEventBubbleColor = computed(() => {
 
 const fetchEvents = async () => {
   try {
-    const response = await api.get('/events/')
+    const response = await api.get('/events/', { 
+        params: { 
+            size: 100,
+            upcoming: true
+        } 
+    })
     const now = new Date()
     const threeDaysLater = new Date(now)
     threeDaysLater.setDate(now.getDate() + 3)
 
-    events.value = response.data.filter(event => {
+    events.value = response.data.items.filter(event => {
       const startTime = new Date(event.start_time)
       const endTime = new Date(event.end_time)
       

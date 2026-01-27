@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Body, BackgroundTasks
-from sqlmodel import Session, select, and_, or_, col, func
+from sqlmodel import Session, select, and_, or_, col, func, text
+from sqlalchemy.dialects.postgresql import INTERVAL
 from typing import List, Optional, Sequence, cast
 from datetime import datetime, timezone
 import os
@@ -12,7 +13,7 @@ from app.models import (
 from app.api.auth import get_current_user, get_current_user_optional
 from app.schemas import (
     EventRead, CreateEvent, UpdateEvent, RejectEventRequest, Message, TagRead, OrganizationRead,
-    ReactionSummary, ReactionDetail, UserPublicRead
+    ReactionSummary, ReactionDetail, UserPublicRead, PaginatedResponse
 )
 from app.email.utils import send_email, render_email_template
 
@@ -234,20 +235,170 @@ def list_drafts(
     drafts = user_drafts + org_drafts
     return [event.to_read_model(current_user, session) for event in drafts]
 
-@router.get("/", response_model=List[EventRead])
+def apply_common_filters(
+    query, 
+    upcoming: bool, 
+    featured: Optional[bool], 
+    start_date: Optional[datetime], 
+    end_date: Optional[datetime], 
+    search: Optional[str], 
+    organization_id: Optional[str]
+):
+    """Apply standard filters to the event query"""
+    # Featured check
+    if featured is not None:
+        if featured:
+            query = query.where(
+                Event.featured > 0,
+                func.now() + func.cast(func.concat(Event.featured, ' days'), INTERVAL) > Event.start_time,
+                func.now() < Event.end_time
+            )
+        else:
+            query = query.where(Event.featured == 0)
+
+    # Date handling
+    if start_date:
+        query = query.where(Event.end_time >= start_date)
+    elif upcoming and featured is None: 
+        # Fallback to upcoming if start_date not explicit AND not specifically asking for featured
+        query = query.where(Event.end_time >= datetime.now(timezone.utc))
+        
+    if end_date:
+        query = query.where(Event.start_time <= end_date)
+        
+    # Search
+    if search:
+        search_term = f"%{search}%"
+        query = query.where(or_(
+            col(Event.title).ilike(search_term), 
+            col(Event.description).ilike(search_term),
+            col(Event.location).ilike(search_term)
+        ))
+        
+    # Organization
+    if organization_id:
+        query = query.where(Event.organization_id == UUID(organization_id))
+        
+    return query
+
+def get_visibility_conditions(current_user: Optional[User], session: Session):
+    """Build the complex visibility conditions based on user role and memberships"""
+    if current_user and current_user.is_superadmin:
+        return None  # Superadmins see everything
+
+    # 1. Base public visibility
+    conditions = [
+        and_(
+            Event.visibility == EventVisibility.PUBLIC_APPROVED,
+            Event.show_on_schedule == True
+        )
+    ]
+    
+    if not current_user:
+        return or_(*conditions)
+
+    # 2. Own events (always visible to creator)
+    conditions.append(Event.created_by_id == current_user.id)
+    
+    # 3. Organization Memberships
+    # Fetch all memberships for the user to determine access
+    org_memberships = session.exec(
+        select(Membership).where(Membership.user_id == current_user.id)
+    ).all()
+    
+    if org_memberships:
+        org_ids = [m.organization_id for m in org_memberships]
+        
+        # Access to drafts/pending/rejected for any member
+        conditions.append(
+            and_(
+                col(Event.organization_id).in_(org_ids),
+                col(Event.visibility).in_([
+                    EventVisibility.DRAFT, 
+                    EventVisibility.PUBLIC_PENDING, 
+                    EventVisibility.PUBLIC_REJECTED
+                ])
+            )
+        )
+        
+        # Access to Private events (Org Admins only)
+        admin_org_ids = [m.organization_id for m in org_memberships if m.role == Role.ORG_ADMIN]
+        if admin_org_ids:
+            conditions.append(
+                and_(
+                    Event.visibility == EventVisibility.PRIVATE,
+                    col(Event.organization_id).in_(admin_org_ids)
+                )
+            )
+    
+    # 4. Group Memberships (Access to Private events in groups)
+    group_memberships = session.exec(
+        select(GroupMembership).where(GroupMembership.user_id == current_user.id)
+    ).all()
+    
+    if group_memberships:
+        group_ids = [gm.group_id for gm in group_memberships]
+        conditions.append(
+            and_(
+                Event.visibility == EventVisibility.PRIVATE,
+                col(Event.group_id).in_(group_ids)
+            )
+        )
+    
+    return or_(*conditions)
+
+@router.get("/", response_model=PaginatedResponse[EventRead])
 def list_events(
+    page: int = 1,
+    size: int = 50,
+    upcoming: bool = True,
+    search: Optional[str] = None,
+    organization_id: Optional[str] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    featured: Optional[bool] = None,
     current_user: Optional[User] = Depends(get_current_user_optional),
     session: Session = Depends(get_session)
 ):
-    """Get all events visible to the user"""
-    all_events = session.exec(select(Event)).all()
+    """Get all events visible to the user (paginated)"""
+    query = select(Event)
     
-    visible_events = []
-    for event in all_events:
-        if can_view_event(event, current_user, session) or event.show_on_schedule:
-             visible_events.append(event.to_read_model(current_user, session))
+    # Apply standard filters (dates, search, etc.)
+    query = apply_common_filters(
+        query, upcoming, featured, start_date, end_date, search, organization_id
+    )
     
-    return visible_events
+    # Apply Ordering
+    if featured:
+         # Prioritize featured events value if asking for them
+         query = query.order_by(Event.featured.desc(), Event.start_time.asc()) #pyright: ignore
+    else:
+         query = query.order_by(Event.start_time.asc()) #pyright: ignore
+
+    # Apply Visibility Security Logic
+    visibility_cond = get_visibility_conditions(current_user, session)
+    if visibility_cond is not None:
+        query = query.where(visibility_cond)
+    
+    # Execute Count Query
+    # Efficiently count matches before pagination
+    # We clone the query to remove order_by for count, allowing the DB optimizer to work better
+    # Note: SQLModel doesn't have a clean 'remove order_by', but count(*) usually ignores it or we can subquery.
+    # Subquery method:
+    count_query = select(func.count()).select_from(query.subquery()) 
+    total = session.exec(count_query).one()
+    
+    # Apply Pagination
+    events = session.exec(query.offset((page - 1) * size).limit(size)).all()
+    pages = (total + size - 1) // size if size > 0 else 0
+    
+    return PaginatedResponse(
+        items=[event.to_read_model(current_user, session) for event in events],
+        total=total,
+        page=page,
+        size=size,
+        pages=pages
+    )
 
 @router.get("/my-events", response_model=List[EventRead])
 def list_my_events(

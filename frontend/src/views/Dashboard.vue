@@ -385,8 +385,46 @@ const formatTime = (dateStr) => {
 const loadEvents = async () => {
   loading.value = true
   try {
-    const response = await api.get('/events/')
-    events.value = response.data
+    let start_date, end_date
+    
+    // Calculate date range based on view
+    if (viewType.value === 'month') {
+        const year = currentDate.value.getFullYear()
+        const month = currentDate.value.getMonth()
+        // Include previous month's tail and next month's head
+        // To be safe, let's grab from 1st of month - 7 days to last of month + 7 days
+        // Or better: use logic matching monthDays computation
+        const firstDay = new Date(year, month, 1)
+        const lastDay = new Date(year, month + 1, 0)
+        
+        // Extend to cover full grid if needed, or just strict month + overlap
+        // Simple safe margin: -7 days, +7 days from month boundaries
+        const start = new Date(firstDay)
+        start.setDate(start.getDate() - 7)
+        const end = new Date(lastDay)
+        end.setDate(end.getDate() + 7)
+        
+        start_date = start.toISOString()
+        end_date = end.toISOString()
+    } else {
+        // Week view
+        const weekStart = getWeekStart(currentDate.value)
+        const weekEnd = new Date(weekStart)
+        weekEnd.setDate(weekEnd.getDate() + 7) // +7 inclusive
+        
+        start_date = weekStart.toISOString()
+        end_date = weekEnd.toISOString()
+    }
+
+    const response = await api.get('/events/', {
+        params: {
+            size: 512,
+            start_date: start_date,
+            end_date: end_date,
+            upcoming: false // Disable default upcoming filter to see past events in current view
+        }
+    })
+    events.value = response.data.items
     
     // If authenticated, also load draft events where user has permission
     if (localStorage.getItem('auth_token')) {
@@ -416,8 +454,8 @@ const loadUserMemberships = async () => {
 }
 
 // Watch for date changes to reload events if needed
-watch(currentDate, () => {
-  // Could implement smart loading based on visible date range
+watch([currentDate, viewType], () => {
+  loadEvents()
 })
 
 onMounted(async () => {

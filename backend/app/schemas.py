@@ -3,6 +3,16 @@ from typing import List, Optional, Any, TYPE_CHECKING
 from datetime import datetime
 from uuid import UUID
 from app.models import OrganizationType, EventVisibility, Role
+from typing import List, Optional, Any, TYPE_CHECKING, Generic, TypeVar
+
+T = TypeVar("T")
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    items: List[T]
+    total: int
+    page: int
+    size: int
+    pages: int
 
 if TYPE_CHECKING:
     from app.models import Tag, Organization, User, Event, Membership

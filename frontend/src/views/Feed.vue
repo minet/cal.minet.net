@@ -36,20 +36,6 @@
     <!-- Main Content -->
     <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       
-      <!-- Loading State -->
-      <div v-if="loading" class="flex justify-center items-center py-20">
-        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      </div>
-
-      <!-- Empty State -->
-      <div v-else-if="allEvents.length === 0" class="text-center py-20">
-        <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-        <h3 class="mt-2 text-sm font-medium text-gray-900">Aucun événement à venir</h3>
-        <p class="mt-1 text-sm text-gray-500">Revenez plus tard pour voir les nouveautés !</p>
-      </div>
-
       <!-- Featured Events Section -->
       <div v-if="featuredEvents.length > 0" class="mb-12">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -96,20 +82,43 @@
         </div>
       </div>
 
-      <!-- Events Grid -->
-      <div class="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,18rem)] gap-6 justify-center">
-        <EventCard
-          v-for="event in visibleEvents"
-          :key="event.id"
-          :event="event"
-        />
+      <!-- Events List Grouped -->
+      <div v-if="allEvents.length === 0 && !loading" class="text-center py-20">
+        <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">Aucun événement à venir</h3>
+        <p class="mt-1 text-sm text-gray-500">Revenez plus tard pour voir les nouveautés !</p>
       </div>
 
-      <!-- Loading More / End of List -->
-      <div v-if="visibleEvents.length < allEvents.length && !loading" class="py-10 text-center">
-        <p class="text-gray-500 text-sm">Chargement...</p>
+      <div v-else>
+        <template v-for="(group, index) in groupedEvents" :key="index">
+            <div class="mb-8 relative">
+                <div class="sticky top-20 z-10 bg-gray-50/95 backdrop-blur py-2 mb-4 border-b border-gray-200">
+                    <h2 class="text-lg font-semibold text-gray-900 flex items-center">
+                        <CalendarIcon class="h-5 w-5 mr-2 text-indigo-600"/>
+                        {{ group.label }}
+                    </h2>
+                </div>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,18rem)] gap-6 justify-center">
+                    <EventCard
+                        v-for="event in group.events"
+                        :key="event.id"
+                        :event="event"
+                    />
+                </div>
+            </div>
+        </template>
       </div>
-      <div v-if="visibleEvents.length === allEvents.length && allEvents.length > 0" class="py-10 text-center text-gray-400 text-sm">
+
+      <!-- Loading State / Spinner -->
+      <div v-if="loading" class="flex justify-center items-center py-10">
+        <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+      </div>
+      
+      <!-- End of List -->
+      <div v-if="!hasMore && allEvents.length > 0 && !loading" class="py-10 text-center text-gray-400 text-sm">
         Vous avez tout vu !
       </div>
     </main>
@@ -142,64 +151,143 @@ import { formatLocalDate } from '../utils/dateUtils'
 const { initialize, setToken, isAuthenticated } = useAuth()
 const router = useRouter()
 const allEvents = ref([])
-const visibleEvents = ref([])
 const featuredEvents = ref([])
-const loading = ref(true)
+const loading = ref(false)
 const page = ref(1)
 const pageSize = 12
+const hasMore = ref(true)
 
-// Fetch events
+// Fetch events function
 const fetchEvents = async () => {
-  try {
-    loading.value = true
-    const response = await api.get('/events/')
-    
-    // Filter and Sort
+    if (loading.value || !hasMore.value) return
+
+    try {
+        loading.value = true
+        const response = await api.get('/events/', {
+            params: {
+                page: page.value,
+                size: pageSize,
+                upcoming: true
+            }
+        })
+
+        const newEvents = response.data.items
+        const total = response.data.total
+        
+        // Append new events (filtering duplicates just in case)
+        const existingIds = new Set(allEvents.value.map(e => e.id))
+        const uniqueNewEvents = newEvents.filter(e => !existingIds.has(e.id))
+        allEvents.value = [...allEvents.value, ...uniqueNewEvents]
+        
+        // Check if we have more pages
+        if (allEvents.value.length >= total || newEvents.length < pageSize) {
+            hasMore.value = false
+        } else {
+            page.value++ // Prepare next page
+        }
+
+    } catch (error) {
+        console.error('Error fetching events:', error)
+    } finally {
+        loading.value = false
+    }
+}
+
+const fetchFeatured = async () => {
+    try {
+        const response = await api.get('/events/', {
+            params: {
+                featured: true,
+                size: 5,
+                upcoming: true
+            }
+        })
+        featuredEvents.value = response.data.items
+    } catch (error) {
+        console.error("Failed to load featured events", error)
+    }
+}
+
+// Grouping Logic
+const groupedEvents = computed(() => {
+    const groups = []
     const now = new Date()
+    // Reset time part for accurate day comparison
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const dayAfterTomorrow = new Date(today)
+    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2)
+    const threeDaysLimit = new Date(today)
+    threeDaysLimit.setDate(threeDaysLimit.getDate() + 3)
 
-    const events = response.data
-      .filter(e => new Date(e.start_time) >= now) // upcoming only
-      .sort((a, b) => new Date(a.start_time) - new Date(b.start_time)) // closest date first
+    // Helper to check same day
+    const isSameDay = (d1, d2) => {
+        return d1.getFullYear() === d2.getFullYear() &&
+               d1.getMonth() === d2.getMonth() &&
+               d1.getDate() === d2.getDate()
+    }
 
-    // Separate Featured Events
-    // Featured if featured > 0 AND Now >= Start - FeaturedDays
-    // Which means Start <= Now + FeaturedDays
-    featuredEvents.value = events.filter(e => e.is_featured)
-    
-    // Do not show featured events in the main list to avoid duplication?
-    // Or keep them? User didn't specify. Usually featured implies "also in list" or "pinned".
-    // "Displayed on top ... " implies pinned.
-    // Let's remove them from the main list if they are in featured list, to avoid displaying twice near each other.
-    const featuredIds = new Set(featuredEvents.value.map(e => e.id))
-    allEvents.value = events.filter(e => !featuredIds.has(e.id))
-    
-    loadMore() // Initial load
-  } catch (error) {
-    console.error('Error fetching events:', error)
-  } finally {
-    loading.value = false
-  }
-}
+    // Helper to get Week Label
+    const getWeekLabel = (d) => {
+        // Find Monday of the week
+        const day = d.getDay() || 7 // Get current day number, converting Sun (0) to 7
+        if (day !== 1) d.setHours(-24 * (day - 1)) // Set to Monday
+        // Re-format
+        const options = { day: 'numeric', month: 'long' }
+        return `Semaine du ${d.toLocaleDateString('fr-FR', options)}`
+    }
 
-// Client-side pagination / Infinite scroll logic
-const loadMore = () => {
-  const currentLen = visibleEvents.value.length
-  const totalLen = allEvents.value.length
-  
-  if (currentLen >= totalLen) return
+    const eventsCopy = [...allEvents.value]
+    // Sort just in case backend didn't (though it does)
+    eventsCopy.sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
 
-  const nextChunk = allEvents.value.slice(currentLen, currentLen + pageSize)
-  visibleEvents.value = [...visibleEvents.value, ...nextChunk]
-}
+    let currentGroup = null
 
-// Infinite Scroll handler
+    eventsCopy.forEach(event => {
+        const eventDate = new Date(event.start_time)
+        // Reset time for comparison
+        const eventDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate())
+        
+        let label = ''
+
+        if (eventDay < threeDaysLimit) {
+            // It's in the next 3 days
+            if (isSameDay(eventDay, today)) {
+                label = "Aujourd'hui"
+            } else if (isSameDay(eventDay, tomorrow)) {
+                label = "Demain"
+            } else if (isSameDay(eventDay, dayAfterTomorrow)) {
+                // Day name (e.g. "Mercredi")
+                label = eventDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+                label = label.charAt(0).toUpperCase() + label.slice(1) // Capitalize
+            } else {
+                // Souldn't happen given the if condition but fallback
+                label = eventDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+            }
+        } else {
+            // It's later -> Group by Week
+            // Get week start string
+            label = getWeekLabel(new Date(eventDay)) // Pass copy to avoid mutation
+        }
+
+        if (!currentGroup || currentGroup.label !== label) {
+            currentGroup = { label: label, events: [] }
+            groups.push(currentGroup)
+        }
+        currentGroup.events.push(event)
+    })
+
+    return groups
+})
+
+
 const handleScroll = () => {
   const scrollPosition = window.innerHeight + window.scrollY
   const documentHeight = document.documentElement.offsetHeight
   
-  // Trigger loadMore when we are close to the bottom (100px buffer)
-  if (scrollPosition >= documentHeight - 100) {
-    loadMore()
+  if (scrollPosition >= documentHeight - 200) { // Increased buffer
+    fetchEvents()
   }
 }
 
@@ -210,20 +298,18 @@ onMounted(async () => {
   
   if (authToken) {
     await setToken(authToken)
-    // Clean up URL
     window.history.replaceState({}, document.title, '/')
-    
-    // Check for redirect URL
     const redirectUrl = localStorage.getItem('auth_redirect_url')
     if (redirectUrl) {
       localStorage.removeItem('auth_redirect_url')
-      // Use router if it's a path, or window location if it's full URL (though we stored path)
       router.push(redirectUrl)
-      return // Don't fetch events if redirecting
+      return
     }
   }
 
   await initialize()
+  fetchFeatured()
+  // Initial fetch
   fetchEvents()
   window.addEventListener('scroll', handleScroll)
 })

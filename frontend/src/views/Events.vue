@@ -46,12 +46,12 @@
         <p class="text-sm text-gray-500">Chargement...</p>
       </div>
       
-      <div v-else-if="filteredEvents.length === 0" class="text-center py-12">
+      <div v-else-if="events.length === 0" class="text-center py-12">
         <p class="text-sm text-gray-500">Aucun événement trouvé</p>
       </div>
 
       <ul v-else role="list" class="divide-y divide-gray-100">
-        <li v-for="event in paginatedEvents" :key="event.id">
+        <li v-for="event in events" :key="event.id">
           <router-link 
             :to="`/events/${event.id}`"
             class="flex flex-col sm:flex-row justify-between gap-x-6 py-5 px-6 hover:bg-gray-50 transition-colors"
@@ -62,7 +62,7 @@
                   {{ event.is_draft ? '(Brouillon) ' : '' }}{{ event.title }}
                 </p>
                 <div class="mt-1 flex items-center gap-x-2 text-xs leading-5 text-gray-500">
-                  <p class="truncate">{{ formatDate(event.start_time) }}</p>
+                  <p class="truncate">{{ formatLocalDate(event.start_time) }}</p>
                   <svg v-if="event.location" viewBox="0 0 2 2" class="h-0.5 w-0.5 fill-current"><circle cx="1" cy="1" r="1" /></svg>
                   <p v-if="event.location" class="truncate">{{ event.location }}</p>
                 </div>
@@ -80,7 +80,7 @@
       <!-- Pagination -->
       <div v-if="totalPages > 1" class="px-4 py-3 border-t border-gray-200 flex items-center justify-between">
         <div class="text-sm text-gray-700">
-          Affichage {{ (currentPage - 1) * itemsPerPage + 1 }} - {{ Math.min(currentPage * itemsPerPage, filteredEvents.length) }} sur {{ filteredEvents.length }}
+          Page {{ currentPage }} sur {{ totalPages }}
         </div>
         <div class="flex space-x-2">
           <button 
@@ -119,6 +119,7 @@ const searchQuery = ref('')
 const selectedOrganization = ref(null)
 const currentPage = ref(1)
 const itemsPerPage = 20
+const totalPages = ref(0)
 
 // Check if user can create events
 const canCreateEvent = computed(() => {
@@ -128,90 +129,37 @@ const canCreateEvent = computed(() => {
   )
 })
 
-// Filtered events based on search and organization
-const filteredEvents = computed(() => {
-  let result = events.value
-
-  // Filter by organization
-  if (selectedOrganization.value) {
-    result = result.filter(e => e.organization.id === selectedOrganization.value)
-  }
-
-  // Filter by search query
-  if (searchQuery.value.trim()) {
-    const query = searchQuery.value.toLowerCase()
-    result = result.filter(e => 
-      e.title.toLowerCase().includes(query) ||
-      e.description?.toLowerCase().includes(query) ||
-      e.location?.toLowerCase().includes(query)
-    )
-  }
-
-  // Filter out past events
-  const now = new Date()
-  result = result.filter(e => new Date(e.end_time || e.start_time) >= now)
-
-  // Sort by date (ascending)
-  result.sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
-
-  return result
-})
-
-// Paginated events
-const paginatedEvents = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage
-  const end = start + itemsPerPage
-  return filteredEvents.value.slice(start, end)
-})
-
-const totalPages = computed(() => {
-  return Math.ceil(filteredEvents.value.length / itemsPerPage)
-})
-
-// Reset to page 1 when filters change
-watch([searchQuery, selectedOrganization], () => {
-  currentPage.value = 1
-})
-
-const formatDate = (dateString) => {
-  return formatLocalDate(dateString, { dateStyle: 'medium', timeStyle: 'short' })
-}
-
-const clearFilters = () => {
-  searchQuery.value = ''
-  selectedOrganization.value = null
-  currentPage.value = 1
-}
-
-const loadUserMemberships = async () => {
-  try {
-    const response = await api.get('/users/me/memberships')
-    userMemberships.value = response.data
-  } catch (error) {
-    console.error('Failed to load user memberships:', error)
-  }
-}
-
 const loadEvents = async () => {
   try {
-    const response = await api.get('/events/')
-    events.value = response.data
-    
-    // Load draft events if authenticated
-    if (localStorage.getItem('auth_token')) {
-      try {
-        const draftsResponse = await api.get('/events/drafts')
-        events.value = [...events.value, ...draftsResponse.data]
-      } catch (error) {
-        console.debug('Could not load draft events:', error)
-      }
+    loading.value = true
+    const params = {
+      page: currentPage.value,
+      size: itemsPerPage,
+      upcoming: true,
+      search: searchQuery.value || undefined,
+      organization_id: selectedOrganization.value || undefined
     }
+    
+    const response = await api.get('/events/', { params })
+    events.value = response.data.items
+    totalPages.value = response.data.pages
+    
   } catch (error) {
     console.error('Failed to load events:', error)
   } finally {
     loading.value = false
   }
 }
+
+// Watchers
+watch([searchQuery, selectedOrganization], () => {
+  currentPage.value = 1
+  loadEvents()
+})
+
+watch(currentPage, () => {
+  loadEvents()
+})
 
 const loadOrganizations = async () => {
   try {
@@ -220,6 +168,17 @@ const loadOrganizations = async () => {
   } catch (error) {
     console.error('Failed to load organizations:', error)
   }
+}
+
+const loadUserMemberships = async () => {
+    try {
+        const response = await api.get('/users/me/memberships')
+        userMemberships.value = response.data
+    } catch (error) {
+        // If not authenticated, or error, just set empty
+        console.debug('Failed to load memberships (probably not logged in):', error)
+        userMemberships.value = []
+    }
 }
 
 onMounted(async () => {
