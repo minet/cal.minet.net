@@ -159,6 +159,13 @@
         Logout
       </button>
     </div>
+
+    <div class="px-6 py-2 mb-2 mt-auto">
+        <p class="text-[10px] text-gray-400 flex items-center justify-center">
+          Réalisé par <a href="https://github.com/LiteApplication" target="_blank" class=" mx-1 hover:text-gray-900" title="Icônes par Alexandra Bert (Nereide)">Alexis Ro</a> à
+          <MinetIcon class="h-4 w-auto ml-1"/>
+        </p>
+    </div>
   </div>
 
   <!-- Overlay for mobile -->
@@ -170,6 +177,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import api from '../utils/api'
 import UserAvatar from './UserAvatar.vue'
+import MinetIcon from './MinetIcon.vue'
 import { getOrgColor } from '../utils/colorUtils'
 import { 
   XMarkIcon, 
