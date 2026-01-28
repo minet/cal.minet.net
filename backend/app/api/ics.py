@@ -14,7 +14,7 @@ from app.models import (
 )
 from app.api.auth import get_current_user
 from icalendar import Calendar, Event as IcalEvent
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 import hashlib
 
@@ -137,7 +137,7 @@ def export_user_calendar(securekey: str, user_id: str, session: Session = Depend
         ievent.add('summary', event.title)
         ievent.add('dtstart', event.start_time)
         ievent.add('dtend', event.end_time)
-        ievent.add('dtstamp', datetime.utcnow())
+        ievent.add('dtstamp', datetime.now(timezone.utc))
         ievent.add('uid', f'{event.id}@{BASE_URL}')
         
         # Build description with poster and event link

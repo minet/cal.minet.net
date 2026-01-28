@@ -108,7 +108,7 @@ const routes = [
         meta: { layout: 'normal' }
     },
     {
-        path: '/countdown/:id',
+        path: '/events/:id/countdown',
         name: 'EventCountdown',
         component: () => import('../views/EventCountdown.vue'),
         meta: { layout: 'none' }

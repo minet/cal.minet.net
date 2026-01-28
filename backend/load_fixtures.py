@@ -2,7 +2,7 @@
 import json
 import sys
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any
 from sqlmodel import Session, select
 from app.database import engine
@@ -115,8 +115,8 @@ def load_fixtures(target_email: str, fixtures_dir: str = "fixtures"):
                     # Fallback to any user
                     creator = list(users_map.values())[0]
 
-                start_time = datetime.utcnow() + timedelta(days=event_data["start_days_offset"])
-                end_time = datetime.utcnow() + timedelta(days=event_data["end_days_offset"], hours=event_data["duration"])
+                start_time = datetime.now(timezone.utc) + timedelta(days=event_data["start_days_offset"])
+                end_time = datetime.now(timezone.utc) + timedelta(days=event_data["end_days_offset"], hours=event_data["duration"])
                 
                 # Check if event exists (by title and org)
                 event = session.exec(select(Event).where(Event.title == event_data["title"], Event.organization_id == org.id)).first()
@@ -126,7 +126,7 @@ def load_fixtures(target_email: str, fixtures_dir: str = "fixtures"):
                     # Set approved_at for approved events
                     approved_at = None
                     if visibility == EventVisibility.PUBLIC_APPROVED:
-                        approved_at = datetime.utcnow()
+                        approved_at = datetime.now(timezone.utc)
                     
                     event = Event(
                         title=event_data["title"],

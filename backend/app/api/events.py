@@ -592,7 +592,7 @@ def update_event(
         # Check if we should auto-approve now
         if event.visibility == EventVisibility.PUBLIC_PENDING and has_auto_approved:
             event.visibility = EventVisibility.PUBLIC_APPROVED
-            event.approved_at = datetime.utcnow()
+            event.approved_at = datetime.now(timezone.utc)
             event.rejection_message = None
 
     elif event.visibility == EventVisibility.PUBLIC_PENDING:
@@ -603,7 +603,7 @@ def update_event(
          ).all()
          if any(t.is_auto_approved for t in existing_tags):
              event.visibility = EventVisibility.PUBLIC_APPROVED
-             event.approved_at = datetime.utcnow()
+             event.approved_at = datetime.now(timezone.utc)
              event.rejection_message = None
 
     

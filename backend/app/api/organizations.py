@@ -4,7 +4,7 @@ from typing import List, Optional
 from app.database import get_session
 from app.models import Organization, User, Membership, Role, EventVisibility
 from app.api.auth import get_current_user, get_current_user_optional
-
+from datetime import datetime, timezone
 from app.schemas import OrganizationRead, EventRead
 
 router = APIRouter()
@@ -207,13 +207,12 @@ def get_organization_events(
     current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """Get future events for an organization"""
-    from datetime import datetime
     from app.models import Event
     
     events = session.exec(
         select(Event).where(
             Event.organization_id == org_id,
-            Event.start_time >= datetime.utcnow(),
+            Event.start_time >= datetime.now(timezone.utc),
             Event.visibility != EventVisibility.DRAFT
         ).order_by(col(Event.start_time))
     ).all()
@@ -287,7 +286,7 @@ def update_organization(
     org.color_hue = org_update.color_hue
     
     from datetime import datetime
-    org.updated_at = datetime.utcnow()
+    org.updated_at = datetime.now(timezone.utc)
     
     session.add(org)
     session.commit()

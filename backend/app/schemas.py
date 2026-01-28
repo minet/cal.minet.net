@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import List, Optional, Any, TYPE_CHECKING
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 from app.models import OrganizationType, EventVisibility, Role
 from typing import List, Optional, Any, TYPE_CHECKING, Generic, TypeVar
@@ -267,7 +267,6 @@ class EventRead(BaseModel):
         if event.group:
              group_read = GroupRead(id=event.group.id, name=event.group.name)
 
-        from datetime import timezone, timedelta
 
         # Ensure timezone context is preserved/added
         start_time = event.start_time.replace(tzinfo=timezone.utc) if event.start_time.tzinfo is None else event.start_time
@@ -286,7 +285,7 @@ class EventRead(BaseModel):
             poster_url=None if should_hide else event.poster_url,
             created_at=event.created_at,
             featured=event.featured,
-            is_featured=(event.featured > 0 and start_time.replace(tzinfo=None) <= (datetime.utcnow() + timedelta(days=event.featured))),
+            is_featured=(event.featured > 0 and start_time.replace(tzinfo=None) <= (datetime.now(timezone.utc) + timedelta(days=event.featured))),
             approved_at=event.approved_at,
             rejection_message=event.rejection_message if (
                 current_user and (

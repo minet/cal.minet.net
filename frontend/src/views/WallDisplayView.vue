@@ -39,8 +39,19 @@
                  Retrouvez tous les événements et ajoutez les vôtres sur 
                  <span class="text-indigo-600 font-bold block mt-4">cal.minet.net</span>
              </p>
-             <div class="bg-white p-8 rounded-3xl shadow-2xl ring-8 ring-indigo-50">
-                 <QrcodeVue value="https://cal.minet.net/" :size="300" level="H" />
+             <div class="bg-white p-8 rounded-3xl shadow-2xl ring-8 ring-indigo-50 h-100 w-100">
+                 <QRCodeVue3
+                  value="https://cal.minet.net/"
+                  :width="512" :height="512"
+                  :qrOptions="{ errorCorrectionLevel: 'H' }"
+                  :dots-options="{ type: 'square' }"
+                  :corners-dot-options="{type: 'square'}"
+                  :corners-square-options="{type: 'square'}"
+                  image='/favicon.svg'
+                  :image-options="{
+                    excavate: false
+                  }"
+                  />
              </div>
          </div>
       </div>
@@ -99,11 +110,7 @@
             
             <!-- Date/Time -->
             <div class="flex items-center space-x-6 bg-white/60 backdrop-blur-md rounded-2xl p-6 border border-white/40 shadow-sm">
-              <div class="p-3 bg-white/80 rounded-xl shadow-sm text-gray-700">
-                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-10 h-10">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
+                 <ClockIcon class="w-10 h-10" />
               <div>
                 <div class="font-bold text-gray-900">{{ formatEventDate(currentEvent.start_time) }}</div>
                 <div class="text-gray-600 text-xl mt-1">{{ formatEventTime(currentEvent.start_time) }} - {{ formatEventTime(currentEvent.end_time) }}</div>
@@ -112,15 +119,8 @@
 
             <!-- Location -->
             <div class="flex items-center space-x-6 bg-white/60 backdrop-blur-md rounded-2xl p-6 border border-white/40 shadow-sm">
-               <div class="p-3 bg-white/80 rounded-xl shadow-sm text-gray-700">
-                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-10 h-10">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                </svg>
-               </div>
-               <div>
+                 <MapPinIcon class="w-10 h-10" />
                 <div class="font-bold text-gray-900">{{ currentEvent.location || 'Lieu non spécifié' }}</div>
-               </div>
             </div>
 
           </div>
@@ -157,7 +157,8 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import api from '../utils/api'
 import { getOrgColor, getEventGradient } from '../utils/colorUtils'
 import { formatLocalDate } from '../utils/dateUtils'
-import QrcodeVue from 'qrcode.vue'
+import { ClockIcon, MapPinIcon } from '@heroicons/vue/24/outline'
+import QRCodeVue3 from 'qrcode-vue3'
 
 const loading = ref(true)
 const events = ref([])
@@ -173,10 +174,10 @@ const UPDATE_INTERVAL_MS = 100
 const REFRESH_INTERVAL_MS = 15 * 60 * 1000 // 15 minutes
 
 const currentEvent = computed(() => {
+  return { isAd: true }
   if (events.value.length === 0) return {}
   // If index is equal to length, it's the ad slide
   if (currentIndex.value === events.value.length) {
-      return { isAd: true }
   }
   return events.value[currentIndex.value]
 })

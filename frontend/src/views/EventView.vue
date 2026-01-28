@@ -22,7 +22,7 @@
               :reactions="event.reactions"
               :btn-add="canEdit"
               @update="loadEvent" 
-              class="mb-2"
+              class="my-2"
             />
             <div class="mt-1 flex items-center text-xs text-gray-500 mb-2">
               <InformationCircleIcon class="h-3 w-3 mr-1" />
@@ -100,7 +100,15 @@
       <!-- Sidebar -->
       <div class="space-y-6">
         <ActionPanel title="Actions">
-             <ShareButton :item-id="event.id" item-type="event" :block="true" variant="indigo" />
+             <ShareButton 
+              v-if="event && user"
+                :item-id="event.id" 
+                item-type="event" 
+                :block="true" 
+                variant="indigo" 
+                :organization="event.organization"
+                :guest-organizations="event.guest_organizations"
+             />
              
              <ActionPanelButton
               v-if="canEdit"
@@ -133,10 +141,10 @@
             </ActionPanelButton>
             
             <ActionPanelButton
-              :to="`/countdown/${event.id}`"
+              :to="`/events/${event.id}/countdown`"
               target="_blank"
               :icon="ClockIcon"
-              variant="rose"
+              variant="rose"  
               class="w-full"
             >
               Compte à rebours
@@ -250,6 +258,7 @@ import {
   PencilIcon,
   BellIcon,
   BellSlashIcon,
+  XMarkIcon,
   DocumentTextIcon,
   LockClosedIcon,
   GlobeAltIcon,

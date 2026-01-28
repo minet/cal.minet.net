@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
 from sqlmodel import Session, select
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 import random
 import string
@@ -80,15 +80,16 @@ def create_short_link(
 
     # 3. Create new link
     # Try to generate unique ID
-    for _ in range(10): # Retry a few times
-        new_id = generate_short_id(3) # Start with 3
-        if not session.get(ShortLink, new_id):
-            break
+    for length in range(3, 8):
+        for _ in range(10): # Retry a few times
+            new_id = generate_short_id(length)
+            if not session.get(ShortLink, new_id):
+                break
+        else: # google en passant
+            continue
+        break
     else:
-        # If 3 chars fail, try 4
-        new_id = generate_short_id(4)
-        if session.get(ShortLink, new_id):
-             raise HTTPException(status_code=500, detail="Failed to generate unique ID")
+        raise HTTPException(status_code=500, detail="Failed to generate unique ID")
 
     new_link = ShortLink(
         id=new_id,
@@ -115,27 +116,93 @@ def visit_short_link(
         raise HTTPException(status_code=404, detail="Link not found")
     
     # Update last used
-    link.last_used_at = datetime.utcnow()
+    link.last_used_at = datetime.now(timezone.utc)
     session.add(link)
     session.commit()
     
+    # Determine Redirect URL
     app_base_url = os.getenv("APP_BASE_URL", "https://cal.minet.net")
+    redirect_url = f"{app_base_url}"
     
-    # Direct Redirect
     if link.action_type in [ShortLinkActionType.VIEW, ShortLinkActionType.COUNTDOWN]:
         if link.item_type == ShortLinkType.EVENT:
             if link.action_type == ShortLinkActionType.COUNTDOWN:
-                return RedirectResponse(url=f"{app_base_url}/events/{link.item_id}/countdown")
-            return RedirectResponse(url=f"{app_base_url}/events/{link.item_id}")
+                redirect_url = f"{app_base_url}/events/{link.item_id}/countdown"
+            else:
+                redirect_url = f"{app_base_url}/events/{link.item_id}"
             
         elif link.item_type == ShortLinkType.ORGANIZATION:
-             return RedirectResponse(url=f"{app_base_url}/organizations/{link.item_id}")
+             redirect_url = f"{app_base_url}/organizations/{link.item_id}"
              
-    # Subscribe flow -> Redirect to Consent Page
-    if link.action_type == ShortLinkActionType.SUBSCRIBE:
-        return RedirectResponse(url=f"{app_base_url}/consent/{link.id}") # Route to frontend consent page
+    elif link.action_type == ShortLinkActionType.SUBSCRIBE:
+        redirect_url = f"{app_base_url}/consent/{link.id}"
+
+    # Fetch Metadata
+    og_title = "CalendInt"
+    og_description = "Calendar Integration App"
+    og_image = "" # Default image?
+
+    if link.item_type == ShortLinkType.EVENT:
+        event = session.get(Event, link.item_id)
+        if event:
+             og_title = event.title
+             if event.description:
+                 og_description = event.description[:200]
+             else:
+                 og_description = f"Event on {event.start_time.strftime('%d/%m/%Y %H:%M')}"
+             
+             if event.poster_url:
+                 og_image = event.poster_url
+             elif event.organization and event.organization.logo_url:
+                 og_image = event.organization.logo_url
+             
+    elif link.item_type == ShortLinkType.ORGANIZATION:
+        org = session.get(Organization, link.item_id)
+        if org:
+            og_title = org.name
+            if org.description:
+                og_description = org.description[:200]
+            if org.logo_url:
+                 og_image = org.logo_url
+            
+    elif link.item_type == ShortLinkType.TAG:
+        from app.models import Tag
+        tag = session.get(Tag, link.item_id)
+        if tag:
+            og_title = f"{tag.name} Subscription"
+            # Tags might be part of an org
+            org = session.get(Organization, tag.organization_id)
+            if org:
+                 og_description = f"Subscribe to {tag.name} events from {org.name}"
+                 if org.logo_url:
+                    og_image = org.logo_url
+
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>{og_title}</title>
+        <meta property="og:title" content="{og_title}" />
+        <meta property="og:description" content="{og_description}" />
+        <meta property="og:image" content="{og_image}" />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="{redirect_url}" />
+        
+        <!-- Redirect -->
+        <meta http-equiv="refresh" content="0;url={redirect_url}" />
+    </head>
+    <body>
+        <p>Redirecting to <a href="{redirect_url}">{redirect_url}</a>...</p>
+        <script>
+            window.location.href = "{redirect_url}";
+        </script>
+    </body>
+    </html>
+    """
     
-    return RedirectResponse(url=f"{app_base_url}") # Fallback
+    return HTMLResponse(content=html_content, status_code=200)
 
 @router.get("/info/{short_id}", response_model=ShortLinkInfo)
 def get_link_info(

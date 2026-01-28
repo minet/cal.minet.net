@@ -101,7 +101,7 @@
                     </h2>
                 </div>
                 
-                <div class="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,18rem)] gap-6 justify-center">
+                <div class="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,18rem)] gap-6 justify-start">
                     <EventCard
                         v-for="event in group.events"
                         :key="event.id"

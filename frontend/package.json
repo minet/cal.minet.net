@@ -12,18 +12,19 @@
     "@alloc/quick-lru": "^5.2.0",
     "@headlessui/vue": "^1.7.23",
     "@heroicons/vue": "^2.2.0",
-    "@tailwindcss/postcss": "^4.1.17",
-    "axios": "^1.13.2",
-    "qrcode.vue": "^3.6.0",
-    "vue": "^3.5.24",
+    "@tailwindcss/postcss": "^4.1.18",
+    "axios": "^1.13.4",
+    "qrcode-vue3": "^1.7.1",
+    "vue": "^3.5.27",
     "vue-advanced-cropper": "^2.8.9",
-    "vue-router": "^4.6.3"
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^5.0.0",
-    "autoprefixer": "^10.4.22",
+    "@vitejs/plugin-vue": "^6.0.3",
+    "autoprefixer": "^10.4.23",
+    "baseline-browser-mapping": "^2.9.18",
     "postcss": "^8.5.6",
-    "tailwindcss": "^4.1.17",
-    "vite": "^5.0.0"
+    "tailwindcss": "^4.1.18",
+    "vite": "^7.3.1"
   }
 }

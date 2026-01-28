@@ -2,7 +2,7 @@
   <component 
     :is="tag"
     :to="to"
-    :href="href"
+    :href="resolvedHref"
     :target="target"
     :class="[
       'inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-semibold shadow-sm ring-1 ring-inset gap-3', 
@@ -18,6 +18,7 @@
 
 <script setup>
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 
 const props = defineProps({
   icon: {
@@ -49,10 +50,20 @@ const props = defineProps({
 
 defineEmits(['click']);
 
+const router = useRouter();
+
 const tag = computed(() => {
+  if (props.to && props.target) return 'a'; // Use 'a' tag for external/new-tab router links
   if (props.to) return 'router-link';
   if (props.href) return 'a';
   return 'button';
+});
+
+const resolvedHref = computed(() => {
+  if (props.to && props.target) {
+    return router.resolve(props.to).href;
+  }
+  return props.href;
 });
 
 const variantClass = computed(() => {

@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-wrap items-center gap-2 mt-2" v-if="btnAdd || sortedReactions.length > 0">
+  <div class="flex flex-wrap items-center gap-2" v-if="btnAdd || sortedReactions.length > 0">
     <!-- Existing Reactions -->
     <button
       v-for="reaction in sortedReactions"

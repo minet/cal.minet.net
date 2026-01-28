@@ -51,6 +51,7 @@
             :block="true"
             variant="indigo"
             class="lg:w-auto"
+            :organization="organization"
          />
          
          <SubscribeButton 

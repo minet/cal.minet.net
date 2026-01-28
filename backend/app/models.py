@@ -1,5 +1,5 @@
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID, uuid4
 from sqlmodel import SQLModel, Field, Relationship, Session
 from enum import Enum
@@ -25,7 +25,7 @@ class UserPushToken(SQLModel, table=True):
     user_id: UUID = Field(foreign_key="user.id")
     endpoint: str = Field(index=True)
     keys: str # JSON string of keys
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     user: "User" = Relationship(back_populates="push_tokens")
 
@@ -65,8 +65,8 @@ class Organization(SQLModel, table=True):
     color_hue: Optional[float] = Field(default=None)
     type: OrganizationType
     parent_id: Optional[UUID] = Field(default=None, foreign_key="organization.id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     parent: Optional["Organization"] = Relationship(back_populates="children", sa_relationship_kwargs={"remote_side": "Organization.id"})
     children: List["Organization"] = Relationship(back_populates="parent")
@@ -133,7 +133,7 @@ class EventTag(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     event_id: UUID = Field(foreign_key="event.id")
     tag_id: UUID = Field(foreign_key="tag.id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     event: Optional["Event"] = Relationship(back_populates="event_tags")
     tag: Tag = Relationship(back_populates="event_links")
@@ -151,7 +151,7 @@ class Event(SQLModel, table=True):
     poster_url: Optional[str] = None
     organization_id: UUID = Field(foreign_key="organization.id")
     created_by_id: UUID = Field(foreign_key="user.id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     # New fields for approval workflow
     rejection_message: Optional[str] = None
     hide_details: bool = Field(default=False)
@@ -175,7 +175,7 @@ class Group(SQLModel, table=True):
     name: str
     organization_id: UUID = Field(foreign_key="organization.id")
     description: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     organization: Optional[Organization] = Relationship(back_populates="groups")
     members: List["GroupMembership"] = Relationship(back_populates="group")
@@ -185,7 +185,7 @@ class GroupMembership(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     group_id: UUID = Field(foreign_key="group.id")
     user_id: UUID = Field(foreign_key="user.id")
-    joined_at: datetime = Field(default_factory=datetime.utcnow)
+    joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     group: Optional[Group] = Relationship(back_populates="members")
     user: Optional[User] = Relationship() # Assuming User has a back_populates for GroupMembership
@@ -197,7 +197,7 @@ class Subscription(SQLModel, table=True):
     organization_id: Optional[UUID] = Field(default=None, foreign_key="organization.id")
     tag_id: Optional[UUID] = Field(default=None, foreign_key="tag.id")
     subscribe_all: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     user: Optional[User] = Relationship(back_populates="subscriptions")
     organization: Optional[Organization] = Relationship(back_populates="subscribers")
@@ -210,7 +210,7 @@ class EventReaction(SQLModel, table=True):
     event_id: UUID = Field(foreign_key="event.id")
     user_id: UUID = Field(foreign_key="user.id")
     emoji: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     event: Optional[Event] = Relationship(back_populates="reactions")
     user: Optional[User] = Relationship()
@@ -238,7 +238,7 @@ class ShortLink(SQLModel, table=True):
     action_type: ShortLinkActionType
     item_id: UUID
     created_by_id: UUID = Field(foreign_key="user.id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    last_used_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_used_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     user: Optional[User] = Relationship()
