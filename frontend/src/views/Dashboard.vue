@@ -80,9 +80,14 @@
             <li v-for="event in day.events.slice(0, 3)" :key="event.id">
               <router-link 
                 :to="`/events/${event.id}`" 
+                :title="getEventTitle(event)"
                 :class="[
                   'group flex items-center px-2 py-1 text-xs rounded transition-colors',
-                  event.is_draft ? 'opacity-50' : ''
+                  ['public_rejected', 'public_pending', 'private'].includes(event.visibility) ? 'border-2' : '',
+                  event.visibility === 'public_rejected' ? 'border-red-500 opacity-25' : '',
+                  event.visibility === 'public_pending' ? 'border-yellow-500 opacity-50' : '',
+                  event.visibility === 'private' ? 'border-blue-500' : '',
+                  (event.visibility === 'draft' || event.is_draft) ? 'opacity-50' : ''
                 ]"
                 :style="{ 
                   backgroundColor: getOrgColor(event.organization?.color_chroma/20, event.organization?.color_hue, 1),
@@ -91,9 +96,9 @@
               >
                 <span :class="[
                   'flex-auto truncate font-medium',
-                  event.is_draft ? 'italic' : ''
+                  (event.visibility === 'draft' || event.is_draft) ? 'italic' : ''
                 ]">
-                  {{ event.is_draft ? '(Brouillon) ' : '' }}{{ event.title }}
+                  {{ event.title }}
                 </span>
                 <time 
                   class="ml-2 hidden flex-none xl:block"
@@ -136,9 +141,14 @@
                 <li v-for="event in day.events" :key="event.id">
                   <router-link 
                     :to="`/events/${event.id}`"
+                    :title="getEventTitle(event)"
                     :class="[
                       'group block p-2 rounded-lg transition-colors',
-                      event.is_draft ? 'opacity-60' : ''
+                      ['public_rejected', 'public_pending', 'private'].includes(event.visibility) ? 'border-2' : '',
+                      event.visibility === 'public_rejected' ? 'border-red-500 opacity-25' : '',
+                      event.visibility === 'public_pending' ? 'border-yellow-500 opacity-50' : '',
+                      event.visibility === 'private' ? 'border-blue-500' : '',
+                      (event.visibility === 'draft' || event.is_draft) ? 'opacity-50' : ''
                     ]"
                     :style="{ 
                       backgroundColor: getOrgColor(event.organization?.color_chroma/20, event.organization?.color_hue, 1),
@@ -180,11 +190,11 @@
 
                     <p :class="[
                       'text-sm font-medium',
-                      event.is_draft ? 'italic' : ''
+                      (event.visibility === 'draft' || event.is_draft) ? 'italic' : ''
                     ]"
                     :style="{ color: getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.3) }"
                     >
-                      {{ event.is_draft ? '(Brouillon) ' : '' }}{{ event.title }}
+                      {{ event.title }}
                     </p>
                     <div 
                       class="flex items-center text-xs mt-1" 
@@ -380,6 +390,14 @@ const getEventsForDate = (dateStr) => {
 
 const formatTime = (dateStr) => {
   return new Date(dateStr).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+}
+
+const getEventTitle = (event) => {
+  if (event.visibility === 'public_rejected') return `Refusé : ${event.title}`
+  if (event.visibility === 'public_pending') return `En attente : ${event.title}`
+  if (event.visibility === 'private') return `Privé : ${event.title}`
+  if (event.visibility === 'draft' || event.is_draft) return `Brouillon : ${event.title}`
+  return event.title
 }
 
 const loadEvents = async () => {
