@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 from app.database import get_session
 from app.models import User
 from jose import JWTError, jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import os
 
@@ -84,7 +84,8 @@ async def read_users_me(
     user_rejected = session.exec(
         select(Event).where(
             Event.visibility == EventVisibility.PUBLIC_REJECTED,
-            Event.created_by_id == current_user.id
+            Event.created_by_id == current_user.id,
+            Event.start_time > datetime.now(timezone.utc)
         )
     ).all()
     rejected_ids = {e.id for e in user_rejected}
