@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Response
-from sqlmodel import Session, select, or_, and_, func
+from sqlmodel import Session, select, or_, and_, func, col
 from app.database import get_session
 from starlette.config import Config
 from app.models import (
@@ -13,6 +13,7 @@ from app.models import (
     EventReaction
 )
 from app.api.auth import get_current_user
+from app.api.events import get_visibility_conditions
 from icalendar import Calendar, Event as IcalEvent
 from datetime import datetime, timezone
 from uuid import UUID
@@ -86,30 +87,27 @@ def export_user_calendar(securekey: str, user_id: str, session: Session = Depend
     
     # 1. Subscribed Organizations
     if all_org_ids:
-        conditions.append(Event.organization_id.in_(all_org_ids))
+        conditions.append(col(Event.organization_id).in_(all_org_ids))
         
     # 2. Subscribed Tags
     if sub_tag_ids:
         # Efficiently filter events that have any of the subscribed tags
         # Fetch EventTag objects to safely get event_ids
         event_tags = session.exec(
-            select(EventTag).where(EventTag.tag_id.in_(sub_tag_ids))
+            select(EventTag).where(col(EventTag.tag_id).in_(sub_tag_ids))
         ).all()
         tag_event_ids = [et.event_id for et in event_tags]
         
         if tag_event_ids:
-            conditions.append(Event.id.in_(tag_event_ids))
+            conditions.append(col(Event.id).in_(tag_event_ids))
             
     # 3. Private Events (Group Membership)
     if user_group_ids:
-        conditions.append(Event.group_id.in_(user_group_ids))
+        conditions.append(col(Event.group_id).in_(user_group_ids))
             
     # 4. Reacted Events
     if reacted_event_ids:
-        conditions.append(Event.id.in_(reacted_event_ids))
-            
-    if reacted_event_ids:
-        conditions.append(Event.id.in_(reacted_event_ids))
+        conditions.append(col(Event.id).in_(reacted_event_ids))
     
     # 5. Featured Events
     conditions.append(Event.featured > 0)
@@ -117,11 +115,14 @@ def export_user_calendar(securekey: str, user_id: str, session: Session = Depend
     if not conditions:
         events = []
     else:
-        # Base filter: No Drafts and not rejected
+        # Apply strict visibility rules from events system to ensure consistency
+        visibility_conditions = get_visibility_conditions(user, session)
+        
         query = select(Event).where(
-            Event.visibility != EventVisibility.DRAFT,
-            Event.visibility != EventVisibility.PUBLIC_REJECTED,
-            or_(*conditions)
+            and_(
+                or_(*conditions),
+                visibility_conditions
+            )
         )
         events = session.exec(query).unique().all()
     
