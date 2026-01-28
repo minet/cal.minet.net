@@ -285,7 +285,7 @@ class EventRead(BaseModel):
             poster_url=None if should_hide else event.poster_url,
             created_at=event.created_at,
             featured=event.featured,
-            is_featured=(event.featured > 0 and start_time.replace(tzinfo=None) <= (datetime.now(timezone.utc) + timedelta(days=event.featured))),
+            is_featured=(event.featured > 0 and start_time.replace(tzinfo=timezone.utc) <= (datetime.now(timezone.utc) + timedelta(days=event.featured))),
             approved_at=event.approved_at,
             rejection_message=event.rejection_message if (
                 current_user and (
