@@ -60,6 +60,9 @@
           ]"
         />
       </div>
+      <p class="mt-2 text-xs text-gray-500">
+        Note : La personne doit s'être connectée au moins une fois pour apparaître dans la liste.
+      </p>
     </div>
 
     <!-- Members List -->
@@ -143,10 +146,11 @@ const getFullName = (member) => {
   if (member.full_name) {
     return member.full_name
   }
-  return member.email
+  return member.email || 'Inconnu'
 }
 
 const getInitials = (name) => {
+  if (!name) return '?'
   return name
     .split(/\s+/)
     .map(word => word.charAt(0).toUpperCase())
@@ -195,11 +199,9 @@ const addMember = async () => {
   error.value = ''
 
   try {
-    await api.post(`/organizations/${route.params.id}/members`, null, {
-      params: {
-        email: selectedUser.value.email,
-        role: newMemberRole.value
-      }
+    await api.post(`/organizations/${route.params.id}/members`, {
+      email: selectedUser.value.email,
+      role: newMemberRole.value
     })
     
     selectedUser.value = null

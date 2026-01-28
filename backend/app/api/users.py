@@ -22,6 +22,7 @@ class UserInvite(BaseModel):
 
 class UserSearchResult(BaseModel):
     id: str
+    email: str
     full_name: Optional[str] = None
     profile_picture_url: Optional[str] = None
 
@@ -193,6 +194,7 @@ async def search_users(
     return [
         UserSearchResult(
             id=str(user.id),
+            email=user.email,
             full_name=user.full_name,
             profile_picture_url=user.profile_picture_url
         )

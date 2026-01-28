@@ -78,11 +78,12 @@ const getFullName = (user) => {
   if (user.full_name) {
     return user.full_name
   }
-  return user.email
+  return user.email || 'Inconnu'
 }
 
 const getInitials = (user) => {
   const name = getFullName(user)
+  if (!name) return '?'
   return name
     .split(/\s+/)
     .map(word => word.charAt(0).toUpperCase())
