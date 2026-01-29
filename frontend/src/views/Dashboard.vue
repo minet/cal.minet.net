@@ -223,7 +223,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { formatLocalDate } from '../utils/dateUtils'
@@ -493,6 +493,23 @@ onMounted(async () => {
   if (viewType.value === 'week') {
     nextTick(scrollToToday)
   }
+
+  window.addEventListener('keydown', handleKeydown)
 })
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+})
+
+const handleKeydown = (e) => {
+  // Ignore if user is typing in an input
+  if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return
+  
+  if (e.key === 'ArrowLeft') {
+    previousPeriod()
+  } else if (e.key === 'ArrowRight') {
+    nextPeriod()
+  }
+}
 </script>
 
