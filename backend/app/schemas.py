@@ -42,6 +42,16 @@ class OrganizationLinkRead(BaseModel):
     url: str
     order: int
 
+class EventLinkCreate(BaseModel):
+    name: str
+    url: str
+
+class EventLinkRead(BaseModel):
+    id: UUID
+    name: str
+    url: str
+    order: int
+
 class OrganizationRead(BaseModel):
     id: UUID
     name: str
@@ -137,6 +147,7 @@ class CreateEvent(BaseModel):
     guest_organization_ids: List[str] = []
     hide_details: bool = False
     poster_url: Optional[str] = None
+    links: List[EventLinkCreate] = []
 
 class UpdateEvent(BaseModel):
     title: Optional[str] = None
@@ -152,6 +163,7 @@ class UpdateEvent(BaseModel):
     poster_url: Optional[str] = None
     hide_details: Optional[bool] = None
     featured: Optional[int] = None
+    links: Optional[List[EventLinkCreate]] = None
 
 class RejectEventRequest(BaseModel):
     message: str
@@ -189,6 +201,7 @@ class EventRead(BaseModel):
     organization: Optional[OrganizationRead] = None
     guest_organizations: List[OrganizationRead] = []
     tags: List[TagRead] = []
+    event_links: List[EventLinkRead] = []
     group: Optional[GroupRead] = None
     created_by: Optional[UserPublicRead] = None
     created_by_id: Optional[UUID] = None
@@ -235,6 +248,12 @@ class EventRead(BaseModel):
             OrganizationRead.from_model(org) 
             for org in event.guest_organizations
         ]
+        
+        # Links
+        links_read = [
+            EventLinkRead(id=l.id, name=l.name, url=l.url, order=l.order)
+            for l in event.event_links
+        ] if not should_hide else []
         
         # Reactions
         reaction_counts = {}
@@ -296,6 +315,7 @@ class EventRead(BaseModel):
             organization=OrganizationRead.from_model(event.organization) if event.organization else None,
             guest_organizations=guest_orgs_read,
             tags=tags_read,
+            event_links=links_read,
             group=group_read,
             
             created_by=creator,

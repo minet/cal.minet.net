@@ -188,6 +188,16 @@ def create_event(
         if guest_org:
             guest_link = EventGuestOrganization(event_id=new_event.id, organization_id=UUID(guest_org_id))
             session.add(guest_link)
+            
+    # Add links
+    for i, link in enumerate(event_data.links):
+        new_link = EventLink(
+            event_id=new_event.id,
+            name=link.name,
+            url=link.url,
+            order=i
+        )
+        session.add(new_link)
 
     session.commit()
     session.refresh(new_event)
@@ -622,6 +632,25 @@ def update_event(
             if guest_org:
                 guest_link = EventGuestOrganization(event_id=event.id, organization_id=UUID(guest_org_id))
                 session.add(guest_link)
+
+    # Update links
+    if event_data.links is not None:
+        # Remove old links
+        old_links = session.exec(
+            select(EventLink).where(EventLink.event_id == event.id)
+        ).all()
+        for old_link in old_links:
+            session.delete(old_link)
+        
+        # Add new links
+        for i, link in enumerate(event_data.links):
+            new_link = EventLink(
+                event_id=event.id,
+                name=link.name,
+                url=link.url,
+                order=i
+            )
+            session.add(new_link)
     
     session.add(event)
     session.commit()

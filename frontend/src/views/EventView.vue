@@ -188,6 +188,23 @@
             <span v-else>{{ event.location }}</span>
           </p>
         </div>
+        
+        <!-- Links -->
+        <div v-if="event.event_links && event.event_links.length > 0" class="bg-white shadow-sm rounded-lg p-6">
+          <h3 class="text-sm font-medium text-gray-900 mb-3">Liens</h3>
+          <ul class="space-y-3">
+            <li v-for="link in event.event_links" :key="link.id">
+              <a 
+                :href="link.url" 
+                target="_blank" 
+                class="flex items-center text-sm text-indigo-600 hover:text-indigo-500 hover:underline group"
+              >
+                <LinkIcon class="h-4 w-4 mr-2 text-gray-400 group-hover:text-indigo-500" />
+                {{ link.name }}
+              </a>
+            </li>
+          </ul>
+        </div>
 
         <!-- Visibility & Group Info -->
         <div v-if="event.visibility === 'private' && event.group" class="bg-white shadow-sm rounded-lg p-6">
@@ -263,7 +280,8 @@ import {
   LockClosedIcon,
   GlobeAltIcon,
   InformationCircleIcon,
-  DocumentDuplicateIcon
+  DocumentDuplicateIcon,
+  LinkIcon
 } from '@heroicons/vue/24/outline'
 import { formatLocalDate } from '../utils/dateUtils'
 import TagBadge from '../components/TagBadge.vue'

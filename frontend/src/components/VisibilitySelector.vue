@@ -120,7 +120,7 @@
         <div class="flex-1">
           <h4 class="text-sm font-medium text-blue-900">Approbation requise</h4>
           <p class="text-xs text-blue-700 mt-1">
-            Les événements publics doivent être approuvés par un superadmin. Une fois approuvé, les dates seront verrouillées.
+            Les événements publics doivent être approuvés par le BDE et l'administration. Une fois approuvé, les dates seront verrouillées. Les évenements publics approuvés seront ajoutés au menu de la semaine et au calendrier associatif.
           </p>
         </div>
       </div>
