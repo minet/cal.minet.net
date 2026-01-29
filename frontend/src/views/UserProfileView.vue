@@ -181,20 +181,8 @@
             <div v-if="isCurrentUser && !isEditing" class="sm:col-span-2 border-t border-gray-100 pt-4 mt-2">
               <dt class="text-sm font-medium text-gray-500 mb-1">Calendrier personnel (ICS)</dt>
               <dd class="mt-1">
-                <div class="flex flex-col sm:flex-row items-center gap-2">
-                  <input 
-                    :value="icsUrl"
-                    readonly
-                    class="block w-full sm:flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 bg-gray-50 shadow-sm ring-1 ring-inset ring-gray-300 sm:text-sm sm:leading-6"
-                  />
-                  <button 
-                    @click="copyIcsUrl"
-                    class="w-full sm:w-auto px-3 py-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700 border border-indigo-200 rounded-md sm:border-0"
-                  >
-                    {{ copyText }}
-                  </button>
-                </div>
-                <p class="mt-1 text-xs text-gray-500">Utilisez ce lien pour synchroniser vos événements avec votre application de calendrier</p>
+                <AddToCalendar :url="icsUrl" />
+                <p class="mt-1 text-xs text-gray-500">Synchronisez vos événements avec votre application de calendrier préférée.</p>
               </dd>
             </div>
           </dl>
@@ -294,6 +282,7 @@ import { useAuth } from '../composables/useAuth'
 import TextInput from '../components/TextInput.vue'
 import UserAvatar from '../components/UserAvatar.vue'
 import OrganizationCard from '../components/OrganizationCard.vue'
+import AddToCalendar from '../components/AddToCalendar.vue'
 import api from '../utils/api'
 import { Switch } from '@headlessui/vue'
 import { 
@@ -317,7 +306,6 @@ const loading = ref(true)
 const loadingMemberships = ref(false)
 const isEditing = ref(false)
 const saving = ref(false)
-const copyText = ref('Copier')
 const allOrganizations = ref([])
 const addingRole = ref(false)
 const securekey = ref('')
@@ -485,13 +473,7 @@ const saveProfile = async () => {
   }
 }
 
-const copyIcsUrl = () => {
-  navigator.clipboard.writeText(icsUrl.value)
-  copyText.value = 'Copié!'
-  setTimeout(() => {
-    copyText.value = 'Copier'
-  }, 2000)
-}
+
 
 const getRoleLabel = (role) => {
   const labels = {
