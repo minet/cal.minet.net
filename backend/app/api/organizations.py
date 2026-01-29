@@ -144,7 +144,7 @@ def update_member_role(
     
     # Get membership to update
     membership = session.get(Membership, membership_id)
-    if not membership or membership.organization_id != org_id:
+    if not membership or str(membership.organization_id) != org_id:
         raise HTTPException(status_code=404, detail="Membership not found")
     
     # Update role
@@ -177,7 +177,7 @@ def remove_organization_member(
     
     # Get membership to delete
     membership = session.get(Membership, membership_id)
-    if not membership or membership.organization_id != org_id:
+    if not membership or str(membership.organization_id) != org_id:
         raise HTTPException(status_code=404, detail="Membership not found")
     
     # Don't allow removing yourself if you're the last admin
