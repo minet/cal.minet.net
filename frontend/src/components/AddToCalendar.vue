@@ -166,7 +166,7 @@ const appleCalendarUrl = computed(() => {
 // 2. Google Calendar
 const googleCalendarUrl = computed(() => {
   if (!props.url) return '#'
-  const cid = encodeURIComponent(props.url)
+  const cid = encodeURIComponent(props.url.replace(/^https?:\/\//, 'webcal://'))
   return `https://www.google.com/calendar/render?cid=${cid}`
 })
 
