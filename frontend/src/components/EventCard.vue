@@ -29,7 +29,7 @@
             <div 
                 v-else
                 class="inline-block h-10 w-10 rounded-full ring-2 ring-white flex items-center justify-center font-bold"
-                :style="{ backgroundColor: getOrgColor(guest.color_chroma, guest.color_hue, 0.95), color: getOrgColor(guest.color_chroma, guest.color_hue, 0.4) }"
+                :style="{ backgroundColor: guest.color_secondary || '#f0f9ff', color: guest.color_primary || '#0369a1' }"
                 :title="guest.name"
             >
                 {{ guest.name.charAt(0) }}
@@ -46,7 +46,7 @@
         <div 
           v-else-if="event.organization"
           class="inline-block h-10 w-10 rounded-full ring-2 ring-white z-10 flex items-center justify-center font-bold"
-          :style="{ backgroundColor: getOrgColor(event.organization.color_chroma, event.organization.color_hue, 0.95), color: getOrgColor(event.organization.color_chroma, event.organization.color_hue, 0.4) }"
+          :style="{ backgroundColor: event.organization.color_secondary || '#f0f9ff', color: event.organization.color_primary || '#0369a1' }"
           :title="event.organization.name"
         >
           {{ event.organization.name.charAt(0) }}
@@ -58,7 +58,7 @@
     <div 
       v-else 
       class="relative h-24 flex items-center justify-center p-4 transition-colors rounded-t-xl"
-      :style="{ background: getEventGradient(event.organization, event.guest_organizations, 0.7, 1) }"
+      :style="{ background: getEventGradient(event.organization, event.guest_organizations) }"
     >
       <div class="absolute -bottom-6 left-6 flex items-center -space-x-2">
         <img 
@@ -70,7 +70,7 @@
         <div 
           v-else-if="event.organization"
           class="h-12 w-12 rounded-full border-4 border-white z-20 bg-white flex items-center justify-center font-bold"
-          :style="{ color: getOrgColor(event.organization.color_chroma, event.organization.color_hue, 0.4) }"
+          :style="{ color: event.organization.color_primary || '#0369a1' }"
         >
           {{ event.organization.name.charAt(0) }}
         </div>
@@ -86,7 +86,7 @@
             <div 
                 v-else
                 class="h-12 w-12 rounded-full border-4 border-white bg-white flex items-center justify-center text-xs font-bold"
-                :style="{ color: getOrgColor(guest.color_chroma, guest.color_hue, 0.4) }"
+                :style="{ color: guest.color_primary || '#0369a1' }"
                 :title="guest.name"
             >
                 {{ guest.name.charAt(0) }}
@@ -133,11 +133,11 @@
       <div class="mt-auto pt-4 border-t border-gray-100 flex justify-between items-center">
         <span 
           class="max-w-[150px] truncate inline-block align-middle text-xs font-medium px-2 py-1 rounded-full border transition-colors"
-          :class="{ 'bg-gray-100 text-gray-500 border-gray-100': event.organization?.color_chroma === null }"
+          :class="{ 'bg-gray-100 text-gray-500 border-gray-100': !event.organization?.color_primary }"
           :style="{ 
-            backgroundColor: getOrgColor(event.organization?.color_chroma/20, event.organization?.color_hue, 1),
-            color: getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.4),
-            borderColor: getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.9)
+            backgroundColor: event.organization?.color_secondary || '#f3f4f6',
+            color: event.organization?.color_primary || '#4f46e5',
+            borderColor: event.organization?.color_secondary || '#e5e7eb'
           }"
         >
           {{ event.organization?.name || 'Organisation' }}
@@ -162,7 +162,7 @@ import { formatLocalDate } from '../utils/dateUtils'
 
 import ReactionList from './ReactionList.vue'
 import api from '../utils/api'
-import { getOrgColor, getEventGradient } from '../utils/colorUtils'
+import { getEventGradient } from '../utils/colorUtils'
 
 const props = defineProps({
   event: {

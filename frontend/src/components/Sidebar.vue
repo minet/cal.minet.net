@@ -130,11 +130,11 @@
             <router-link @click="closeSidebar" :to="`/organizations/${org.id}`" class="flex items-center space-x-3 flex-1 min-w-0">
               <div 
                 class="flex-shrink-0 h-6 w-6 rounded-full flex items-center justify-center overflow-hidden transition-colors"
-                :style="{ backgroundColor: getOrgColor(org.color_chroma/20, org.color_hue, 1) }"
-                :class="{ 'bg-gray-200': org.color_chroma === null }"
+                :style="{ backgroundColor: org.color_secondary || '#f3f4f6' }"
+                :class="{ 'bg-gray-200': !org.color_secondary }"
               >
                 <img v-if="org.logo_url" :src="org.logo_url" :alt="org.name" class="h-full w-full object-cover" />
-                <span v-else class="text-xs font-medium" :style="{ color: getOrgColor(org.color_chroma, org.color_hue, 0.4) }">{{ org.name.charAt(0) }}</span>
+                <span v-else class="text-xs font-medium" :style="{ color: org.color_primary || '#4f46e5' }">{{ org.name.charAt(0) }}</span>
               </div>
               <div class="flex-1 min-w-0">
                 <p class="text-sm font-medium text-gray-900 truncate">{{ org.name }}</p>
@@ -176,7 +176,6 @@ import { useAuth } from '../composables/useAuth'
 import api from '../utils/api'
 import UserAvatar from './UserAvatar.vue'
 import MinetIcon from './MinetIcon.vue'
-import { getOrgColor } from '../utils/colorUtils'
 import { 
   XMarkIcon, 
   PlusIcon, 

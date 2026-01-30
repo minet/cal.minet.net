@@ -363,7 +363,6 @@ import {
     ChevronUpDownIcon
 } from '@heroicons/vue/24/outline';
 import QRCodeVue3 from 'qrcode-vue3';
-import { oklchToHex } from '../utils/colorUtils';
 import { computed } from 'vue';
 
 const props = defineProps({
@@ -455,10 +454,10 @@ const downloadQr = () => {
 const qrOptions = computed(() => {
     const mainColor = monochrome.value 
         ? '#000000' 
-        : (props.organization ? oklchToHex(0.6, props.organization.color_chroma, props.organization.color_hue) : '#4f46e5'); // Indigo default
+        : (props.organization?.color_primary || '#4f46e5'); // Indigo default
 
     const guestColors = (props.guestOrganizations || []).map(g => 
-        oklchToHex(0.6, g.color_chroma, g.color_hue)
+        g.color_primary || '#4f46e5'
     );
     
     // Build gradient stops

@@ -1,11 +1,12 @@
-
+import subprocess
+from datetime import datetime
 import os
 import glob
 import re
 import importlib.util
 import logging
 from pathlib import Path
-from lockfile import LockFile
+from lockfile import LockFile, AlreadyLocked
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,21 @@ def get_available_migrations():
             migrations.append((int(match.group(1)), f))
     return sorted(migrations, key=lambda x: x[0])
 
+def dump_database(number):
+    """Dump the database to a SQL file in the migration directory."""
+    db_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/calendint")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    dump_file = STATE_DIR / f"dump_{number:03}_{timestamp}.sql"
+    
+    logger.info(f"Dumping database to {dump_file}...")
+    try:
+        # PGPASSWORD might be needed if not in URL, but usually pg_dump handles full connection strings
+        # We rely on the environment having access or .pgpass
+        subprocess.run(["pg_dump", db_url, "-f", str(dump_file)], check=True)
+        logger.info("Database dump successful.")
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        logger.warning(f"Failed to dump database: {e}")
+
 def run_migrations():
     ensure_state_dir()
     
@@ -51,7 +67,7 @@ def run_migrations():
     lock = LockFile(STATE_FILE)
     try:
         lock.acquire(-1)
-    except LockFile.AlreadyLocked:
+    except AlreadyLocked:
         logger.info("Migration is already running, skipping.")
         return
     try:
@@ -68,28 +84,32 @@ def run_migrations():
 
         logger.info(f"Last applied migration: {last_run}")
 
-        for number, filepath in available:
-            if number > last_run:
-                logger.info(f"Applying migration {number}: {os.path.basename(filepath)}")
-                try:
-                    # Load module dynamically
-                    spec = importlib.util.spec_from_file_location(f"migration_{number}", filepath)
-                    if spec and spec.loader:
-                        module = importlib.util.module_from_spec(spec)
-                        spec.loader.exec_module(module)
-                        
-                        if hasattr(module, "run_migration"):
-                            module.run_migration()
-                        else:
-                            logger.warning(f"Migration {number} has no run_migration() function.")
-                        
-                        # Update state after success
-                        set_last_migration(number)
-                        last_run = number
-                except Exception as e:
-                    logger.error(f"Failed to run migration {number}: {e}")
-                    # Stop migration process on error
-                    raise e
+        pending_migrations = [m for m in available if m[0] > last_run]
+        
+        if pending_migrations:
+            dump_database(last_run)
+            
+        for number, filepath in pending_migrations:
+            logger.info(f"Applying migration {number}: {os.path.basename(filepath)}")
+            try:
+                # Load module dynamically
+                spec = importlib.util.spec_from_file_location(f"migration_{number}", filepath)
+                if spec and spec.loader:
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+                    
+                    if hasattr(module, "run_migration"):
+                        module.run_migration()
+                    else:
+                        logger.warning(f"Migration {number} has no run_migration() function.")
+                    
+                    # Update state after success
+                    set_last_migration(number)
+                    last_run = number
+            except Exception as e:
+                logger.error(f"Failed to run migration {number}: {e}")
+                # Stop migration process on error
+                raise e
     finally:
         lock.release()
     logger.info("Migrations completed.")

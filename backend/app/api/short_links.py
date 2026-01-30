@@ -218,8 +218,9 @@ def get_link_info(
     title = "Unknown"
     logo_url = None
     description = None
-    color_chroma = None
-    color_hue = None
+    color_primary = None
+    color_secondary = None
+    color_dark = None
     tag_color = None
 
     if link.item_type == ShortLinkType.EVENT:
@@ -233,8 +234,9 @@ def get_link_info(
              description = f"Date: {event.start_time.strftime('%d/%m/%Y %H:%M')}"
              if event.organization:
                  logo_url = event.organization.logo_url
-                 color_chroma = event.organization.color_chroma
-                 color_hue = event.organization.color_hue
+                 color_primary = event.organization.color_primary
+                 color_secondary = event.organization.color_secondary
+                 color_dark = event.organization.color_dark
              
     elif link.item_type == ShortLinkType.ORGANIZATION:
         org = session.get(Organization, link.item_id)
@@ -242,8 +244,9 @@ def get_link_info(
             title = org.name
             description = org.description
             logo_url = org.logo_url
-            color_chroma = org.color_chroma
-            color_hue = org.color_hue
+            color_primary = org.color_primary
+            color_secondary = org.color_secondary
+            color_dark = org.color_dark
             
     if link.item_type == ShortLinkType.TAG:
         from app.models import Tag
@@ -255,8 +258,9 @@ def get_link_info(
             org = session.get(Organization, tag.organization_id)
             if org:
                 logo_url = org.logo_url
-                color_chroma = org.color_chroma
-                color_hue = org.color_hue
+                color_primary = org.color_primary
+                color_secondary = org.color_secondary
+                color_dark = org.color_dark
             
     return ShortLinkInfo(
         id=link.id,
@@ -265,8 +269,9 @@ def get_link_info(
         item_type=link.item_type,
         item_id=link.item_id,
         logo_url=logo_url,
-        color_chroma=color_chroma,
-        color_hue=color_hue,
+        color_primary=color_primary,
+        color_secondary=color_secondary,
+        color_dark=color_dark,
         tag_color=tag_color
     )
 

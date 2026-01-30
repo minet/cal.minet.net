@@ -90,8 +90,8 @@
                   (event.visibility === 'draft' || event.is_draft) ? 'opacity-50' : ''
                 ]"
                 :style="{ 
-                  backgroundColor: getOrgColor(event.organization?.color_chroma/20, event.organization?.color_hue, 1),
-                  color: getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.3)
+                  backgroundColor: event.organization?.color_secondary || '#f3f4f6',
+                  color: event.organization?.color_dark || '#1f2937'
                 }"
               >
                 <span :class="[
@@ -151,8 +151,8 @@
                       (event.visibility === 'draft' || event.is_draft) ? 'opacity-50' : ''
                     ]"
                     :style="{ 
-                      backgroundColor: getOrgColor(event.organization?.color_chroma/20, event.organization?.color_hue, 1),
-                      borderLeft: `3px solid ${getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.6)}`
+                      backgroundColor: event.organization?.color_secondary || '#f3f4f6',
+                      borderLeft: `3px solid ${event.organization?.color_primary || '#4f46e5'}`
                     }"
                   >
                     <!-- Organization Badges -->
@@ -181,7 +181,7 @@
                               class="mr-1 h-3 w-3 rounded-full object-cover"
                             />
                             <span class="text-[10px] font-medium leading-none truncate max-w-[100px]" 
-                                  :style="{ color: getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.4) }">
+                                  :style="{ color: event.organization?.color_primary || '#4f46e5' }">
                               {{ event.organization?.name }}
                             </span>
                          </div>
@@ -192,13 +192,13 @@
                       'text-sm font-medium',
                       (event.visibility === 'draft' || event.is_draft) ? 'italic' : ''
                     ]"
-                    :style="{ color: getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.3) }"
+                    :style="{ color: event.organization?.color_dark || '#1f2937' }"
                     >
                       {{ event.title }}
                     </p>
                     <div 
                       class="flex items-center text-xs mt-1" 
-                      :style="{ color: getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.5) }"
+                      :style="{ color: event.organization?.color_dark || '#374151' }"
                     >
                       <ClockIcon class="h-3 w-3 mr-1" />
                       {{ formatTime(event.start_time) }}
@@ -206,7 +206,7 @@
                     <div 
                       v-if="event.location" 
                       class="flex items-center text-xs mt-1"
-                      :style="{ color: getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.5) }"
+                      :style="{ color: event.organization?.color_dark || '#374151' }"
                     >
                       <MapPinIcon class="h-3 w-3 mr-1" />
                       {{ event.location }}
@@ -229,7 +229,6 @@ import { useAuth } from '../composables/useAuth'
 import { formatLocalDate } from '../utils/dateUtils'
 import { PlusIcon, CalendarIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, MapPinIcon } from '@heroicons/vue/24/outline'
 import api from '../utils/api'
-import { getOrgColor } from '../utils/colorUtils'
 
 const viewType = ref('week') // 'month' or 'week'
 const { user, initialize, setToken, isSuperAdmin } = useAuth()

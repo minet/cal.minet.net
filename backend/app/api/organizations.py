@@ -282,8 +282,9 @@ def update_organization(
     org.logo_url = org_update.logo_url
     org.type = org_update.type
     org.parent_id = org_update.parent_id
-    org.color_chroma = org_update.color_chroma
-    org.color_hue = org_update.color_hue
+    org.color_primary = org_update.color_primary
+    org.color_secondary = org_update.color_secondary
+    org.color_dark = org_update.color_dark
     
     from datetime import datetime
     org.updated_at = datetime.now(timezone.utc)

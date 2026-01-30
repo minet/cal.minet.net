@@ -8,8 +8,8 @@
     <header 
       class="shadow-sm rounded-lg mb-6 overflow-hidden transition-colors"
       :style="{ 
-        backgroundColor: getOrgColor(organization.color_chroma/20, organization.color_hue, 1),
-        borderTop: `4px solid ${getOrgColor(organization.color_chroma, organization.color_hue, 0.6)}`
+        backgroundColor: organization.color_secondary || '#f3f4f6',
+        borderTop: `4px solid ${organization.color_primary || '#4f46e5'}`
       }"
     >
       <div class="px-4 py-6 sm:px-6 lg:px-8">
@@ -17,15 +17,15 @@
           <div class="flex items-center space-x-4">
             <div 
               class="h-16 w-16 rounded-full flex items-center justify-center overflow-hidden transition-colors"
-              :style="{ backgroundColor: getOrgColor(organization.color_chroma/20, organization.color_hue, 1) }"
-              :class="{ 'bg-indigo-100': organization.color_chroma === null }"
+              :style="{ backgroundColor: organization.color_secondary || '#f3f4f6' }"
+              :class="{ 'bg-indigo-100': !organization.color_secondary }"
             >
               <img v-if="organization.logo_url" :src="organization.logo_url" :alt="organization.name" class="h-full w-full object-cover" />
               <span 
                 v-else 
                 class="text-2xl font-semibold"
-                :style="{ color: getOrgColor(organization.color_chroma, organization.color_hue, 0.4) }"
-                :class="{ 'text-indigo-600': organization.color_chroma === null }"
+                :style="{ color: organization.color_primary || '#4f46e5' }"
+                :class="{ 'text-indigo-600': !organization.color_primary }"
               >{{ organization.name.charAt(0) }}</span>
             </div>
             <div>
@@ -116,19 +116,19 @@
     <!-- Parent Organization -->
     <div v-if="parent" class="bg-white shadow-sm rounded-lg p-6 mb-6">
       <h2 class="text-lg font-medium text-gray-900 mb-3">Organisation parente</h2>
-      <router-link 
+        <router-link 
         :to="`/organizations/${parent.id}`"
         class="flex items-center space-x-3 hover:bg-gray-50 p-3 rounded-lg transition-colors"
       >
         <div 
-          class="h-10 w-10 rounded-full flex items-center justify-center"
-          :style="{ backgroundColor: getOrgColor(parent.color_chroma/20, parent.color_hue, 1) }"
+          class="h-10 w-10 rounded-full flex items-center justify-center transition-colors"
+          :style="{ backgroundColor: parent.color_secondary || '#f3f4f6' }"
         >
           <img v-if="parent.logo_url" :src="parent.logo_url" :alt="parent.name" class="h-full w-full object-cover rounded-full" />
           <span 
             v-else 
             class="font-semibold"
-            :style="{ color: getOrgColor(parent.color_chroma, parent.color_hue, 0.4) }"
+            :style="{ color: parent.color_primary || '#4f46e5' }"
           >{{ parent.name.charAt(0) }}</span>
         </div>
         <div>
@@ -253,7 +253,6 @@ import UserAvatar from '../components/UserAvatar.vue'
 
 import TagBadge from '../components/TagBadge.vue'
 import api from '../utils/api'
-import { getOrgColor } from '../utils/colorUtils'
 import { 
   PencilIcon, 
   ChevronRightIcon, 

@@ -1,11 +1,16 @@
 FROM python:3.11-slim
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
+# Install pg_dump
+RUN apt-get update && apt-get install -y postgresql-client && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
-# Copy the project into the image
-COPY . /app
+COPY pyproject.toml uv.lock ./
 # Sync the project into a new environment, asserting the lockfile is up to date
 RUN uv sync --locked
+
+# Copy the project into the image
+COPY . /app
 
 EXPOSE 8000
 

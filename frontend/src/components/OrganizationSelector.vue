@@ -28,8 +28,8 @@
                   v-else 
                   class="h-10 w-10 rounded-full flex items-center justify-center font-bold"
                   :style="{ 
-                    backgroundColor: getOrgColor(org.color_chroma/20, org.color_hue, 0.95), 
-                    color: getOrgColor(org.color_chroma, org.color_hue, 0.4) 
+                    backgroundColor: org.color_secondary || '#f0f9ff', 
+                    color: org.color_primary || '#0369a1' 
                   }"
                 >
                   <span class="text-sm">{{ org.name.charAt(0) }}</span>
@@ -65,7 +65,6 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { CheckIcon } from '@heroicons/vue/24/solid'
-import { getOrgColor } from '../utils/colorUtils'
 
 const props = defineProps({
   organizations: {

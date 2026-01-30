@@ -16,7 +16,7 @@
         class="absolute rounded-full blur-3xl opacity-20"
         :class="index % 2 === 0 ? 'animate-float-slow' : 'animate-float-medium'"
         :style="{ 
-          backgroundColor: org.primary_color || bubbleColor, 
+          backgroundColor: org.color_secondary || bubbleColor, 
           width: index % 2 === 0 ? '40rem' : '30rem', 
           height: index % 2 === 0 ? '40rem' : '30rem', 
           top: index % 2 === 0 ? `${-10 + (index * 5)}%` : 'auto',
@@ -114,7 +114,7 @@ import { useAuth } from '../composables/useAuth'
 import CountdownTimer from '../components/CountdownTimer.vue'
 import ReactionList from '../components/ReactionList.vue'
 import { MapPinIcon, CalendarIcon } from '@heroicons/vue/24/outline'
-import { getEventGradient, getOrgColor } from '../utils/colorUtils'
+import { getEventGradient } from '../utils/colorUtils'
 
 const route = useRoute()
 const router = useRouter()
@@ -136,16 +136,12 @@ const formatDate = (dateString) => {
 
 const backgroundGradient = computed(() => {
     if (!event.value) return '#f3f4f6'
-    return getEventGradient(event.value.organization, event.value.guest_organizations, 1.5, 0.7)
+    return getEventGradient(event.value.organization, event.value.guest_organizations)
 })
 
 const bubbleColor = computed(() => {
     if (!event.value?.organization) return '#e5e7eb'
-    return getOrgColor(
-        event.value.organization.color_chroma, 
-        event.value.organization.color_hue, 
-        0.8 // Slightly customized luminance for bubbles
-    )
+    return event.value.organization.color_secondary || '#e5e7eb' 
 })
 
 const loadEvent = async () => {

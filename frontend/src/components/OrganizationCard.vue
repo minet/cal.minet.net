@@ -10,19 +10,19 @@
         <div 
           v-if="organization.logo_url" 
           :class="logoContainerClasses"
-          :style="{ backgroundColor: getOrgColor(organization.color_chroma/20, organization.color_hue, 1) }"
+          :style="{ backgroundColor: organization.color_secondary || '#f3f4f6' }"
         >
           <img :src="organization.logo_url" :alt="organization.name" class="w-full h-full object-cover rounded" />
         </div>
         <div 
           v-else 
           :class="logoContainerClasses"
-          :style="{ backgroundColor: getOrgColor(organization.color_chroma/20, organization.color_hue, 1) }"
+          :style="{ backgroundColor: organization.color_secondary || '#f3f4f6' }"
         >
           <BuildingOfficeIcon 
             :class="logoIconClasses" 
             class="text-gray-400"
-            :style="{ color: getOrgColor(organization.color_chroma, organization.color_hue, 0.4) }"
+            :style="{ color: organization.color_primary || '#9ca3af' }"
           />
         </div>
 
@@ -61,19 +61,19 @@
       <div 
         v-if="organization.logo_url" 
         :class="logoContainerClasses"
-        :style="{ backgroundColor: getOrgColor(organization.color_chroma/20, organization.color_hue, 1) }"
+        :style="{ backgroundColor: organization.color_secondary || '#f3f4f6' }"
       >
         <img :src="organization.logo_url" :alt="organization.name" class="w-full h-full object-cover rounded" />
       </div>
       <div 
         v-else 
         :class="logoContainerClasses"
-        :style="{ backgroundColor: getOrgColor(organization.color_chroma/20, organization.color_hue, 1) }"
+        :style="{ backgroundColor: organization.color_secondary || '#f3f4f6' }"
       >
         <BuildingOfficeIcon 
           :class="logoIconClasses" 
           class="text-gray-400"
-          :style="{ color: getOrgColor(organization.color_chroma, organization.color_hue, 0.4) }"
+          :style="{ color: organization.color_primary || '#9ca3af' }"
         />
       </div>
 
@@ -182,7 +182,7 @@ const logoIconClasses = computed(() => {
   return sizes[props.size]
 })
 
-import { getOrgColor } from '../utils/colorUtils'
+
 
 const nameClasses = computed(() => {
   const sizes = {

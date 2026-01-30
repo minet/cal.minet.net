@@ -60,8 +60,9 @@ class OrganizationRead(BaseModel):
     slug: Optional[str] = None
     description: Optional[str] = None
     parent_id: Optional[UUID] = None
-    color_chroma: Optional[float] = None
-    color_hue: Optional[float] = None
+    color_primary: Optional[str] = None
+    color_secondary: Optional[str] = None
+    color_dark: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     organization_links: List[OrganizationLinkRead] = []
@@ -77,8 +78,9 @@ class OrganizationRead(BaseModel):
             slug=org.slug,
             description=org.description,
             parent_id=org.parent_id,
-            color_chroma=org.color_chroma,
-            color_hue=org.color_hue,
+            color_primary=org.color_primary,
+            color_secondary=org.color_secondary,
+            color_dark=org.color_dark,
             created_at=org.created_at,
             updated_at=org.updated_at,
             organization_links=links
@@ -341,8 +343,9 @@ class ShortLinkInfo(BaseModel):
     item_type: str
     item_id: UUID
     logo_url: Optional[str] = None
-    color_chroma: Optional[float] = None
-    color_hue: Optional[float] = None
+    color_primary: Optional[str] = None
+    color_secondary: Optional[str] = None
+    color_dark: Optional[str] = None
     tag_color: Optional[str] = None
 
 class Message(BaseModel):

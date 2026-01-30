@@ -155,7 +155,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import api from '../utils/api'
-import { getOrgColor, getEventGradient } from '../utils/colorUtils'
+import { getEventGradient } from '../utils/colorUtils'
 import { formatLocalDate } from '../utils/dateUtils'
 import { ClockIcon, MapPinIcon } from '@heroicons/vue/24/outline'
 import QRCodeVue3 from 'qrcode-vue3'
@@ -206,11 +206,7 @@ const currentEventBubbleColor = computed(() => {
   if (currentEvent.value.isAd) return '#e0e7ff' // Light indigo for ad bubbles
   if (!currentEvent.value?.organization) return '#e5e7eb'
   // Use a normal/vibrant shade for bubbles
-  return getOrgColor(
-      currentEvent.value.organization.color_chroma, 
-      currentEvent.value.organization.color_hue, 
-      0.65
-  )
+  return currentEvent.value.organization.color_secondary || '#e5e7eb'
 })
 
 const fetchEvents = async () => {

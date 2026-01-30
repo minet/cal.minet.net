@@ -14,6 +14,9 @@
         <div class="space-y-12">
           <div class="border-b border-gray-900/10 pb-12">
             <div class="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
+              <div class="col-span-full">
+                <ImageUpload v-model="form.logo_url" label="Logo de l'organisation (optionnel)" crop />
+              </div>
               <div class="sm:col-span-4">
                 <label for="name" class="block text-sm font-medium leading-6 text-gray-900">Nom de l'organisation</label>
                 <div class="mt-2">
@@ -68,23 +71,53 @@
                 />
               </div>
 
-              <div class="col-span-full">
-                <ImageUpload v-model="form.logo_url" label="Logo de l'organisation (optionnel)" crop />
-              </div>
 
-              <div class="sm:col-span-4">
-                <label for="color" class="block text-sm font-medium leading-6 text-gray-900">Couleur de l'organisation</label>
-                <div class="mt-2 flex items-center gap-x-3">
-                  <input 
-                    type="color" 
-                    id="color" 
-                    name="color" 
-                    v-model="form.color_hex"
-                    class="h-10 w-20 rounded border border-gray-300 p-1 cursor-pointer"
-                  />
-                  <span class="text-sm text-gray-500">{{ form.color_hex }}</span>
+              <div class="sm:col-span-4 grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <!-- Primary Color -->
+                <div class="col-span-1">
+                  <label for="color_primary" class="block text-sm font-medium leading-6 text-gray-900">Couleur Principale</label>
+                  <div class="mt-2 flex items-center gap-x-3">
+                    <input 
+                      type="color" 
+                      id="color_primary" 
+                      name="color_primary" 
+                      v-model="form.color_primary"
+                      class="h-10 w-20 rounded border border-gray-300 p-1 cursor-pointer"
+                    />
+                    <span class="text-sm text-gray-500">{{ form.color_primary }}</span>
+                  </div>
                 </div>
+
+                <!-- Secondary Color (Light) -->
+                <div class="col-span-1">
+                  <label for="color_secondary" class="block text-sm font-medium leading-6 text-gray-900">Couleur Claire</label>
+                  <div class="mt-2 flex items-center gap-x-3">
+                    <input 
+                      type="color" 
+                      id="color_secondary" 
+                      name="color_secondary" 
+                      v-model="form.color_secondary"
+                      class="h-10 w-20 rounded border border-gray-300 p-1 cursor-pointer"
+                    />
+                    <span class="text-sm text-gray-500">{{ form.color_secondary }}</span>
+                  </div>
                 </div>
+
+                <!-- Dark Color -->
+                <div class="col-span-1">
+                  <label for="color_dark" class="block text-sm font-medium leading-6 text-gray-900">Couleur Sombre</label>
+                  <div class="mt-2 flex items-center gap-x-3">
+                    <input 
+                      type="color" 
+                      id="color_dark" 
+                      name="color_dark" 
+                      v-model="form.color_dark"
+                      class="h-10 w-20 rounded border border-gray-300 p-1 cursor-pointer"
+                    />
+                    <span class="text-sm text-gray-500">{{ form.color_dark }}</span>
+                  </div>
+                </div>
+              </div>
 
               
               <div class="col-span-full">
@@ -181,7 +214,7 @@
         <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
           <div class="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
             <div class="sm:flex sm:items-start">
-               <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+              <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
                 <ExclamationTriangleIcon class="h-6 w-6 text-red-600" aria-hidden="true" />
               </div>
               <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
@@ -211,7 +244,6 @@ import { useAuth } from '../composables/useAuth'
 import ImageUpload from '../components/ImageUpload.vue'
 import Dropdown from '../components/Dropdown.vue'
 import api from '../utils/api'
-import { hexToOklch, oklchToHex } from '../utils/colorUtils'
 import { TrashIcon, PlusIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 
 const router = useRouter()
@@ -226,7 +258,9 @@ const form = reactive({
   type: 'association',
   logo_url: null,
   parent_id: null,
-  color_hex: '#000000'
+  color_primary: '#000000',
+  color_secondary: '#ffffff',
+  color_dark: '#000000'
 })
 const error = ref('')
 const loading = ref(false)
@@ -277,15 +311,14 @@ const loadOrganization = async () => {
     form.name = organization.value.name
     form.slug = organization.value.slug
     form.description = organization.value.description || ''
-    form.type = organization.value.type
+    form.type = organization.value.type || 'association'
     form.logo_url = organization.value.logo_url
     form.parent_id = organization.value.parent_id
     
     // Set color from saved values or default
-    if (organization.value.color_chroma !== null && organization.value.color_hue !== null) {
-        // Use a fixed luminance for editing representation, e.g. 0.6
-        form.color_hex = oklchToHex(0.6, organization.value.color_chroma, organization.value.color_hue)
-    }
+    form.color_primary = organization.value.color_primary || '#000000'
+    form.color_secondary = organization.value.color_secondary || '#ffffff'
+    form.color_dark = organization.value.color_dark || '#000000'
     
     // Load links
     if (organization.value.organization_links) {
@@ -315,12 +348,8 @@ const updateOrg = async () => {
       form.slug = form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
     }
     
-    // Convert hex back to OKLCH
-    const oklch = hexToOklch(form.color_hex)
     const payload = {
-        ...form,
-        color_chroma: oklch ? oklch.C : null,
-        color_hue: oklch ? oklch.h : null
+        ...form
     }
 
     await api.put(`/organizations/${route.params.id}`, payload)

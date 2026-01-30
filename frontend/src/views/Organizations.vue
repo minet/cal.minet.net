@@ -26,18 +26,18 @@
               <div 
                 v-if="org.logo_url" 
                 class="h-12 w-12 flex-none rounded-full flex items-center justify-center overflow-hidden"
-                :style="{ backgroundColor: getOrgColor(org.color_chroma/20, org.color_hue, 1) }"
+                :style="{ backgroundColor: org.color_secondary || '#f3f4f6' }"
               >
                 <img class="h-full w-full object-cover" :src="org.logo_url" :alt="org.name" />
               </div>
               <div 
                 v-else 
                 class="h-12 w-12 flex-none rounded-full flex items-center justify-center bg-gray-50"
-                :style="{ backgroundColor: getOrgColor(org.color_chroma/20, org.color_hue, 1) }"
+                :style="{ backgroundColor: org.color_secondary || '#f3f4f6' }"
               >
                 <BuildingOfficeIcon 
                   class="h-7 w-7 text-gray-400" 
-                  :style="{ color: getOrgColor(org.color_chroma, org.color_hue, 0.4) }"
+                  :style="{ color: org.color_primary || '#4f46e5' }"
                 />
               </div>
               <div class="min-w-0 flex-auto">
@@ -62,7 +62,6 @@
 import { ref, onMounted, computed } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import api from '../utils/api'
-import { getOrgColor } from '../utils/colorUtils'
 import { BuildingOfficeIcon } from '@heroicons/vue/24/outline'
 import SubscribeButton from '../components/SubscribeButton.vue'
 

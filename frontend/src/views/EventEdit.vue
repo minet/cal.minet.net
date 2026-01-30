@@ -3,8 +3,8 @@
     <header 
       class="shadow-sm rounded-lg mb-6 overflow-hidden transition-colors"
       :style="{ 
-        backgroundColor: getOrgColor(currentOrganization?.color_chroma/20, currentOrganization?.color_hue, 1),
-        borderTop: `4px solid ${getOrgColor(currentOrganization?.color_chroma, currentOrganization?.color_hue, 0.6)}`
+        backgroundColor: currentOrganization?.color_secondary || '#f3f4f6',
+        borderTop: `4px solid ${currentOrganization?.color_primary || '#4f46e5'}`
       }"
     >
       <div class="px-4 py-6 sm:px-6 lg:px-8">
@@ -237,7 +237,6 @@ import TagSelector from '../components/TagSelector.vue'
 import DateTimeDurationPicker from '../components/DateTimeDurationPicker.vue'
 import { PlusIcon, XMarkIcon, PaperAirplaneIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 import api from '../utils/api'
-import { getOrgColor } from '../utils/colorUtils'
 
 const router = useRouter()
 const route = useRoute()

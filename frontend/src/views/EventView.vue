@@ -8,8 +8,8 @@
     <header 
       class="shadow-sm rounded-lg mb-6 transition-colors"
       :style="{ 
-        background: getEventGradient(event.organization, event.guest_organizations, 20, 1),
-        borderTop: `4px solid ${getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.6)}`
+        background: getEventGradient(event.organization, event.guest_organizations),
+        borderTop: `4px solid ${event.organization?.color_primary || '#4f46e5'}`
       }"
     >
       <div class="px-4 py-6 sm:px-6 lg:px-8">
@@ -54,7 +54,7 @@
                 v-if="event.organization"
                 :to="`/organizations/${event.organization.id}`"
                 class="text-sm font-medium hover:underline transition-colors"
-                :style="{ color: getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.4) }"
+                :style="{ color: event.organization?.color_primary || '#4f46e5' }"
               >
                 {{ event.organization.name }}
               </router-link>
@@ -66,7 +66,7 @@
                         :key="guest.id"
                         :to="`/organizations/${guest.id}`"
                         class="text-sm font-medium hover:underline transition-colors block"
-                        :style="{ color: getOrgColor(guest.color_chroma, guest.color_hue, 0.4) }"
+                        :style="{ color: guest.color_primary || '#4f46e5' }"
                     >
                         {{ guest.name }}<span v-if="idx < event.guest_organizations.length - 1" class="text-gray-400 font-normal">, </span>
                     </router-link>
@@ -289,7 +289,7 @@ import OrganizationCard from '../components/OrganizationCard.vue'
 import ReactionList from '../components/ReactionList.vue'
 import ReactionAdminModal from '../components/ReactionAdminModal.vue'
 import { FaceSmileIcon } from '@heroicons/vue/24/outline'
-import { getOrgColor, getEventGradient } from '../utils/colorUtils'
+import { getEventGradient } from '../utils/colorUtils'
 import ShareButton from '../components/ShareButton.vue'
 import ActionPanel from '../components/ActionPanel.vue'
 import ActionPanelButton from '../components/ActionPanelButton.vue'

@@ -61,8 +61,9 @@ class Organization(SQLModel, table=True):
     slug: str = Field(unique=True, index=True)
     description: Optional[str] = None
     logo_url: Optional[str] = None
-    color_chroma: Optional[float] = Field(default=None)
-    color_hue: Optional[float] = Field(default=None)
+    color_primary: Optional[str] = Field(default=None)
+    color_secondary: Optional[str] = Field(default=None)
+    color_dark: Optional[str] = Field(default=None)
     type: OrganizationType
     parent_id: Optional[UUID] = Field(default=None, foreign_key="organization.id")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

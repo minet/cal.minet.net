@@ -81,7 +81,7 @@
                 <div 
                   v-if="event.organization?.logo_url"
                   class="h-10 w-10 rounded-full flex items-center justify-center overflow-hidden"
-                  :style="{ backgroundColor: getOrgColor(event.organization.color_chroma/20, event.organization.color_hue, 1) }"
+                  :style="{ backgroundColor: event.organization.color_secondary || '#f3f4f6' }"
                 >
                   <img 
                     :src="event.organization.logo_url"
@@ -93,8 +93,8 @@
                   v-else
                   class="h-10 w-10 rounded-full flex items-center justify-center font-semibold"
                   :style="{ 
-                    backgroundColor: getOrgColor(event.organization?.color_chroma/20, event.organization?.color_hue, 1),
-                    color: getOrgColor(event.organization?.color_chroma, event.organization?.color_hue, 0.4)
+                    backgroundColor: event.organization?.color_secondary || '#f3f4f6',
+                    color: event.organization?.color_primary || '#4f46e5'
                   }"
                 >
                   {{ event.organization?.name?.charAt(0) || '?' }}
@@ -167,7 +167,6 @@ import {
 } from '@heroicons/vue/24/outline'
 import { CalendarDaysIcon } from '@heroicons/vue/24/solid'
 import api from '../utils/api'
-import { getOrgColor } from '../utils/colorUtils'
 
 const events = ref([])
 const organizations = ref([])

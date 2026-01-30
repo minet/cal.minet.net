@@ -273,14 +273,14 @@
              >
                 <div 
                   class="h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-white font-bold text-xs"
-                  :style="{ backgroundColor: getOrgColor(evt.organization.color_chroma/20, evt.organization.color_hue, 1) }"
+                  :style="{ backgroundColor: evt.organization.color_secondary || '#f3f4f6' }"
                 >
                    <img 
                       v-if="evt.organization?.logo_url" 
                       :src="evt.organization.logo_url" 
                       class="h-full w-full object-cover rounded-full"
                     />
-                   <span v-else :style="{ color: getOrgColor(evt.organization.color_chroma, evt.organization.color_hue, 0.4) }">
+                   <span v-else :style="{ color: evt.organization.color_primary || '#4f46e5' }">
                      {{ evt.organization?.name?.charAt(0) }}
                    </span>
                 </div>
@@ -327,7 +327,6 @@ import {
 } from '@heroicons/vue/24/outline'
 import { CheckBadgeIcon } from '@heroicons/vue/24/solid'
 import api from '../utils/api'
-import { getOrgColor } from '../utils/colorUtils'
 
 const pendingEvents = ref([])
 const processedEvents = ref([])

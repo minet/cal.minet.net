@@ -4,8 +4,9 @@
         "slug": "bde",
         "type": "liste",
         "description": "Bureau des Élèves",
-        "color_chroma": 0.85,
-        "color_hue": 25.0,
+        "color_primary": "#F97316",
+        "color_secondary": "#FFF7ED",
+        "color_dark": "#7C2D12",
         "tags": [
             {
                 "name": "Soirée",
@@ -106,8 +107,9 @@
         "slug": "cine-club",
         "type": "club",
         "description": "Pour les amateurs de 7ème art",
-        "color_chroma": 0.45,
-        "color_hue": 210.0,
+        "color_primary": "#3B82F6",
+        "color_secondary": "#EFF6FF",
+        "color_dark": "#1E3A8A",
         "tags": [
             {
                 "name": "Projection",
@@ -172,8 +174,9 @@
         "slug": "minet",
         "type": "association",
         "description": "Association réseau et informatique",
-        "color_chroma": 0.65,
-        "color_hue": 280.0,
+        "color_primary": "#8B5CF6",
+        "color_secondary": "#F5F3FF",
+        "color_dark": "#4C1D95",
         "tags": [
             {
                 "name": "Tech",
@@ -254,8 +257,9 @@
         "slug": "photo-club",
         "type": "club",
         "description": "Capture the moment",
-        "color_chroma": 0.72,
-        "color_hue": 45.0,
+        "color_primary": "#F59E0B",
+        "color_secondary": "#FFFBEB",
+        "color_dark": "#78350F",
         "tags": [
             {
                 "name": "Workshop",
@@ -299,8 +303,9 @@
         "slug": "bds",
         "type": "association",
         "description": "Bureau des Sports",
-        "color_chroma": 0.55,
-        "color_hue": 145.0,
+        "color_primary": "#22C55E",
+        "color_secondary": "#F0FDF4",
+        "color_dark": "#14532D",
         "tags": [
             {
                 "name": "Match",
@@ -351,8 +356,9 @@
         "slug": "bda",
         "type": "association",
         "description": "Bureau des Arts",
-        "color_chroma": 0.68,
-        "color_hue": 310.0,
+        "color_primary": "#EC4899",
+        "color_secondary": "#FDF2F8",
+        "color_dark": "#831843",
         "tags": [
             {
                 "name": "Concert",
@@ -400,8 +406,9 @@
         "slug": "je",
         "type": "association",
         "description": "Professional experience",
-        "color_chroma": 0.3,
-        "color_hue": 200.0,
+        "color_primary": "#0EA5E9",
+        "color_secondary": "#F0F9FF",
+        "color_dark": "#0C4A6E",
         "tags": [
             {
                 "name": "Business",
@@ -440,8 +447,9 @@
         "slug": "robotik",
         "type": "club",
         "description": "Building robots",
-        "color_chroma": 0.9,
-        "color_hue": 5.0,
+        "color_primary": "#EF4444",
+        "color_secondary": "#FEF2F2",
+        "color_dark": "#7F1D1D",
         "tags": [
             {
                 "name": "Competition",

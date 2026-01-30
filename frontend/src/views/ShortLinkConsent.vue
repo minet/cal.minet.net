@@ -23,8 +23,8 @@
       <div class="px-6 py-8 text-center">
         <div 
           class="mx-auto flex h-16 w-16 items-center justify-center rounded-full mb-6 overflow-hidden"
-          :class="!info.color_chroma ? 'bg-indigo-100' : ''"
-          :style="{ backgroundColor: info.color_chroma ? getOrgColor(info.color_chroma/5, info.color_hue, 1) : null }"
+          :class="!info.color_secondary ? 'bg-indigo-100' : ''"
+          :style="{ backgroundColor: info.color_secondary || null }"
         >
            <!-- Logo if available -->
            <img v-if="info.logo_url" :src="info.logo_url" :alt="info.title" class="h-full w-full object-cover" />
@@ -32,20 +32,20 @@
            <CalendarIcon 
              v-else-if="info.item_type === 'event'" 
              class="h-8 w-8" 
-             :class="!info.color_chroma ? 'text-indigo-600' : ''"
-             :style="{ color: info.color_chroma ? getOrgColor(info.color_chroma, info.color_hue, 1) : null }"
+             :class="!info.color_primary ? 'text-indigo-600' : ''"
+             :style="{ color: info.color_primary || null }"
            />
            <BuildingOfficeIcon 
              v-else-if="info.item_type === 'organization'" 
              class="h-8 w-8" 
-             :class="!info.color_chroma ? 'text-indigo-600' : ''"
-             :style="{ color: info.color_chroma ? getOrgColor(info.color_chroma, info.color_hue, 1) : null }"
+             :class="!info.color_primary ? 'text-indigo-600' : ''"
+             :style="{ color: info.color_primary || null }"
            />
            <TagIcon 
              v-else 
              class="h-8 w-8" 
-             :class="!info.color_chroma ? 'text-indigo-600' : ''"
-             :style="{ color: info.color_chroma ? getOrgColor(info.color_chroma, info.color_hue, 1) : null }"
+             :class="!info.color_primary ? 'text-indigo-600' : ''"
+             :style="{ color: info.color_primary || null }"
            />
         </div>
 
@@ -121,7 +121,6 @@ import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuth } from '../composables/useAuth';
 import api from '../utils/api';
-import { getOrgColor } from '../utils/colorUtils';
 import { 
     ExclamationTriangleIcon, 
     CalendarIcon, 
@@ -145,8 +144,8 @@ const customTitleColor = computed(() => {
   if (info.value.item_type === 'tag' && info.value.tag_color) {
       return info.value.tag_color;
   }
-  if (info.value.color_chroma) {
-      return getOrgColor(info.value.color_chroma, info.value.color_hue, 0.4);
+  if (info.value.color_primary) {
+      return info.value.color_primary;
   }
   return null;
 });
