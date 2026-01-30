@@ -66,6 +66,7 @@ Calend'INT is an associative calendar platform designed for campus students to d
 
 ### Make a superadmin
 
+```bash
 docker compose exec backend python make_superadmin.py <email>
 ```
 
