@@ -113,6 +113,12 @@
         </div>
       </div>
     </div>
+    <!-- Login Modal -->
+    <LoginModal 
+      :isOpen="showLoginModal" 
+      :description="loginDescription"
+      @close="showLoginModal = false"
+    />
   </div>
 </template>
 
@@ -125,8 +131,9 @@ import {
     ExclamationTriangleIcon, 
     CalendarIcon, 
     BuildingOfficeIcon, 
-    TagIcon 
+    TagIcon
 } from '@heroicons/vue/24/outline';
+import LoginModal from '../components/LoginModal.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -136,6 +143,8 @@ const loading = ref(true);
 const error = ref(null);
 const info = ref(null);
 const confirming = ref(false);
+const showLoginModal = ref(false);
+const loginDescription = ref("Vous devez être connecté pour vous abonner ou ajouter cet événement à votre calendrier.");
 
 const shortId = route.params.shortId;
 
@@ -157,7 +166,14 @@ const fetchInfo = async () => {
   } catch (err) {
     console.error(err);
     if (err.response && err.response.status === 403) {
-      error.value = "Vous n'avez pas la permission de voir ce contenu. Êtes-vous connecté avec le bon compte ?";
+      // Show login modal instead of error message
+      loginDescription.value = "Ce contenu est privé. Veuillez vous connecter pour y accéder.";
+      showLoginModal.value = true;
+      // Also set error just in case modal is closed? Or keep error clear?
+      // Since modal covers interaction, maybe fine. 
+      // User sees loading then modal? 
+      // Or error below modal?
+      error.value = "Accès refusé. Connexion requise.";
     } else if (err.response && err.response.status === 404) {
       error.value = "Lien invalide ou expiré.";
     } else {
@@ -169,6 +185,11 @@ const fetchInfo = async () => {
 };
 
 const confirm = async () => {
+    if (!isAuthenticated.value) {
+        loginDescription.value = "Vous devez être connecté pour vous abonner ou ajouter cet événement à votre calendrier.";
+        showLoginModal.value = true;
+        return;
+    }
     confirming.value = true;
     try {
         await api.post(`/short-links/confirm/${shortId}`);
@@ -178,12 +199,9 @@ const confirm = async () => {
         } else if (info.value.item_type === 'organization') {
             router.push(`/organizations/${info.value.item_id}`);
         } else if (info.value.item_type === 'tag') {
-             // Redirect to org page maybe? Or dashboard? 
-             // Tags don't have a direct view usually, they are part of org.
-             // But subscription takes you to... maybe just stay or go home.
-             router.push('/');
+            router.push('/subscriptions');
         } else {
-             router.push('/');
+            router.push('/');
         }
     } catch (err) {
         console.error(err);
@@ -198,12 +216,6 @@ const cancel = () => {
 };
 
 onMounted(async () => {
-    if (!isAuthenticated.value) {
-        // Force login or show error
-        // The backend `/info` likely returns 401 if not logged in.
-        // But let's check store
-        // We can just try fetching, axios interceptors might handle login redirect
-    }
-    await fetchInfo();
+  await fetchInfo();
 });
 </script>

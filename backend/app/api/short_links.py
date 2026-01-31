@@ -218,10 +218,10 @@ def visit_short_link(
 @router.get("/info/{short_id}", response_model=ShortLinkInfo)
 def get_link_info(
     short_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
     session: Session = Depends(get_session)
 ):
-    """Get info for confirmation page (Logged in users only)"""
+    """Get info for confirmation page"""
     link = session.get(ShortLink, short_id)
     if not link:
         raise HTTPException(status_code=404, detail="Link not found")

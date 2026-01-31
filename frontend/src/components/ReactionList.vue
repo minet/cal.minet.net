@@ -18,7 +18,7 @@
     </button>
 
     <!-- Add Reaction Button -->
-    <div v-if="btnAdd" class="relative" ref="pickerContainer">
+    <div v-if="btnAdd && !hasUserReacted" class="relative" ref="pickerContainer">
       <button
         @click="showPicker = !showPicker"
         class="inline-flex items-center justify-center h-7 w-7 rounded-full bg-gray-50 border border-gray-200 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
@@ -74,6 +74,10 @@ const loading = ref(false)
 const sortedReactions = computed(() => {
   // Sort by count desc, then alphabetically
   return [...props.reactions].sort((a, b) => b.count - a.count || a.emoji.localeCompare(b.emoji))
+})
+
+const hasUserReacted = computed(() => {
+  return props.reactions.some(r => r.user_reacted)
 })
 
 const toggleReaction = async (emoji) => {

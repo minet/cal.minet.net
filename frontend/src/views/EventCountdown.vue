@@ -67,7 +67,7 @@
 
       <!-- Countdown -->
       <div class="mb-12">
-        <CountdownTimer :targetDate="event.start_time" :textColor="'text-gray-900'" />
+        <CountdownTimer :targetDate="event.start_time" :textColor="'text-white'" />
       </div>
 
       <!-- Details -->
@@ -103,7 +103,15 @@
         </router-link>
       </div> -->
     </div>
-  </div>
+    </div>
+
+    <!-- Login Modal -->
+    <LoginModal 
+      :isOpen="showLoginModal" 
+      :description="loginDescription"
+      cancelText="Pas maintenant"
+      @close="handleModalClose"
+    />
 </template>
 
 <script setup>
@@ -114,7 +122,11 @@ import { useAuth } from '../composables/useAuth'
 import CountdownTimer from '../components/CountdownTimer.vue'
 import ReactionList from '../components/ReactionList.vue'
 import { MapPinIcon, CalendarIcon } from '@heroicons/vue/24/outline'
+import LoginModal from '../components/LoginModal.vue'
 import { getEventGradient } from '../utils/colorUtils'
+
+const showLoginModal = ref(false)
+const loginDescription = ref("Connectez-vous pour réagir, ajouter cet événement à votre calendrier et profiter de toutes les fonctionnalités !")
 
 const route = useRoute()
 const router = useRouter()
@@ -150,9 +162,21 @@ const loadEvent = async () => {
     event.value = response.data
   } catch (error) {
     console.error('Failed to load event:', error)
+    if (error.response && error.response.status === 403) {
+        loginDescription.value = "Cet événement est privé ou vous n'avez pas la permission de le voir. Veuillez vous connecter."
+        showLoginModal.value = true
+    }
   } finally {
     loading.value = false
   }
+}
+
+const handleModalClose = () => {
+    showLoginModal.value = false
+    // If we have no event (e.g. private event load failed), redirect to home
+    if (!event.value) {
+        router.push('/')
+    }
 }
 
 const refreshReactions = async () => {
@@ -173,9 +197,8 @@ const checkAuth = (e) => {
     if (!isAuthenticated.value) {
         e.preventDefault()
         e.stopPropagation()
-        // Save current URL to redirect back
-        sessionStorage.setItem('auth_redirect_url', route.fullPath)
-        router.push('/login')
+        loginDescription.value = "Connectez-vous pour réagir, ajouter cet événement à votre calendrier et profiter de toutes les fonctionnalités !"
+        showLoginModal.value = true
     }
 }
 

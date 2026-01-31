@@ -4,12 +4,12 @@
       L'événement a commencé !
     </div>
     
-    <div v-else class="grid grid-cols-4 gap-4 md:gap-8">
-      <div v-for="(value, label) in timeUnits" :key="label" class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 md:p-8">
-        <div class="text-5xl md:text-7xl font-bold text-white mb-2">
+    <div v-else class="flex flex-wrap justify-center gap-4 md:gap-8">
+      <div v-for="(value, label) in timeUnits" :key="label" class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 md:p-8 min-w-[140px] md:min-w-[160px] flex-1 max-w-[200px]">
+        <div :class="['text-5xl md:text-7xl font-bold mb-2', textColor]">
           {{ value }}
         </div>
-        <div class="text-lg md:text-xl text-white/70 uppercase tracking-wider">
+        <div :class="['text-lg md:text-xl uppercase tracking-wider opacity-70', textColor]">
           {{ label }}
         </div>
       </div>
@@ -24,6 +24,10 @@ const props = defineProps({
   targetDate: {
     type: String,
     required: true
+  },
+  textColor: {
+    type: String,
+    default: 'text-white'
   }
 })
 

@@ -166,14 +166,7 @@ const selectEmoji = (emoji) => {
 
 const handleNativeInput = (event) => {
   const val = event.target.value
-  if (val) {
-    // Try to detect emoji?
-    // Ideally we assume user picked an emoji if they used the special keyboard.
-    // But text input might send letters.
-    // Check if it's an emoji roughly (regex) or just exact input.
-    // Or just take the last char?
-    // Usually native picker inserts the emoji.
-    
+  if (val) {    
     // reset input
     event.target.value = ''
     
@@ -188,7 +181,6 @@ const handleNativeInput = (event) => {
 
 const triggerNativePicker = () => {
     nativeInputRef.value?.focus()
-    // On mobile, focus triggers keyboard.
 }
 
 // Intersection Observer for infinite scroll
@@ -200,8 +192,6 @@ const observer = new IntersectionObserver((entries) => {
 
 
 watch(() => visibleEmojis.value.length, () => {
-    // Re-bind observer if needed?
-    // Actually we just need to observe the sentinel.
     nextTick(() => {
         const sentinel = document.querySelector('.emoji-picker .h-4') // Need better selector or ref
     })
@@ -210,10 +200,6 @@ watch(() => visibleEmojis.value.length, () => {
 onMounted(() => {
   loadRecents()
   fetchEmojis()
-  
-  // Setup observer
-  const sentinel = document.querySelector('.emoji-picker .h-4') // This might not exist yet if loading
-  // Better use ref in template
 })
 
 // Correct usage of sentinel ref

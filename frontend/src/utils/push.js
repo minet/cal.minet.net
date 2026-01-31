@@ -31,6 +31,9 @@ export async function askPermissionAndSubscribe() {
         // If default, we can ask again maybe? But sticking to requirement "for the first time".
     }
 
+    if (Notification.permission === 'granted') {
+        return subscribeUserToPush();
+    }
     // Ask permission
     const permission = await Notification.requestPermission();
     localStorage.setItem('push_prompted', 'true');

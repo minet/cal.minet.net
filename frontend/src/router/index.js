@@ -165,7 +165,8 @@ router.beforeEach((to, from, next) => {
     // Also allow organization and event detail pages, and countdown
     const isPublicDetailPage = (
         (to.path.match(/^\/(organizations|events)\/[^/]+$/) && !to.path.endsWith('/edit')) ||
-        to.path.match(/^\/countdown\/[^/]+$/)
+        to.path.match(/^\/events\/[^/]+\/countdown$/) ||
+        to.path.match(/^\/consent\/[^/]+$/)
     )
 
     if (publicRoutes.includes(to.path) || isPublicDetailPage) {

@@ -24,19 +24,12 @@ api.interceptors.response.use(
             localStorage.removeItem('auth_token')
             localStorage.removeItem('auth_user')
 
-            // If on a public page, reload to clear state instead of redirecting to login
-            const publicPaths = ['/', '/events', '/organizations', '/login', '/register']
-            const isPublicPath = publicPaths.includes(window.location.pathname) ||
-                window.location.pathname.match(/^\/(events|organizations)\/[^/]+$/)
+            // Store current location for redirect after login
+            const currentUrl = window.location.pathname + window.location.search
+            localStorage.setItem('auth_redirect_url', currentUrl)
 
-            if (!isPublicPath) {
-                // Store current location for redirect after login
-                const currentUrl = window.location.pathname + window.location.search
-                localStorage.setItem('auth_redirect_url', currentUrl)
-                window.location.href = '/login'
-            } else {
-                // window.location.reload()
-            }
+            // Redirect to login
+            window.location.href = '/login'
         }
         return Promise.reject(error)
     }
