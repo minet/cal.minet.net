@@ -5,13 +5,18 @@
 
   <div 
     v-else-if="event" 
-    class="h-screen flex items-center justify-center overflow-hidden relative"
+    class="w-full flex flex-col md:flex-row relative overflow-hidden"
     :style="{ background: backgroundGradient }"
   >
+    <!-- Background Poster (Blurred) -->
+    <div v-if="event.poster_url" class="absolute inset-0 z-0 pointer-events-none">
+        <img :src="event.poster_url" class="w-full object-cover blur-2xl opacity-50 scale-110" />
+    </div>
+
     <!-- Background Bubbles -->
     <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">
       <div 
-        v-for="(org, index) in [event.organization, ...(event.guest_organizations || [])].filter(Boolean)"
+        v-for="(org, index) in [event.organization, event.organization, ...(event.guest_organizations || []), ...(event.guest_organizations || [])].filter(Boolean)"
         :key="index"
         class="absolute rounded-full blur-3xl opacity-20"
         :class="index % 2 === 0 ? 'animate-float-slow' : 'animate-float-medium'"
@@ -28,90 +33,93 @@
       ></div>
     </div>
 
-    <div class="text-center px-4 max-w-5xl relative z-10 w-full flex flex-col h-full justify-center">
-      
-      <!-- Organization Pill -->
-      <div v-if="event.organization" class="mb-4 flex justify-center flex-wrap gap-4">
-        <div class="inline-flex items-center bg-white/80 backdrop-blur-md shadow-md rounded-full px-4 py-2 border border-white/20 transform transition-transform hover:scale-105">
-            <img 
-                v-if="event.organization.logo_url" 
-                :src="event.organization.logo_url" 
-                class="w-10 h-10 rounded-full mr-3 object-cover shadow-sm" 
-                alt="Org Logo" 
-            />
-            <span class="text-xl font-bold tracking-tight text-gray-900">{{ event.organization.name }}</span>
-        </div>
-
-        <div v-for="guest in event.guest_organizations" :key="guest.id"
-            class="inline-flex items-center bg-white/80 backdrop-blur-md shadow-md rounded-full px-4 py-2 border border-white/20 transform transition-transform hover:scale-105"
-        >
-            <img 
-                v-if="guest.logo_url" 
-                :src="guest.logo_url" 
-                class="w-8 h-8 rounded-full mr-2 object-cover shadow-sm" 
-                alt="Guest Logo" 
-            />
-            <span class="text-lg font-semibold tracking-tight text-gray-800">{{ guest.name }}</span>
-        </div>
-      </div>
-
-      <!-- Event Title -->
-      <h1 class="text-5xl md:text-7xl lg:text-8xl font-black text-gray-100 mb-8 drop-shadow-sm tracking-tight leading-tight">
-        {{ event.title }}
-      </h1>
-
-      <!-- Poster (Optional) -->
-      <div v-if="event.poster_url" class="mb-8">
-        <img :src="event.poster_url" :alt="event.title" class="max-h-64 md:max-h-80 mx-auto rounded-3xl shadow-2xl ring-8 ring-white/30" />
-      </div>
-
-      <!-- Countdown -->
-      <div class="mb-12">
-        <CountdownTimer :targetDate="event.start_time" :textColor="'text-white'" />
-      </div>
-
-      <!-- Details -->
-      <div class="flex flex-col md:flex-row items-center justify-center gap-6 text-gray-800 text-xl font-medium mb-8">
-        <div v-if="event.location" class="flex items-center bg-white/60 backdrop-blur-md py-2 px-4 rounded-xl shadow-sm">
-          <MapPinIcon class="h-6 w-6 mr-2 text-indigo-600" />
-          {{ event.location }}
-        </div>
-        <div class="flex items-center bg-white/60 backdrop-blur-md py-2 px-4 rounded-xl shadow-sm">
-          <CalendarIcon class="h-6 w-6 mr-2 text-indigo-600" />
-          {{ formatDate(event.start_time) }}
-        </div>
-      </div>
-
-      <!-- Reactions -->
-      <div class="mb-8 flex justify-center">
-         <div class="bg-white/60 backdrop-blur-md rounded-2xl p-4 shadow-lg inline-block">
-             <ReactionList 
-               v-if="event" 
-               :event-id="event.id" 
-               :reactions="event.reactions"
-               :btn-add="true" 
-               @update="refreshReactions" 
-               @click.capture="checkAuth"
-             />
-         </div>
-      </div>
-
-      <!-- View Event Button -->
-      <!-- <div class="mt-4">
-        <router-link :to="`/events/${event.id}`" class="text-indigo-700 font-semibold hover:underline">
-            Voir les détails de l'événement
-        </router-link>
-      </div> -->
-    </div>
+    <!-- Left Side: Poster (Desktop) -->
+    <div v-if="event.poster_url" class="hidden md:flex md:w-1/2 h-screen items-center justify-center p-8 relative z-10">
+        <img :src="event.poster_url" :alt="event.title" class="max-h-full max-w-full rounded-3xl shadow-2xl ring-8 ring-white/30 object-contain hover:scale-[1.02] transition-transform duration-500" />
     </div>
 
-    <!-- Login Modal -->
-    <LoginModal 
-      :isOpen="showLoginModal" 
-      :description="loginDescription"
-      cancelText="Pas maintenant"
-      @close="handleModalClose"
-    />
+    <!-- Right Side: Content -->
+    <div 
+        class="relative z-10 flex flex-col h-full overflow-y-auto w-full"
+        :class="[event.poster_url ? 'md:w-1/2' : 'max-w-5xl mx-auto']"
+    >
+      <div class="flex flex-col items-center justify-center min-h-screen p-6 text-center">
+        <!-- Organization Pill -->
+        <div v-if="event.organization" class="mb-6 flex justify-center flex-wrap gap-4">
+            <div class="inline-flex items-center bg-white/80 backdrop-blur-md shadow-md rounded-full px-4 py-2 border border-white/20 transform transition-transform hover:scale-105">
+                <img 
+                    v-if="event.organization.logo_url" 
+                    :src="event.organization.logo_url" 
+                    class="w-10 h-10 rounded-full mr-3 object-cover shadow-sm" 
+                    alt="Org Logo" 
+                />
+                <span class="text-xl font-bold tracking-tight text-gray-900">{{ event.organization.name }}</span>
+            </div>
+
+            <div v-for="guest in event.guest_organizations" :key="guest.id"
+                class="inline-flex items-center bg-white/80 backdrop-blur-md shadow-md rounded-full px-4 py-2 border border-white/20 transform transition-transform hover:scale-105"
+            >
+                <img 
+                    v-if="guest.logo_url" 
+                    :src="guest.logo_url" 
+                    class="w-8 h-8 rounded-full mr-2 object-cover shadow-sm" 
+                    alt="Guest Logo" 
+                />
+                <span class="text-lg font-semibold tracking-tight text-gray-800">{{ guest.name }}</span>
+            </div>
+        </div>
+
+        <!-- Event Title -->
+        <h1 class="text-5xl md:text-7xl font-black text-gray-100 mb-8 drop-shadow-sm tracking-tight leading-tight">
+            {{ event.title }}
+        </h1>
+
+        <!-- Mobile Poster -->
+        <div v-if="event.poster_url" class="mb-8 md:hidden">
+            <img :src="event.poster_url" :alt="event.title" class="max-h-64 mx-auto rounded-3xl shadow-2xl ring-8 ring-white/30" />
+        </div>
+
+        <!-- Countdown -->
+        <div class="mb-12">
+            <CountdownTimer :targetDate="event.start_time" :textColor="'text-white'" />
+        </div>
+
+        <!-- Details -->
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-6 text-gray-800 text-xl font-medium mb-8">
+            <div v-if="event.location" class="flex items-center bg-white/60 backdrop-blur-md py-2 px-4 rounded-xl shadow-sm">
+            <MapPinIcon class="h-6 w-6 mr-2 text-indigo-600" />
+            {{ event.location }}
+            </div>
+            <div class="flex items-center bg-white/60 backdrop-blur-md py-2 px-4 rounded-xl shadow-sm">
+            <CalendarIcon class="h-6 w-6 mr-2 text-indigo-600" />
+            {{ formatDate(event.start_time) }}
+            </div>
+        </div>
+
+        <!-- Reactions -->
+        <div class="mb-8 flex justify-center">
+            <div class="bg-white/60 backdrop-blur-md rounded-2xl p-4 shadow-lg inline-block">
+                <ReactionList 
+                v-if="event" 
+                :event-id="event.id" 
+                :reactions="event.reactions"
+                :btn-add="true" 
+                @update="refreshReactions" 
+                @click.capture="checkAuth"
+                />
+            </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Login Modal -->
+  <LoginModal 
+    :isOpen="showLoginModal" 
+    :description="loginDescription"
+    cancelText="Pas maintenant"
+    @close="handleModalClose"
+  />
 </template>
 
 <script setup>
