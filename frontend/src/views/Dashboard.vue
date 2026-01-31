@@ -165,14 +165,17 @@
                               class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
                               :title="event.organization?.name"
                             />
-                            <img  
+                            <template
                               v-for="guest in event.guest_organizations" 
                               :key="guest.id"
-                              v-if="guest.logo_url"
-                              :src="guest.logo_url" 
-                              class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
-                              :title="guest.name"
-                            />
+                            >
+                              <img  
+                                v-if="guest.logo_url"
+                                :src="guest.logo_url" 
+                                class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
+                                :title="guest.name"
+                              />
+                            </template>
                          </div>
                       </template>
                       <template v-else>
