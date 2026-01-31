@@ -61,7 +61,6 @@
       <div 
         v-if="organization.logo_url" 
         :class="logoContainerClasses"
-        :style="{ backgroundColor: organization.color_secondary || '#f3f4f6' }"
       >
         <img :src="organization.logo_url" :alt="organization.name" class="w-full h-full object-cover rounded" />
       </div>
