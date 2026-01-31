@@ -72,7 +72,7 @@
               </div>
 
 
-              <div class="sm:col-span-4 grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <div class="sm:col-span-4 grid grid-cols-1 gap-6">
                 <!-- Primary Color -->
                 <div class="col-span-1">
                   <label for="color_primary" class="block text-sm font-medium leading-6 text-gray-900">Couleur Principale</label>
@@ -84,7 +84,12 @@
                       v-model="form.color_primary"
                       class="h-10 w-20 rounded border border-gray-300 p-1 cursor-pointer"
                     />
-                    <span class="text-sm text-gray-500">{{ form.color_primary }}</span>
+                    <input 
+                      type="text" 
+                      v-model="form.color_primary"
+                      class="block flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                      placeholder="#000000"
+                    />
                   </div>
                 </div>
 
@@ -99,7 +104,12 @@
                       v-model="form.color_secondary"
                       class="h-10 w-20 rounded border border-gray-300 p-1 cursor-pointer"
                     />
-                    <span class="text-sm text-gray-500">{{ form.color_secondary }}</span>
+                    <input 
+                      type="text" 
+                      v-model="form.color_secondary"
+                      class="block flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                      placeholder="#ffffff"
+                    />
                   </div>
                 </div>
 
@@ -114,7 +124,12 @@
                       v-model="form.color_dark"
                       class="h-10 w-20 rounded border border-gray-300 p-1 cursor-pointer"
                     />
-                    <span class="text-sm text-gray-500">{{ form.color_dark }}</span>
+                    <input 
+                      type="text" 
+                      v-model="form.color_dark"
+                      class="block flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                      placeholder="#000000"
+                    />
                   </div>
                 </div>
               </div>
@@ -238,12 +253,13 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted } from 'vue'
+import { reactive, ref, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import ImageUpload from '../components/ImageUpload.vue'
 import Dropdown from '../components/Dropdown.vue'
 import api from '../utils/api'
+import { getSaturation, generateColorVariant } from '../utils/colorUtils'
 import { TrashIcon, PlusIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 
 const router = useRouter()
@@ -270,6 +286,20 @@ const deletedLinkIds = ref([])
 const showDeleteModal1 = ref(false)
 const showDeleteModal2 = ref(false)
 const isDeleting = ref(false)
+
+watch(() => form.color_primary, (newColor) => {
+  if (!newColor || !/^#[0-9A-F]{6}$/i.test(newColor)) return
+
+  // If secondary (light) is grayscale (saturation ~0), update it to a light variant of the new primary color
+  if (getSaturation(form.color_secondary) < 0.05) {
+    form.color_secondary = generateColorVariant(newColor, 0.95)
+  }
+
+  // If dark is grayscale (saturation ~0), update it to a dark variant of the new primary color
+  if (getSaturation(form.color_dark) < 0.05) {
+    form.color_dark = generateColorVariant(newColor, 0.1)
+  }
+})
 
 const addLink = () => {
   links.value.push({ name: '', url: '', order: links.value.length + 1 })

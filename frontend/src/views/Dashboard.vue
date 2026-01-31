@@ -160,14 +160,16 @@
                       <template v-if="event.guest_organizations && event.guest_organizations.length > 0">
                          <div class="flex -space-x-1.5">
                             <img 
-                              :src="event.organization?.logo_url || `https://ui-avatars.com/api/?name=${event.organization?.name}&background=random`" 
+                              v-if="event.organization?.logo_url"
+                              :src="event.organization?.logo_url" 
                               class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
                               :title="event.organization?.name"
                             />
-                            <img 
+                            <img  
                               v-for="guest in event.guest_organizations" 
                               :key="guest.id"
-                              :src="guest.logo_url || `https://ui-avatars.com/api/?name=${guest.name}&background=random`" 
+                              v-if="guest.logo_url"
+                              :src="guest.logo_url" 
                               class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
                               :title="guest.name"
                             />
@@ -366,10 +368,15 @@ const weekDays = computed(() => {
   return days
 })
 
+const toLocalISOString = (date) => {
+  const options = { year: 'numeric', month: '2-digit', day: '2-digit' }
+  const formatted = new Intl.DateTimeFormat('fr-CA', options).format(date)
+  return formatted
+}
+
 const createDayObject = (date, isCurrentMonth) => {
-  const dateStr = date.toISOString().split('T')[0]
-  const today = new Date()
-  const isToday = dateStr === today.toISOString().split('T')[0]
+  const dateStr = toLocalISOString(date)
+  const isToday = dateStr === toLocalISOString(new Date())
   
   return {
     date: dateStr,
@@ -382,7 +389,8 @@ const createDayObject = (date, isCurrentMonth) => {
 
 const getEventsForDate = (dateStr) => {
   return events.value.filter(event => {
-    const eventDate = new Date(event.start_time).toISOString().split('T')[0]
+    if (!event.start_time) return false
+    const eventDate = toLocalISOString(new Date(event.start_time))
     return eventDate === dateStr
   })
 }

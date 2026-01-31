@@ -8,7 +8,7 @@
     <header 
       class="shadow-sm rounded-lg mb-6 transition-colors"
       :style="{ 
-        background: getEventGradient(event.organization, event.guest_organizations),
+        background: getEventGradientLight(event.organization, event.guest_organizations),
         borderTop: `4px solid ${event.organization?.color_primary || '#4f46e5'}`
       }"
     >
@@ -289,7 +289,7 @@ import OrganizationCard from '../components/OrganizationCard.vue'
 import ReactionList from '../components/ReactionList.vue'
 import ReactionAdminModal from '../components/ReactionAdminModal.vue'
 import { FaceSmileIcon } from '@heroicons/vue/24/outline'
-import { getEventGradient } from '../utils/colorUtils'
+import { getEventGradient, getEventGradientLight } from '../utils/colorUtils'
 import ShareButton from '../components/ShareButton.vue'
 import ActionPanel from '../components/ActionPanel.vue'
 import ActionPanelButton from '../components/ActionPanelButton.vue'
