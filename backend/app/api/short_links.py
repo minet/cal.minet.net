@@ -338,7 +338,6 @@ def confirm_subscription(
             select(EventReaction).where(
                 EventReaction.event_id == link.item_id,
                 EventReaction.user_id == current_user.id,
-                EventReaction.emoji == "👍" 
             )
         ).first()
         
