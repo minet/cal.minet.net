@@ -5,7 +5,9 @@ Usage: python make_superadmin.py <email>
 """
 
 import sys
+
 from sqlmodel import Session, select
+
 from app.database import engine
 from app.models import User
 

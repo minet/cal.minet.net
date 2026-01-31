@@ -1,18 +1,29 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
-from fastapi.responses import RedirectResponse, HTMLResponse
-from sqlmodel import Session, select
-from typing import List, Optional
 from datetime import datetime, timezone
-from uuid import UUID
+import os
 import random
 import string
-import os
+from typing import List, Optional
+from uuid import UUID
 
-from app.database import get_session
-from app.models import ShortLink, ShortLinkType, ShortLinkActionType, User, Event, Organization, Membership, Role, EventVisibility
+from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlmodel import Session, select
+
 from app.api.auth import get_current_user, get_current_user_optional
-from app.schemas import ShortLinkCreate, ShortLinkRead, ShortLinkInfo, Message
 from app.api.events import can_view_event, get_org_membership
+from app.database import get_session
+from app.models import (
+    Event,
+    EventReaction,
+    EventVisibility,
+    Organization,
+    Role,
+    ShortLink,
+    ShortLinkActionType,
+    ShortLinkType,
+    User,
+)
+from app.schemas import Message, ShortLinkCreate, ShortLinkInfo, ShortLinkRead
 
 router = APIRouter()
 
@@ -332,7 +343,6 @@ def confirm_subscription(
         if not event or not can_view_event(event, current_user, session):
              raise HTTPException(status_code=403, detail="Cannot access event")
              
-        from app.models import EventReaction
         # Add reaction
         existing_reaction = session.exec(
             select(EventReaction).where(

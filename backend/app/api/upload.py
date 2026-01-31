@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+import os
+from uuid import uuid4
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+
 from app.api.auth import get_current_user
 from app.models import User
-from app.services.storage import upload_file, delete_file
-import os
+from app.services.storage import delete_file, upload_file
 
 router = APIRouter()
 
@@ -22,6 +25,16 @@ async def upload_image(
     Upload an image file
     Requires authentication
     """
+    if not file.filename:
+        raise HTTPException(
+            status_code=400,
+            detail="No filename provided"
+        )
+    if not file.content_type:
+        raise HTTPException(
+            status_code=400,
+            detail="No content type provided"
+        )
     # Check file extension
     if not allowed_file(file.filename):
         raise HTTPException(

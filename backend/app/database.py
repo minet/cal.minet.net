@@ -1,5 +1,6 @@
-from sqlmodel import SQLModel, create_engine, Session
 import os
+
+from sqlmodel import SQLModel, Session, create_engine
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/calendint")
 

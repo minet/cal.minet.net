@@ -1,12 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
-from typing import List, Optional
-from pydantic import BaseModel
-from app.database import get_session
-from app.models import Group, GroupMembership, User, Organization, Membership, Role
-from app.api.auth import get_current_user
-from uuid import UUID
 from datetime import datetime
+from typing import List, Optional
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlmodel import Session, select
+
+from app.api.auth import get_current_user
+from app.database import get_session
+from app.models import Group, GroupMembership, Membership, Organization, Role, User
 
 router = APIRouter()
 

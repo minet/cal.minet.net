@@ -1,13 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Form
-from fastapi.security import OAuth2PasswordBearer
-from app.models import User, Event, EventVisibility, Membership, Role
-from sqlmodel import Session, select
-from app.database import get_session
-from app.models import User
-from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 import os
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Form, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
+from sqlmodel import Session, select
+
+from app.database import get_session
+from app.models import Event, EventVisibility, Membership, Role, User
+from app.models import User
 
 router = APIRouter()
 
@@ -33,7 +35,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), session: Session
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
+        email: str | None = payload.get("sub")
         if email is None:
             raise credentials_exception
     except JWTError:
@@ -48,7 +50,7 @@ async def get_current_user_optional(token: Optional[str] = Depends(oauth2_scheme
         return None
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
+        email: str | None = payload.get("sub")
         if email is None:
             return None
     except JWTError:
@@ -103,7 +105,7 @@ async def read_users_me(
         org_rejected = session.exec(
             select(Event).where(
                 Event.visibility == EventVisibility.PUBLIC_REJECTED,
-                Event.organization_id.in_(org_ids)
+                Event.organization_id.in_(org_ids) # pyright: ignore
             )
         ).all()
         for e in org_rejected:

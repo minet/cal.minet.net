@@ -1,14 +1,36 @@
-from fastapi import FastAPI
-from starlette.middleware.sessions import SessionMiddleware
-from dotenv import load_dotenv
+import asyncio
+from contextlib import asynccontextmanager
+import logging
 import os
 import time
-import logging
+
+from dotenv import load_dotenv
+from fastapi import FastAPI
 from sqlalchemy.exc import OperationalError
-from contextlib import asynccontextmanager
+from sqlmodel import Session
+from starlette.middleware.sessions import SessionMiddleware
+
+from app.api import (
+    admin,
+    auth,
+    cas,
+    events,
+    groups,
+    ics,
+    notifications,
+    organization_links,
+    organizations,
+    short_links,
+    subscriptions,
+    tags,
+    upload,
+    users,
+)
+from app.api.notifications import process_notifications
 from app.database import create_db_and_tables
+from app.database import engine
 from app.migration_runner import run_migrations
-from app.api import auth, organizations, events, ics, users, upload, subscriptions, cas, groups, tags, organization_links, admin, notifications, short_links
+
 
 # Load environment variables
 load_dotenv()
@@ -36,11 +58,6 @@ async def lifespan(app: FastAPI):
         raise Exception("Database connection failed")
 
     # Start notification loop
-    import asyncio
-    from app.api.notifications import process_notifications
-    from app.database import engine
-    from sqlmodel import Session
-
     async def notification_loop():
         def run_check():
             with Session(engine) as session:

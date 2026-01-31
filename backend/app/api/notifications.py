@@ -1,15 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
 from datetime import datetime, timedelta, timezone
-import os
 import json
 import logging
-from pywebpush import webpush, WebPushException
+import os
 
-from app.database import get_session
-from app.models import User, UserPushToken, Event, Subscription, EventVisibility
+from fastapi import APIRouter, Depends, HTTPException
+from sqlmodel import Session, select
+
 from app.api.auth import get_current_user
-from app.schemas import PushTokenCreate, Message
+from app.database import get_session
+from app.models import Event, EventVisibility, Subscription, User, UserPushToken
+from app.schemas import Message, PushTokenCreate
+from pywebpush import WebPushException, webpush
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

@@ -1,23 +1,25 @@
+from datetime import datetime, timezone
+import hashlib
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Response
-from sqlmodel import Session, select, or_, and_, func, col
-from app.database import get_session
+from icalendar import Calendar, Event as IcalEvent
+from sqlmodel import Session, and_, col, func, or_, select
 from starlette.config import Config
-from app.models import (
-    Event, 
-    User, 
-    Subscription, 
-    Membership, 
-    GroupMembership,
-    EventTag,
-    EventVisibility,
-    EventReaction
-)
+
 from app.api.auth import get_current_user
 from app.api.events import get_visibility_conditions
-from icalendar import Calendar, Event as IcalEvent
-from datetime import datetime, timezone
-from uuid import UUID
-import hashlib
+from app.database import get_session
+from app.models import (
+    Event,
+    EventReaction,
+    EventTag,
+    EventVisibility,
+    GroupMembership,
+    Membership,
+    Subscription,
+    User,
+)
 
 config = Config('.env')
 BASE_URL = config.get("APP_BASE_URL")

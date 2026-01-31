@@ -299,7 +299,7 @@ def get_visibility_conditions(current_user: Optional[User], session: Session):
     ]
     
     if current_user and current_user.is_superadmin:
-        conditions= [Event.visibility.in_([EventVisibility.PUBLIC_APPROVED, EventVisibility.PUBLIC_PENDING])]
+        conditions= [Event.visibility.in_([EventVisibility.PUBLIC_APPROVED, EventVisibility.PUBLIC_PENDING])] # pyright: ignore
     elif not current_user:
         return or_(*conditions)
 
@@ -318,7 +318,7 @@ def get_visibility_conditions(current_user: Optional[User], session: Session):
         
         # Access to drafts/pending/rejected for any member
         conditions.append(
-            and_(
+            and_( # pyright: ignore
                 col(Event.organization_id).in_(org_ids),
                 col(Event.visibility).in_([
                     EventVisibility.DRAFT, 
@@ -332,7 +332,7 @@ def get_visibility_conditions(current_user: Optional[User], session: Session):
         admin_org_ids = [m.organization_id for m in org_memberships if m.role == Role.ORG_ADMIN]
         if admin_org_ids:
             conditions.append(
-                and_(
+                and_( # pyright: ignore
                     Event.visibility == EventVisibility.PRIVATE,
                     col(Event.organization_id).in_(admin_org_ids)
                 )
@@ -346,7 +346,7 @@ def get_visibility_conditions(current_user: Optional[User], session: Session):
     if group_memberships:
         group_ids = [gm.group_id for gm in group_memberships]
         conditions.append(
-            and_(
+            and_( # pyright: ignore
                 Event.visibility == EventVisibility.PRIVATE,
                 col(Event.group_id).in_(group_ids)
             )

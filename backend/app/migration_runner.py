@@ -1,12 +1,13 @@
-import subprocess
 from datetime import datetime
-import os
 import glob
-import re
 import importlib.util
 import logging
+import os
 from pathlib import Path
-from lockfile import LockFile, AlreadyLocked
+import re
+import subprocess
+
+from lockfile import AlreadyLocked, LockFile
 
 logger = logging.getLogger(__name__)
 

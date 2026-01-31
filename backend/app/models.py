@@ -1,8 +1,9 @@
-from typing import Optional, List
 from datetime import datetime, timezone
-from uuid import UUID, uuid4
-from sqlmodel import SQLModel, Field, Relationship, Session
 from enum import Enum
+from typing import List, Optional
+from uuid import UUID, uuid4
+
+from sqlmodel import Field, Relationship, SQLModel, Session
 
 class OrganizationType(str, Enum):
     ASSOCIATION = "association"

@@ -1,16 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
-from sqlmodel import Session, select, col, delete
-from pydantic import BaseModel
 from datetime import datetime
-from uuid import uuid4
-from ldap3 import Server, Connection, SUBTREE, ALL, Tls
-import ssl
 import os
+import ssl
 from typing import List
+from uuid import uuid4
 
-from app.database import get_session
-from app.models import User, LDAPUser
+from fastapi import APIRouter, Body, Depends, HTTPException
+from ldap3 import ALL, Connection, SUBTREE, Server, Tls
+from pydantic import BaseModel
+from sqlmodel import Session, col, delete, select
+
 from app.api.auth import get_current_user
+from app.database import get_session
+from app.models import LDAPUser, User
 
 router = APIRouter()
 
@@ -73,8 +74,8 @@ async def sync_ldap_users(
         # Note: SQLModel doesn't directly support `session.exec(delete(Model))` identically to select sometimes, 
         # but SQLAlchemy delete object works.
         stmt = delete(LDAPUser)
-        session.exec(stmt)
-        session.commit()
+        session.exec(stmt) # pyright: ignore
+        session.commit() 
         
         new_users = []
         for entry in entries:

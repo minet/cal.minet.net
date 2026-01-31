@@ -1,14 +1,26 @@
 #!/usr/bin/env python3
-import json
-import sys
-import os
 from datetime import datetime, timedelta, timezone
-from typing import List, Dict, Any
+import json
+import os
+import sys
+from typing import Any, Dict, List
+
 from sqlmodel import Session, select
+
 from app.database import engine
 from app.models import (
-    User, Organization, OrganizationType, Role, Tag, Event, 
-    EventVisibility, Subscription, Group, Membership, EventTag
+    Event,
+    EventTag,
+    EventVisibility,
+    Group,
+    Membership,
+    Organization,
+    OrganizationType,
+    Role,
+    SQLModel,
+    Subscription,
+    Tag,
+    User,
 )
 
 def load_json(filename: str):
@@ -209,7 +221,6 @@ def load_fixtures(target_email: str, fixtures_dir: str = "fixtures"):
 
 def reset_database():
     print("Resetting database...")
-    from app.models import SQLModel
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
     print("Database reset complete.")

@@ -1,9 +1,11 @@
-from pydantic import BaseModel
-from typing import List, Optional, Any, TYPE_CHECKING
 from datetime import datetime, timedelta, timezone
+from typing import Any, List, Optional, TYPE_CHECKING
+from typing import Any, Generic, List, Optional, TYPE_CHECKING, TypeVar
 from uuid import UUID
-from app.models import OrganizationType, EventVisibility, Role
-from typing import List, Optional, Any, TYPE_CHECKING, Generic, TypeVar
+
+from pydantic import BaseModel
+
+from app.models import EventVisibility, OrganizationType, Role
 
 T = TypeVar("T")
 

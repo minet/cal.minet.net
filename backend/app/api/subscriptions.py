@@ -1,16 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
 from typing import List
-from app.database import get_session
-from app.models import Subscription, User, Organization, Tag
-from app.api.auth import get_current_user
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlmodel import Session, select
+
+from app.api.auth import get_current_user
+from app.database import get_session
+from app.models import Organization, Subscription, Tag, User
 
 router = APIRouter()
 
 class SubscriptionCreate(BaseModel):
-    organization_id: str = None
-    tag_id: str = None
+    organization_id: str
+    tag_id: str
 
 @router.get("/me")
 async def get_my_subscriptions(
@@ -98,7 +101,7 @@ async def subscribe_to_organization(
     # Create subscription
     subscription = Subscription(
         user_id=current_user.id,
-        organization_id=org_id
+        organization_id=UUID(org_id)
     )
     session.add(subscription)
     session.commit()
@@ -154,7 +157,7 @@ async def subscribe_to_tag(
     # Create subscription
     subscription = Subscription(
         user_id=current_user.id,
-        tag_id=tag_id
+        tag_id=UUID(tag_id)
     )
     session.add(subscription)
     session.commit()

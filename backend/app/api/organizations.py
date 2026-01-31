@@ -1,11 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select, col
-from typing import List, Optional
-from app.database import get_session
-from app.models import Organization, User, Membership, Role, EventVisibility
-from app.api.auth import get_current_user, get_current_user_optional
 from datetime import datetime, timezone
-from app.schemas import OrganizationRead, EventRead
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
+from sqlmodel import Session, col, select
+
+from app.api.auth import get_current_user, get_current_user_optional
+from app.database import get_session
+from app.models import EventVisibility, Membership, Organization, Role, User
+from app.schemas import EventRead, OrganizationRead
 
 router = APIRouter()
 
@@ -61,7 +64,7 @@ def get_organization_members(org_id: str, session: Session = Depends(get_session
     
     return result
 
-from fastapi import APIRouter, Depends, HTTPException, Body
+
 
 # ...
 

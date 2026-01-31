@@ -1,12 +1,14 @@
+from typing import Optional
+
+from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlmodel import Session, select
-from authlib.integrations.starlette_client import OAuth
 from starlette.config import Config
-from typing import Optional
+
+from app.api.auth import create_access_token
 from app.database import get_session
 from app.models import User
-from app.api.auth import create_access_token
 from cas import CASClient
 
 router = APIRouter()
@@ -64,13 +66,13 @@ async def login_campus(request: Request):
     redirect_uri = f"{config('APP_BASE_URL')}/api/auth/callback/campus"
 
     if config('CAS_PROTOCOL', default='OIDC') == 'CAS':
-        cas_client = CASClient(
+        cas_client = CASClient( #pyright: ignore
             version=3,
             service_url=redirect_uri,
             server_url=config('CAS_SERVER_URL')
         )
         return RedirectResponse(cas_client.get_login_url(), status_code=302)
-
+    assert oauth.campus is not None
     return await oauth.campus.authorize_redirect(request, redirect_uri)
 
 @router.get("/callback/campus")
@@ -86,7 +88,7 @@ async def callback_campus(request: Request, session: Session = Depends(get_sessi
                  raise HTTPException(status_code=400, detail="No ticket provided by CAS")
 
             redirect_uri = f"{config('APP_BASE_URL')}/api/auth/callback/campus"
-            cas_client = CASClient(
+            cas_client = CASClient( #pyright: ignore
                 version=3,
                 service_url=redirect_uri,
                 server_url=config('CAS_SERVER_URL')
@@ -104,6 +106,7 @@ async def callback_campus(request: Request, session: Session = Depends(get_sessi
             user_name = (attributes.get('givenName') + " " + attributes.get('sn')).title() if attributes.get('givenName') and attributes.get('sn') else attributes.get('displayName') or attributes.get('cn') or user_email
             
         else:
+            assert oauth.campus is not None
             token = await oauth.campus.authorize_access_token(request)
             user_info = token.get('userinfo')
             

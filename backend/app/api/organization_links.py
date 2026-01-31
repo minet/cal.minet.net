@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
 from typing import List, Optional
-from pydantic import BaseModel
-from app.database import get_session
-from app.models import OrganizationLink, Organization, User, Membership, Role
-from app.api.auth import get_current_user
 from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlmodel import Session, select
+
+from app.api.auth import get_current_user
+from app.database import get_session
+from app.models import Membership, Organization, OrganizationLink, Role, User
 
 router = APIRouter()
 
@@ -43,7 +45,7 @@ def get_organization_links(
     links = session.exec(
         select(OrganizationLink)
         .where(OrganizationLink.organization_id == UUID(org_id))
-        .order_by(OrganizationLink.order)
+        .order_by(OrganizationLink.order) # pyright: ignore
     ).all()
     
     return [

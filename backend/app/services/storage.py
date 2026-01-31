@@ -1,9 +1,10 @@
+from io import BytesIO
+import json
+import os
+from uuid import uuid4
+
 from minio import Minio
 from minio.error import S3Error
-import os
-from io import BytesIO
-from uuid import uuid4
-import json
 
 # MinIO client configuration
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "minio:9000")

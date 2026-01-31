@@ -1,11 +1,25 @@
-from fastapi import APIRouter, Depends, Query, HTTPException
-from sqlmodel import Session, select, or_
-from starlette.config import Config
 from typing import List, Optional
-from app.database import get_session
-from app.models import User, Organization, Membership, Role, Group, GroupMembership, Subscription, EventReaction, Event
-from app.api.auth import get_current_user
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlmodel import Session, or_, select
+from starlette.config import Config
+
+from app.api.auth import get_current_user
+from app.database import get_session
+from app.models import (
+    Event,
+    EventReaction,
+    Group,
+    GroupMembership,
+    Membership,
+    Organization,
+    Role,
+    Subscription,
+    User,
+)
+from app.schemas import UserPublicRead, UserRead
 from app.utils.email import send_email
 
 router = APIRouter()
@@ -142,7 +156,7 @@ async def get_other_user_memberships(
     
     return result
 
-from app.schemas import UserRead, UserPublicRead
+
 
 # ... imports ...
 
@@ -201,7 +215,7 @@ async def search_users(
         for user in users
     ]
 
-from uuid import UUID
+
 
 @router.get("/{user_id}", response_model=UserRead)
 async def get_user_profile(
