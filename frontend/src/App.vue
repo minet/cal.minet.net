@@ -18,7 +18,7 @@
         </div>
 
         <!-- Sign in button for unauthenticated users -->
-        <div v-else-if="$route.name !== 'Feed'" class="sticky top-0 z-40 flex h-16 items-center justify-end gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:px-6">
+        <div v-else-if="$route.name !== 'Feed' && $route.name !== 'Login'" class="sticky top-0 z-40 flex h-16 items-center justify-end gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:px-6">
           <router-link to="/login" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
             Se connecter
           </router-link>
