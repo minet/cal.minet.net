@@ -77,39 +77,84 @@
             {{ day.dayNumber }}
           </time>
           <ol v-if="day.events.length > 0" class="mt-2 space-y-1">
-            <li v-for="event in day.events.slice(0, 3)" :key="event.id">
-              <router-link 
-                :to="`/events/${event.id}`" 
-                :title="getEventTitle(event)"
-                :class="[
-                  'group flex items-center px-2 py-1 text-xs rounded transition-colors',
-                  ['public_rejected', 'public_pending', 'private'].includes(event.visibility) ? 'border-2' : '',
-                  event.visibility === 'public_rejected' ? 'border-red-500 opacity-25' : '',
-                  event.visibility === 'public_pending' ? 'border-yellow-500 opacity-50' : '',
-                  event.visibility === 'private' ? 'border-blue-500' : '',
-                  (event.visibility === 'draft' || event.is_draft) ? 'opacity-50' : ''
-                ]"
-                :style="{ 
-                  backgroundColor: event.organization?.color_secondary || '#f3f4f6',
-                  color: event.organization?.color_dark || '#1f2937'
-                }"
+            <template v-for="(event, index) in day.events.slice(0, 4)" :key="event.id + '_' + day.date">
+              <!-- Spacer for continuation of multi-day event (invisible) -->
+              <li 
+                v-if="event.isPlaceholder" 
+                class="invisible h-6"
+                aria-hidden="true"
+              ></li>
+
+              <!-- Visible Event -->
+              <li 
+                v-else
+                class="relative h-6"
+                :class="{'z-10': event.isMultiDay}"
               >
-                <span :class="[
-                  'flex-auto truncate font-medium',
-                  (event.visibility === 'draft' || event.is_draft) ? 'italic' : ''
-                ]">
-                  {{ event.title }}
-                </span>
-                <time 
-                  class="ml-2 hidden flex-none xl:block"
-                  style="opacity: 0.8"
+                <router-link 
+                  :to="`/events/${event.id}`" 
+                  :title="getEventTitle(event)"
+                  :class="[
+                    'group flex items-center px-2 py-1 text-xs rounded transition-colors absolute top-0 left-0 h-full box-border',
+                    ['public_rejected', 'public_pending', 'private'].includes(event.visibility) ? 'border-2' : '',
+                    event.visibility === 'public_rejected' ? 'border-red-500 opacity-25' : '',
+                    event.visibility === 'public_pending' ? 'border-yellow-500 opacity-50' : '',
+                    event.visibility === 'private' ? 'border-blue-500' : '',
+                    (event.visibility === 'draft' || event.is_draft) ? 'opacity-50' : '',
+                    event.isMultiDay ? 'mx-[-8px] rounded-md shadow-sm' : 'w-full'
+                  ]"
+                  :style="{ 
+                    backgroundColor: event.organization?.color_secondary || '#f3f4f6',
+                    color: event.organization?.color_dark || '#1f2937',
+                    width: event.visualSpan ? `calc((100% + 16px) * ${event.visualSpan} + (${event.visualSpan} - 1) * 1px)` : '100%',
+                    borderTopRightRadius: event.isSegmentEnd ? '0.375rem' : '0',
+                    borderBottomRightRadius: event.isSegmentEnd ? '0.375rem' : '0',
+                    borderRightWidth: event.isSegmentEnd ? '' : '0',
+                    borderTopLeftRadius: event.isSegmentStart ? '0.375rem' : '0',
+                    borderBottomLeftRadius: event.isSegmentStart ? '0.375rem' : '0',
+                    borderLeft: event.isSegmentStart ? `3px solid ${event.organization?.color_primary || '#4f46e5'}` : '0'
+                  }"
                 >
-                  {{ formatTime(event.start_time) }}
-                </time>
-              </router-link>
-            </li>
-            <li v-if="day.events.length > 3" class="text-xs text-gray-500 px-2">
-              +{{ day.events.length - 3 }} plus
+                  <div class="flex items-center gap-1.5 min-w-0">
+                    <div class="flex -space-x-1.5 shrink-0" v-if="(event.guest_organizations && event.guest_organizations.length > 0) || event.organization?.logo_url">
+                         <img 
+                           v-if="event.organization?.logo_url"
+                           :src="event.organization?.logo_url" 
+                           class="h-4 w-4 rounded-full ring-1 ring-white object-cover bg-white"
+                           :title="event.organization?.name"
+                         />
+                         <template
+                           v-for="guest in event.guest_organizations" 
+                           :key="guest.id"
+                         >
+                           <img  
+                             v-if="guest.logo_url"
+                             :src="guest.logo_url" 
+                             class="h-4 w-4 rounded-full ring-1 ring-white object-cover bg-white"
+                             :title="guest.name"
+                           />
+                         </template>
+                    </div>
+                    
+                    <span :class="[
+                      'flex-auto truncate font-medium',
+                      (event.visibility === 'draft' || event.is_draft) ? 'italic' : ''
+                    ]">
+                      <span v-if="event.organization?.name" class="font-bold mr-1">{{ event.organization.name }}:</span>{{ event.title }}
+                    </span>
+                  </div>
+                  <time 
+                    v-if="!event.isMultiDay"
+                    class="ml-2 hidden flex-none xl:block"
+                    style="opacity: 0.8"
+                  >
+                    {{ formatTime(event.start_time) }}
+                  </time>
+                </router-link>
+              </li>
+            </template>
+            <li v-if="day.events.length > 4" class="text-xs text-gray-500 px-2">
+              +{{ day.events.length - 4 }} plus
             </li>
           </ol>
         </div>
@@ -138,86 +183,143 @@
           <div class="grid grid-cols-7 gap-px bg-gray-200 auto-rows-fr" style="min-height: 500px;">
             <div v-for="day in weekDays" :key="day.date" class="relative bg-white px-2 py-4">
               <ol v-if="day.events.length > 0" class="space-y-2">
-                <li v-for="event in day.events" :key="event.id">
-                  <router-link 
-                    :to="`/events/${event.id}`"
-                    :title="getEventTitle(event)"
-                    :class="[
-                      'group block p-2 rounded-lg transition-colors',
-                      ['public_rejected', 'public_pending', 'private'].includes(event.visibility) ? 'border-2' : '',
-                      event.visibility === 'public_rejected' ? 'border-red-500 opacity-25' : '',
-                      event.visibility === 'public_pending' ? 'border-yellow-500 opacity-50' : '',
-                      event.visibility === 'private' ? 'border-blue-500' : '',
-                      (event.visibility === 'draft' || event.is_draft) ? 'opacity-50' : ''
-                    ]"
-                    :style="{ 
-                      backgroundColor: event.organization?.color_secondary || '#f3f4f6',
-                      borderLeft: `3px solid ${event.organization?.color_primary || '#4f46e5'}`
-                    }"
-                  >
-                    <!-- Organization Badges -->
-                    <div class="flex items-center gap-1 mb-1.5">
-                      <template v-if="event.guest_organizations && event.guest_organizations.length > 0">
-                         <div class="flex -space-x-1.5">
-                            <img 
-                              v-if="event.organization?.logo_url"
-                              :src="event.organization?.logo_url" 
-                              class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
-                              :title="event.organization?.name"
-                            />
-                            <template
-                              v-for="guest in event.guest_organizations" 
-                              :key="guest.id"
-                            >
-                              <img  
-                                v-if="guest.logo_url"
-                                :src="guest.logo_url" 
-                                class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
-                                :title="guest.name"
-                              />
-                            </template>
-                         </div>
-                      </template>
-                      <template v-else>
-                         <div class="inline-flex items-center rounded-full bg-white/60 px-1.5 py-0.5 backdrop-blur-sm">
-                            <img 
-                              v-if="event.organization?.logo_url"
-                              :src="event.organization.logo_url" 
-                              class="mr-1 h-3 w-3 rounded-full object-cover"
-                            />
-                            <span class="text-[10px] font-medium leading-none truncate max-w-[100px]" 
-                                  :style="{ color: event.organization?.color_primary || '#4f46e5' }">
-                              {{ event.organization?.name }}
-                            </span>
-                         </div>
-                      </template>
-                    </div>
+                <template v-for="(event, index) in day.events" :key="event.id + '_' + day.date">
+                  <!-- Case 1: Multi-day Event (Spanning Bar) -->
+                  <template v-if="event.isMultiDay">
+                     <!-- Placeholder -->
+                     <li v-if="event.isPlaceholder" class="invisible h-8" aria-hidden="true"></li>
+                     <!-- Visible Bar -->
+                     <li v-else class="relative h-8" :class="{'z-10': true}">
+                        <router-link 
+                          :to="`/events/${event.id}`"
+                          :title="getEventTitle(event)"
+                          :class="[
+                             'group flex items-center px-2 text-xs rounded-md shadow-sm transition-colors absolute top-0 left-0 h-full box-border mx-[-8px]',
+                             ['public_rejected', 'public_pending', 'private'].includes(event.visibility) ? 'border-2' : '',
+                          ]"
+                          :style="{ 
+                             backgroundColor: event.organization?.color_secondary || '#f3f4f6',
+                             color: event.organization?.color_dark || '#1f2937',
+                             width: event.visualSpan ? `calc((100% + 16px) * ${event.visualSpan} + (${event.visualSpan} - 1) * 1px)` : '100%',
+                             borderTopRightRadius: event.isSegmentEnd ? '0.375rem' : '0',
+                             borderBottomRightRadius: event.isSegmentEnd ? '0.375rem' : '0',
+                             borderRightWidth: event.isSegmentEnd ? '' : '0',
+                             borderTopLeftRadius: event.isSegmentStart ? '0.375rem' : '0',
+                             borderBottomLeftRadius: event.isSegmentStart ? '0.375rem' : '0',
+                             borderLeft: event.isSegmentStart ? `3px solid ${event.organization?.color_primary || '#4f46e5'}` : '0'
+                          }"
+                        >
+                           <div class="flex items-center gap-1.5 min-w-0 w-full">
+                               <div class="flex -space-x-1.5 shrink-0" v-if="(event.guest_organizations && event.guest_organizations.length > 0) || event.organization?.logo_url">
+                                    <img 
+                                      v-if="event.organization?.logo_url"
+                                      :src="event.organization?.logo_url" 
+                                      class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
+                                      :title="event.organization?.name"
+                                    />
+                                    <template
+                                      v-for="guest in event.guest_organizations" 
+                                      :key="guest.id"
+                                    >
+                                      <img  
+                                        v-if="guest.logo_url"
+                                        :src="guest.logo_url" 
+                                        class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
+                                        :title="guest.name"
+                                      />
+                                    </template>
+                               </div>
+                               <span class="font-medium truncate mr-1">
+                                   <span v-if="event.organization?.name" class="font-bold mr-1">{{ event.organization.name }}:</span>{{ event.title }}
+                               </span>
+                               <span class="opacity-75 truncate text-[10px] ml-auto shrink-0">{{ formatTime(event.start_time) }}</span>
+                           </div>
+                        </router-link>
+                     </li>
+                  </template>
 
-                    <p :class="[
-                      'text-sm font-medium',
-                      (event.visibility === 'draft' || event.is_draft) ? 'italic' : ''
-                    ]"
-                    :style="{ color: event.organization?.color_dark || '#1f2937' }"
+                  <!-- Case 2: Single-day Event (Detailed Card) -->
+                  <li v-else>
+                    <router-link 
+                      :to="`/events/${event.id}`"
+                      :title="getEventTitle(event)"
+                      :class="[
+                        'group block p-2 rounded-lg transition-colors',
+                        ['public_rejected', 'public_pending', 'private'].includes(event.visibility) ? 'border-2' : '',
+                        event.visibility === 'public_rejected' ? 'border-red-500 opacity-25' : '',
+                        event.visibility === 'public_pending' ? 'border-yellow-500 opacity-50' : '',
+                        event.visibility === 'private' ? 'border-blue-500' : '',
+                        (event.visibility === 'draft' || event.is_draft) ? 'opacity-50' : ''
+                      ]"
+                      :style="{ 
+                        backgroundColor: event.organization?.color_secondary || '#f3f4f6',
+                        borderLeft: `3px solid ${event.organization?.color_primary || '#4f46e5'}`
+                      }"
                     >
-                      {{ event.title }}
-                    </p>
-                    <div 
-                      class="flex items-center text-xs mt-1" 
-                      :style="{ color: event.organization?.color_dark || '#374151' }"
-                    >
-                      <ClockIcon class="h-3 w-3 mr-1" />
-                      {{ formatTime(event.start_time) }}
-                    </div>
-                    <div 
-                      v-if="event.location" 
-                      class="flex items-center text-xs mt-1"
-                      :style="{ color: event.organization?.color_dark || '#374151' }"
-                    >
-                      <MapPinIcon class="h-3 w-3 mr-1" />
-                      {{ event.location }}
-                    </div>
-                  </router-link>
-                </li>
+                      <!-- Organization Badges -->
+                      <div class="flex items-center gap-1 mb-1.5">
+                        <template v-if="event.guest_organizations && event.guest_organizations.length > 0">
+                           <div class="flex -space-x-1.5">
+                              <img 
+                                v-if="event.organization?.logo_url"
+                                :src="event.organization?.logo_url" 
+                                class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
+                                :title="event.organization?.name"
+                              />
+                              <template
+                                v-for="guest in event.guest_organizations" 
+                                :key="guest.id"
+                              >
+                                <img  
+                                  v-if="guest.logo_url"
+                                  :src="guest.logo_url" 
+                                  class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
+                                  :title="guest.name"
+                                />
+                              </template>
+                           </div>
+                        </template>
+                        <template v-else>
+                           <div class="inline-flex items-center rounded-full bg-white/60 px-1.5 py-0.5 backdrop-blur-sm">
+                              <img 
+                                v-if="event.organization?.logo_url"
+                                :src="event.organization.logo_url" 
+                                class="mr-1 h-3 w-3 rounded-full object-cover"
+                              />
+                              <span class="text-[10px] font-medium leading-none truncate max-w-[100px]" 
+                                    :style="{ color: event.organization?.color_primary || '#4f46e5' }">
+                                {{ event.organization?.name }}
+                              </span>
+                           </div>
+                        </template>
+                      </div>
+
+                      <p :class="[
+                        'text-sm font-medium',
+                        (event.visibility === 'draft' || event.is_draft) ? 'italic' : ''
+                      ]"
+                      :style="{ color: event.organization?.color_dark || '#1f2937' }"
+                      >
+                        {{ event.title }}
+                      </p>
+                      <div 
+                        class="flex items-center text-xs mt-1" 
+                        :style="{ color: event.organization?.color_dark || '#374151' }"
+                      >
+                        <ClockIcon class="h-3 w-3 mr-1" />
+                        {{ formatTime(event.start_time) }}
+                      </div>
+                      <div 
+                        v-if="event.location" 
+                        class="flex items-center text-xs mt-1"
+                        :style="{ color: event.organization?.color_dark || '#374151' }"
+                      >
+                        <MapPinIcon class="h-3 w-3 mr-1" />
+                        {{ event.location }}
+                      </div>
+                    </router-link>
+                  </li>
+                </template>
               </ol>
             </div>
           </div>
@@ -236,7 +338,7 @@ import { PlusIcon, CalendarIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRight
 import api from '../utils/api'
 
 const viewType = ref('week') // 'month' or 'week'
-const { user, initialize, setToken, isSuperAdmin } = useAuth()
+const { user, initialize, setToken, isSuperAdmin, isAuthenticated } = useAuth()
 const currentDate = ref(new Date())
 const events = ref([])
 const userMemberships = ref([])
@@ -250,6 +352,7 @@ const toggleView = () => {
 }
 
 const canCreateEvent = computed(() => {
+  if (!isAuthenticated.value) return false
   if (isSuperAdmin.value) return true
   return userMemberships.value.some(m => 
     m.role === 'org_admin' || m.role === 'org_member'
@@ -391,11 +494,103 @@ const createDayObject = (date, isCurrentMonth) => {
 }
 
 const getEventsForDate = (dateStr) => {
-  return events.value.filter(event => {
-    if (!event.start_time) return false
-    const eventDate = toLocalISOString(new Date(event.start_time))
-    return eventDate === dateStr
+  return processedEventsMap.value[dateStr] || []
+}
+
+const processedEventsMap = computed(() => {
+  const map = {}
+  
+  // Sort events globally first: Long events, then Time, then Duration
+  const sortedEvents = [...events.value].sort((a, b) => {
+    const aLong = isLongEvent(a)
+    const bLong = isLongEvent(b)
+    if (aLong && !bLong) return -1
+    if (!aLong && bLong) return 1
+    
+    const timeDiff = new Date(a.start_time) - new Date(b.start_time)
+    if (timeDiff !== 0) return timeDiff
+    
+    return (new Date(b.end_time || b.start_time) - new Date(b.start_time)) - 
+           (new Date(a.end_time || a.start_time) - new Date(a.start_time))
   })
+  
+  sortedEvents.forEach(originalEvent => {
+    const startDate = new Date(originalEvent.start_time)
+    const endDate = originalEvent.end_time ? new Date(originalEvent.end_time) : new Date(startDate)
+    const isLong = isLongEvent(originalEvent)
+    
+    // Normalize dates to YYYY-MM-DD
+    let current = new Date(startDate)
+    current.setHours(0, 0, 0, 0)
+    let endDay = new Date(endDate)
+    // If end time is midnight (00:00), it counts as previous day for inclusive logic
+    if (endDay.getHours() === 0 && endDay.getMinutes() === 0 && endDay > startDate) {
+      endDay.setDate(endDay.getDate() - 1)
+    }
+    endDay.setHours(0, 0, 0, 0)
+    
+    if (!isLong) {
+      // Single day behavior
+      const dateStr = toLocalISOString(startDate)
+      if (!map[dateStr]) map[dateStr] = []
+      map[dateStr].push({ ...originalEvent, isMultiDay: false })
+      return
+    }
+
+    // Multi-day behavior
+    while (current <= endDay) {
+      const dateStr = toLocalISOString(current)
+      if (!map[dateStr]) map[dateStr] = []
+      
+      const dayOfWeek = current.getDay() // 0=Sun, 1=Mon
+      const isMonday = dayOfWeek === 1
+      const isStartDay = current.getTime() === new Date(startDate).setHours(0,0,0,0)
+      
+      // Determine if this is the start of a visual segment
+      // Start of segment if: It is the event start date OR It is a Monday (start of row)
+      const isSegmentStart = isStartDay || isMonday
+      
+      // Calculate remaining days in this week (Mon-Sun)
+      // Mon(1)->7, Tue(2)->6, ..., Sun(0)->1
+      const daysInWeek = 8 - (dayOfWeek || 7)
+      
+      // Calculate remaining days in the event
+      // Difference in days + 1
+      const msPerDay = 24 * 60 * 60 * 1000
+      const daysLeftInEvent = Math.ceil((endDay - current) / msPerDay) + 1
+      
+      // Calculate visual span (capped by week end)
+      const visualSpan = isSegmentStart ? Math.min(daysInWeek, daysLeftInEvent) : 0
+      
+      // Is this the very first part of the entire event?
+      const isFirstSegment = isStartDay
+      // Is this the very last part of the entire event?
+      // It implies that the visual segment ends exactly when the event ends.
+      // visualSpan days have passed.
+      const isLastSegment = isSegmentStart && (visualSpan === daysLeftInEvent)
+
+      map[dateStr].push({
+        ...originalEvent,
+        isMultiDay: true,
+        isPlaceholder: !isSegmentStart,
+        visualSpan: visualSpan,
+        isSegmentStart: isFirstSegment, // For corner styling (true start)
+        isSegmentEnd: isLastSegment // For corner styling (true end)
+      })
+      
+      // Next day
+      current.setDate(current.getDate() + 1)
+    }
+  })
+
+  return map
+})
+
+const isLongEvent = (event) => {
+  if (!event.end_time) return false
+  const start = new Date(event.start_time)
+  const end = new Date(event.end_time)
+  return (end - start) > (24 * 60 * 60 * 1000)
 }
 
 const formatTime = (dateStr) => {
@@ -449,7 +644,9 @@ const loadEvents = async () => {
             size: 512,
             start_date: start_date,
             end_date: end_date,
-            upcoming: false // Disable default upcoming filter to see past events in current view
+            end_date: end_date,
+            upcoming: false, // Disable default upcoming filter to see past events in current view
+            limit: 1000 // Increase limit to ensure we get all events for the month
         }
     })
     events.value = response.data.items
@@ -481,11 +678,6 @@ const loadUserMemberships = async () => {
   }
 }
 
-// Watch for date changes to reload events if needed
-watch([currentDate, viewType], () => {
-  loadEvents()
-})
-
 onMounted(async () => {
   // Check for OIDC callback token in URL
   const urlParams = new URLSearchParams(window.location.search)
@@ -497,7 +689,12 @@ onMounted(async () => {
     window.history.replaceState({}, document.title, '/')
   }
   
-  await initialize()
+  // Only initialize auth if we have a token, to avoid 401 redirect on public dashboard
+  if (authToken || localStorage.getItem('auth_token')) {
+      await initialize()
+      await loadUserMemberships()
+  }
+  
   await loadEvents()
   
   if (viewType.value === 'week') {

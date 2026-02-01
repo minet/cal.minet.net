@@ -55,8 +55,9 @@ def create_short_link(
         if not event:
             raise HTTPException(status_code=404, detail="Event not found")
         # Check if user can see the event
-        if not (can_view_event(event, current_user, session) or current_user.is_superadmin):
-             raise HTTPException(status_code=403, detail="Not authorized to share this event")
+        can_view, reason = can_view_event(event, current_user, session)
+        if not (can_view or current_user.is_superadmin):
+             raise HTTPException(status_code=403, detail=reason)
              
     elif link_data.item_type == ShortLinkType.TAG:
         if link_data.action_type != ShortLinkActionType.SUBSCRIBE:
@@ -238,12 +239,13 @@ def get_link_info(
         event = session.get(Event, link.item_id)
         if event:
             # Check visibility
-             if not can_view_event(event, current_user, session):
-                 raise HTTPException(status_code=403, detail="Not authorized to see this event")
-             title = event.title
-             # Maybe show date in description?
-             description = f"Date: {event.start_time.strftime('%d/%m/%Y %H:%M')}"
-             if event.organization:
+            can_view, reason = can_view_event(event, current_user, session)
+            if not can_view:
+                 raise HTTPException(status_code=403, detail=reason)
+            title = event.title
+            # Maybe show date in description?
+            description = f"Date: {event.start_time.strftime('%d/%m/%Y %H:%M')}"
+            if event.organization:
                  logo_url = event.organization.logo_url
                  color_primary = event.organization.color_primary
                  color_secondary = event.organization.color_secondary
@@ -340,8 +342,11 @@ def confirm_subscription(
         
         # Check permissions
         event = session.get(Event, link.item_id)
-        if not event or not can_view_event(event, current_user, session):
-             raise HTTPException(status_code=403, detail="Cannot access event")
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+        can_view, reason = can_view_event(event, current_user, session)
+        if not can_view:
+             raise HTTPException(status_code=403, detail=reason)
              
         # Add reaction
         existing_reaction = session.exec(

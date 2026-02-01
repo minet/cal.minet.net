@@ -183,20 +183,7 @@ def remove_organization_member(
     if not membership or str(membership.organization_id) != org_id:
         raise HTTPException(status_code=404, detail="Membership not found")
     
-    # Don't allow removing yourself if you're the last admin
-    if membership.user_id == current_user.id and membership.role == Role.ORG_ADMIN: # Changed to Role enum
-        admin_count = len(session.exec(
-            select(Membership).where(
-                Membership.organization_id == org_id,
-                Membership.role == Role.ORG_ADMIN # Changed to Role enum
-            )
-        ).all())
-        
-        if admin_count <= 1:
-            raise HTTPException(
-                status_code=400, 
-                detail="Cannot remove the last admin from the organization"
-            )
+
     
     session.delete(membership)
     session.commit()
@@ -222,15 +209,16 @@ def get_organization_events(
     
     return [e.to_read_model(current_user, session) for e in events]
 
-@router.get("/{org_id}/can-edit")
+
+
 def can_edit_organization(
     org_id: str,
-    current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_session)
-):
+    current_user: User,
+    session: Session
+) -> tuple[bool, str]:
     """Check if current user can edit this organization"""
     if current_user.is_superadmin:
-        return {"can_edit": True, "reason": "superadmin"}
+        return (True, "superadmin")
     
     # Check if user is ORG_ADMIN of this organization
     membership = session.exec(
@@ -242,7 +230,7 @@ def can_edit_organization(
     ).first()
     
     if membership:
-        return {"can_edit": True, "reason": "org_admin"}
+        return (True, "org_admin")
     
     # Check if user is ORG_ADMIN of parent organization
     org = session.get(Organization, org_id)
@@ -256,10 +244,22 @@ def can_edit_organization(
         ).first()
         
         if parent_membership:
-            return {"can_edit": True, "reason": "parent_admin"}
+            return (True, "parent_admin")
     
-    return {"can_edit": False, "reason": "no_permission"}
+    return (False, "no_permission")
 
+@router.get("/{org_id}/can-edit")
+def can_edit_organization_route(
+    org_id: str,
+    session: Session = Depends(get_session),
+    current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    """Check if current user can edit this organization"""
+    if not current_user:
+        return {"can_edit": False, "reason": "not_logged_in"}
+    
+    can_edit, reason = can_edit_organization(org_id, current_user, session)
+    return {"can_edit": can_edit, "reason": reason}
 
 @router.put("/{org_id}", response_model=Organization)
 def update_organization(
@@ -274,9 +274,9 @@ def update_organization(
         raise HTTPException(status_code=404, detail="Organization not found")
     
     # Check permissions
-    can_edit = can_edit_organization(org_id, current_user, session)
-    if not can_edit["can_edit"]:
-        raise HTTPException(status_code=403, detail="Not authorized to edit this organization")
+    can_edit, reason = can_edit_organization(org_id, current_user, session)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=reason)
     
     # Update fields
     org.name = org_update.name
@@ -317,9 +317,9 @@ def delete_organization(
         raise HTTPException(status_code=404, detail="Organization not found")
     
     # Check permissions (same as edit, effectively ORG_ADMIN or SUPERADMIN)
-    can_edit = can_edit_organization(org_id, current_user, session)
-    if not can_edit["can_edit"]:
-        raise HTTPException(status_code=403, detail="Not authorized to delete this organization")
+    can_edit, reason = can_edit_organization(org_id, current_user, session)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=reason)
     
     # 1. Delete Memberships
     memberships = session.exec(select(Membership).where(Membership.organization_id == org_id)).all()

@@ -14,6 +14,7 @@
       <div>
         <a
           href="/api/auth/login/campus"
+          @click="handleLoginClick"
           class="flex w-full items-center justify-center gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:ring-transparent"
         >
           <span>Se connecter avec Campus</span>
@@ -35,9 +36,21 @@ const router = useRouter()
 const route = useRoute()
 const error = ref('')
 
+const handleLoginClick = () => {
+  localStorage.setItem('has_clicked_login_before', 'true')
+}
+
 onMounted(() => {
   if (route.query.error) {
     error.value = "Erreur lors de la connexion. Veuillez réessayer."
+  }
+
+  const hasClickedBefore = localStorage.getItem('has_clicked_login_before')
+  const hasAutoClickedSession = sessionStorage.getItem('has_auto_clicked_login_session')
+
+  if (hasClickedBefore && !hasAutoClickedSession && !route.query.error) {
+    sessionStorage.setItem('has_auto_clicked_login_session', 'true')
+    window.location.href = '/api/auth/login/campus'
   }
 })
 </script>

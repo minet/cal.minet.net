@@ -24,12 +24,22 @@ api.interceptors.response.use(
             localStorage.removeItem('auth_token')
             localStorage.removeItem('auth_user')
 
-            // Store current location for redirect after login
-            const currentUrl = window.location.pathname + window.location.search
-            localStorage.setItem('auth_redirect_url', currentUrl)
+            // If on a public page, reload to clear state instead of redirecting to login
+            const publicPaths = ['/', '/events', '/organizations', '/login', '/register', '/dashboard', '/walldisplay']
+            const isPublicPath = publicPaths.includes(window.location.pathname) ||
+                window.location.pathname.match(/^\/(events|organizations)\/[^/]+$/) ||
+                window.location.pathname.match(/^\/events\/[^/]+\/countdown$/) ||
+                window.location.pathname.match(/^\/consent\/[^/]+$/)
 
-            // Redirect to login
-            window.location.href = '/login'
+            if (!isPublicPath) {
+                // Store current location for redirect after login
+                const currentUrl = window.location.pathname + window.location.search
+                localStorage.setItem('auth_redirect_url', currentUrl)
+
+                console.log("User is not authenticated, page :", window.location.pathname)
+                // Redirect to login
+                window.location.href = '/login'
+            }
         }
         return Promise.reject(error)
     }

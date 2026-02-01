@@ -15,6 +15,16 @@
         </button>
       </div>
     </div>
+
+    <!-- Search -->
+    <div class="mt-6 flex sm:justify-start">
+        <div class="relative rounded-md shadow-sm max-w-sm w-full">
+            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <MagnifyingGlassIcon class="h-5 w-5 text-gray-400" aria-hidden="true" />
+            </div>
+            <input type="text" v-model="searchQuery" class="block w-full rounded-md border-0 py-1.5 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" placeholder="Rechercher un utilisateur..." />
+        </div>
+    </div>
     
     <!-- Users List -->
     <div class="mt-8 flow-root">
@@ -50,6 +60,39 @@
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-4">
+      <div class="flex flex-1 justify-between sm:hidden">
+        <button @click="changePage(page - 1)" :disabled="page <= 1" class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">Précédent</button>
+        <button @click="changePage(page + 1)" :disabled="page >= pages" class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">Suivant</button>
+      </div>
+      <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+        <div>
+          <p class="text-sm text-gray-700">
+            Affichage de
+            <span class="font-medium">{{ (page - 1) * size + 1 }}</span>
+            à
+            <span class="font-medium">{{ Math.min(page * size, total) }}</span>
+            sur
+            <span class="font-medium">{{ total }}</span>
+            résultats
+          </p>
+        </div>
+        <div>
+          <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+            <button @click="changePage(page - 1)" :disabled="page <= 1" class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed">
+              <span class="sr-only">Précédent</span>
+              <ChevronLeftIcon class="h-5 w-5" aria-hidden="true" />
+            </button>
+            <button @click="changePage(page + 1)" :disabled="page >= pages" class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed">
+              <span class="sr-only">Suivant</span>
+              <ChevronRightIcon class="h-5 w-5" aria-hidden="true" />
+            </button>
+          </nav>
         </div>
       </div>
     </div>
@@ -176,10 +219,15 @@ import {
   Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot,
   Combobox, ComboboxInput, ComboboxButton, ComboboxOptions, ComboboxOption, ComboboxLabel
 } from '@headlessui/vue'
-import { UserPlusIcon, ArrowPathIcon, CheckIcon, ChevronUpDownIcon } from '@heroicons/vue/24/outline'
+import { UserPlusIcon, ArrowPathIcon, CheckIcon, ChevronUpDownIcon, ChevronLeftIcon, ChevronRightIcon, MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
 
 const router = useRouter()
 const users = ref([])
+const page = ref(1)
+const size = ref(20)
+const total = ref(0)
+const pages = ref(0)
+const searchQuery = ref('')
 const showInviteModal = ref(false)
 const showSyncModal = ref(false)
 
@@ -237,11 +285,36 @@ const syncLdap = async () => {
 
 const loadUsers = async () => {
   try {
-    const response = await api.get('/users/')
-    users.value = response.data
+    const params = {
+      page: page.value,
+      size: size.value
+    }
+    if (searchQuery.value) {
+      params.search = searchQuery.value
+    }
+    
+    const response = await api.get('/users/', { params })
+    users.value = response.data.items
+    total.value = response.data.total
+    pages.value = response.data.pages
   } catch (error) {
     console.error('Failed to load users', error)
   }
+}
+
+let searchTimeout = null
+watch(searchQuery, () => {
+  if (searchTimeout) clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(() => {
+    page.value = 1
+    loadUsers()
+  }, 300)
+})
+
+const changePage = (newPage) => {
+  if (newPage < 1 || newPage > pages.value) return
+  page.value = newPage
+  loadUsers()
 }
 
 const openUser = (id) => {

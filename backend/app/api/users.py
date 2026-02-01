@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlmodel import Session, or_, select
+from sqlmodel import Session, or_, select, func
 from starlette.config import Config
 
 from app.api.auth import get_current_user
@@ -19,7 +19,7 @@ from app.models import (
     Subscription,
     User,
 )
-from app.schemas import UserPublicRead, UserRead
+from app.schemas import UserPublicRead, UserRead, PaginatedResponse
 from app.utils.email import send_email
 
 router = APIRouter()
@@ -234,10 +234,11 @@ async def get_user_profile(
     
     return user
 
-@router.get("/", response_model=List[UserRead])
+@router.get("/", response_model=PaginatedResponse[UserRead])
 async def list_users(
-    skip: int = 0, 
-    limit: int = 100,
+    page: int = 1,
+    size: int = 50,
+    search: Optional[str] = None,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
@@ -245,8 +246,37 @@ async def list_users(
     if not current_user.is_superadmin:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    users = session.exec(select(User).offset(skip).limit(limit)).all()
-    return users
+    query = select(User)
+    
+    if search:
+        search_pattern = f"%{search}%"
+        query = query.where(
+            or_(
+                User.full_name.ilike(search_pattern), #pyright: ignore
+                User.email.ilike(search_pattern) #pyright: ignore
+            )
+        )
+    
+    # Sort by name (full_name) then email
+    # Handle potentially None full_name by using email as fallback for sorting logic if needed, 
+    # but simple order_by is usually enough. Postgres sorts NULLs last by default usually.
+    query = query.order_by(User.full_name, User.email) #pyright: ignore
+    
+    # Count total
+    count_query = select(func.count()).select_from(query.subquery())
+    total = session.exec(count_query).one()
+    
+    # Pagination
+    users = session.exec(query.offset((page - 1) * size).limit(size)).all()
+    pages = (total + size - 1) // size if size > 0 else 0
+    
+    return PaginatedResponse(
+        items=list(users),
+        total=total,
+        page=page,
+        size=size,
+        pages=pages
+    )
 
 @router.post("/invite", response_model=UserRead)
 async def invite_user(

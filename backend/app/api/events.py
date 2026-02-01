@@ -30,33 +30,34 @@ def get_org_membership(user: User, org_id, session: Session) -> Optional[Members
         )
     ).first()
 
-def can_view_event(event: Event, user: Optional[User], session: Session) -> bool:
+def can_view_event(event: Event, user: Optional[User], session: Session) -> tuple[bool, str]:
     """Check if user can view an event based on visibility"""
     
     # PUBLIC_APPROVED: anyone can see
     if event.visibility == EventVisibility.PUBLIC_APPROVED:
-        return True
+        return True, ""
 
     if not user:
-        return False
+        return False, "You are not logged in"
         
     membership = get_org_membership(user, event.organization_id, session)
     is_super = user.is_superadmin
-    is_admin = is_super or (membership and membership.role == Role.ORG_ADMIN)
-    is_member = membership and membership.role in [Role.ORG_ADMIN, Role.ORG_MEMBER]
+    is_admin = membership and membership.role == Role.ORG_ADMIN
+    is_member = (membership and membership.role in [Role.ORG_ADMIN, Role.ORG_MEMBER]) or False
     is_in_org = membership is not None
 
+    if is_admin or is_super:
+        return True, ""
+
     # DRAFT: only org members (any role)
-    if event.visibility == EventVisibility.DRAFT:
-        return is_super or is_in_org
+    if event.visibility in [EventVisibility.PUBLIC_PENDING, EventVisibility.PUBLIC_REJECTED, EventVisibility.DRAFT]:
+        return is_in_org, "You are not part of the organization"
+    
     
     # PRIVATE: group members, author, or admins
     elif event.visibility == EventVisibility.PRIVATE:
         if event.created_by_id == user.id:
-            return True
-            
-        if is_admin:
-            return True
+            return True, ""
             
         if event.group_id:
             group_membership = session.exec(
@@ -66,41 +67,38 @@ def can_view_event(event: Event, user: Optional[User], session: Session) -> bool
                 )
             ).first()
             if group_membership:
-                return True
+                return True, ""
+        else:
+            return is_member, "You are not a member of the organization"
         
-        return False
+        return False, "You are not a member of the organization"
     
-    # PUBLIC_PENDING / REJECTED: org members (any role)
-    elif event.visibility in [EventVisibility.PUBLIC_PENDING, EventVisibility.PUBLIC_REJECTED]:
-        return is_super or is_in_org
-    
-    return False
+    return False, "You are not authorized to view this event"
 
-def can_edit_event(event: Event, user: User, session: Session) -> bool:
+def can_edit_event(event: Event, user: User, session: Session) -> tuple[bool, str]:
     """Check if user can edit an event"""
     if user.is_superadmin:
-        return True
+        return True, ""
 
     if event.end_time < datetime.now():
-        return False
-        
-    if event.created_by_id == user.id:
-        return True
+        return False, "Event is in the past"
         
     membership = get_org_membership(user, event.organization_id, session)
     if not membership:
-        return False
+        return False, "You are not a member of the organization"
         
     # Org Admins can edit everything
     if membership.role == Role.ORG_ADMIN:
-        return True
+        return True, ""
         
     # Org Members can edit everything EXCEPT Private (unless author, handled above)
-    if membership.role == Role.ORG_MEMBER:
-        return event.visibility != EventVisibility.PRIVATE
+    if membership.role == Role.ORG_MEMBER and event.created_by_id == user.id:
+        return True, ""
+    elif membership.role == Role.ORG_MEMBER:
+        return False, "You are not authorized to edit this event"
         
     # Viewers (or others) cannot edit
-    return False
+    return False, "You are not authorized to edit this event"
 
 @router.post("/", response_model=EventRead)
 def create_event(
@@ -511,8 +509,9 @@ def get_event(
         raise HTTPException(status_code=404, detail="Event not found")
     
     # Check visibility
-    if not can_view_event(event, current_user, session):
-        raise HTTPException(status_code=403, detail="Not authorized to view this event")
+    can_view, reason = can_view_event(event, current_user, session)
+    if not can_view:
+        raise HTTPException(status_code=403, detail=reason)
     
     return event.to_read_model(current_user, session)
 
@@ -529,16 +528,20 @@ def update_event(
         raise HTTPException(status_code=404, detail="Event not found")
     
     # Check permissions
-    if not can_edit_event(event, current_user, session):
-        raise HTTPException(status_code=403, detail="Not authorized")
+    can_edit, reason = can_edit_event(event, current_user, session)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=reason)
     
     # Lock date/time editing for approved events (unless superadmin)
     is_approved = event.visibility == EventVisibility.PUBLIC_APPROVED
     if is_approved and not current_user.is_superadmin:
-        if event_data.start_time is not None or event_data.end_time is not None:
-            
+        if event_data.start_time is not None and event_data.start_time.astimezone(timezone.utc) != event.start_time.astimezone(timezone.utc) \
+            or event_data.end_time is not None and event_data.end_time.astimezone(timezone.utc) != event.end_time.astimezone(timezone.utc):
             # Put the event back into the pending state
-            event.visibility = EventVisibility.PUBLIC_PENDING    
+            event.visibility = EventVisibility.PUBLIC_PENDING
+            event.approved_at = None
+            event.rejection_message = None
+
     # Update fields
     if event_data.title is not None:
         event.title = event_data.title
@@ -576,7 +579,6 @@ def update_event(
     if event_data.featured is not None:
         if current_user.is_superadmin:
             event.featured = event_data.featured
-        # else: ignore silently or raise error? ignoring is usually fine unless we want to be strict.
         # Strict is better for API contract.
         elif event.featured != event_data.featured:
             raise HTTPException(status_code=403, detail="Only superadmins can set featured status")
@@ -587,35 +589,30 @@ def update_event(
         old_tags = session.exec(
             select(EventTag).where(EventTag.event_id == event.id)
         ).all()
+        was_auto_approved = False
         for old_tag in old_tags:
+            if old_tag.tag.is_auto_approved:
+                was_auto_approved = True
             session.delete(old_tag)
         
         # Add new tags
-        has_auto_approved = False
+        should_auto_approve = False
         for tag_id in event_data.tag_ids:
             tag = session.get(Tag, UUID(tag_id))
             if tag:
                 session.add(EventTag(event_id=event.id, tag_id=UUID(tag_id)))
                 if tag.is_auto_approved:
-                    has_auto_approved = True
+                    should_auto_approve = True
         
         # Check if we should auto-approve now
-        if event.visibility == EventVisibility.PUBLIC_PENDING and has_auto_approved:
+        if event.visibility == EventVisibility.PUBLIC_PENDING and should_auto_approve:
             event.visibility = EventVisibility.PUBLIC_APPROVED
             event.approved_at = datetime.now(timezone.utc)
             event.rejection_message = None
-
-    elif event.visibility == EventVisibility.PUBLIC_PENDING:
-         # Tags didn't change, but maybe visibility changed to pending. 
-         # We need to check existing tags.
-         existing_tags = session.exec(
-             select(Tag).join(EventTag).where(EventTag.event_id == event.id)
-         ).all()
-         if any(t.is_auto_approved for t in existing_tags):
-             event.visibility = EventVisibility.PUBLIC_APPROVED
-             event.approved_at = datetime.now(timezone.utc)
-             event.rejection_message = None
-
+        elif event.visibility == EventVisibility.PUBLIC_APPROVED and was_auto_approved and not should_auto_approve:
+            event.visibility = EventVisibility.PUBLIC_PENDING
+            event.approved_at = None
+            event.rejection_message = None
     
     # Update guest organizations
     if event_data.guest_organization_ids is not None:
@@ -670,8 +667,9 @@ def delete_event(
         raise HTTPException(status_code=404, detail="Event not found")
     
     # Check permissions
-    if not can_edit_event(event, current_user, session):
-        raise HTTPException(status_code=403, detail="Not authorized")
+    can_edit, reason = can_edit_event(event, current_user, session)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=reason)
     
     # Manually delete dependent entities to ensure no foreign key constraints are violated
     # 1. Links
@@ -802,36 +800,6 @@ def reject_event(
     return {"message": "Event rejected"}
 
 
-@router.post("/{event_id}/submit-for-approval", response_model=Message)
-def submit_for_approval(
-    event_id: str,
-    current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_session)
-):
-    """Submit an event for approval (changes draft to public_pending)"""
-    event = session.get(Event, UUID(event_id))
-    if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
-    
-    # Check if user can edit
-    if not can_edit_event(event, current_user, session):
-        raise HTTPException(status_code=403, detail="Not authorized")
-    
-    if event.visibility not in [EventVisibility.DRAFT, EventVisibility.PUBLIC_REJECTED]:
-        raise HTTPException(
-            status_code=400, 
-            detail="Can only submit draft or rejected events for approval"
-        )
-    
-    event.visibility = EventVisibility.PUBLIC_PENDING
-    event.rejection_message = None  # Clear rejection message
-    
-    session.add(event)
-    session.commit()
-    
-    return {"message": "Event submitted for approval"}
-
-
 @router.post("/{event_id}/react", response_model=Message)
 def toggle_reaction(
     event_id: str,
@@ -845,8 +813,9 @@ def toggle_reaction(
         raise HTTPException(status_code=404, detail="Event not found")
     
     # Check visibility
-    if not can_view_event(event, current_user, session):
-        raise HTTPException(status_code=403, detail="Not authorized")
+    can_view, reason = can_view_event(event, current_user, session)
+    if not can_view:
+        raise HTTPException(status_code=403, detail=reason)
     
     emoji = reaction_data.get("emoji")
     if not emoji:
@@ -895,8 +864,9 @@ def list_reactions(
         raise HTTPException(status_code=404, detail="Event not found")
     
     # Check edit permissions (usually implies admin/manager)
-    if not can_edit_event(event, current_user, session):
-        raise HTTPException(status_code=403, detail="Not authorized to view reaction details")
+    can_edit, reason = can_edit_event(event, current_user, session)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=reason)
     
     reactions = session.exec(
         select(EventReaction).where(EventReaction.event_id == UUID(event_id))
@@ -927,8 +897,9 @@ def delete_user_reaction(
         raise HTTPException(status_code=404, detail="Event not found")
     
     # Check edit permissions
-    if not can_edit_event(event, current_user, session):
-        raise HTTPException(status_code=403, detail="Not authorized")
+    can_edit, reason = can_edit_event(event, current_user, session)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=reason)
     
     reaction = session.exec(
         select(EventReaction).where(

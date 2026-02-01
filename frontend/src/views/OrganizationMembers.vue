@@ -107,9 +107,8 @@
 
               <button
                 @click="removeMember(member)"
-                :disabled="member.user_id === currentUserId && isLastAdmin(member)"
-                class="text-red-600 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                :title="member.user_id === currentUserId && isLastAdmin(member) ? 'Impossible de retirer le dernier administrateur' : 'Retirer ce membre'"
+                class="text-red-600 hover:text-red-700"
+                title="Retirer ce membre"
               >
                 <TrashIcon class="h-5 w-5" />
               </button>
@@ -158,11 +157,7 @@ const getInitials = (name) => {
     .join('')
 }
 
-const isLastAdmin = (member) => {
-  if (member.role !== 'org_admin') return false
-  const adminCount = members.value.filter(m => m.role === 'org_admin').length
-  return adminCount <= 1
-}
+
 
 const loadOrganization = async () => {
   try {

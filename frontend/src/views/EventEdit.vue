@@ -80,19 +80,21 @@
                 <DateTimeDurationPicker
                   v-model:start-time="form.start_time"
                   v-model:end-time="form.end_time"
+                  :original-start-time="originalStartTime"
+                  :original-end-time="originalEndTime"
                   :warning-message="showApprovalWarning ? 'Modifier la date ou l\'heure d\'un événement approuvé nécessitera une nouvelle validation par un administrateur.' : ''"
                 >
                   <template #footer>
-                     <!-- Save & Resubmit (Moved here for rejected events) -->
-                    <div v-if="form.visibility === 'public_rejected'" class="mt-4 flex justify-end">
+                     <!-- Save & Resubmit (Show if rejected OR if date is modified) -->
+                    <div v-if="form.visibility === 'public_rejected' || isDateModified" class="mt-4 flex justify-end">
                        <button 
                         type="button"
-                        @click="saveAndResubmit"
+                        @click="updateEvent()"
                         :disabled="loading"
                         class="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-50 flex items-center gap-2"
                       >
                         <PaperAirplaneIcon class="h-4 w-4" />
-                        {{ loading ? 'Envoi...' : 'Enregistrer et soumettre' }}
+                        {{ loading ? 'Enregistrement...' : 'Enregistrer et soumettre' }}
                       </button>
                     </div>
                   </template>
@@ -273,6 +275,8 @@ const error = ref('')
 const loading = ref(false)
 const originalOrgId = ref(null) 
 const originalVisibility = ref(null)
+const originalStartTime = ref(null)
+const originalEndTime = ref(null)
 const currentOrganization = ref(null)
 const isGuestOrgsOpen = ref(false)
 
@@ -295,23 +299,36 @@ const showApprovalWarning = computed(() => {
   // It's probably cleaner to show it if the event IS approved.
 })
 
+const isDateModified = computed(() => {
+  if (!originalStartTime.value || !originalEndTime.value) return false
+  
+  // Helper to get time value safely
+  const getTime = (val) => {
+    if (!val) return 0
+    return new Date(val).getTime()
+  }
+
+  const cStart = getTime(form.value.start_time)
+  const oStart = getTime(originalStartTime.value)
+  const cEnd = getTime(form.value.end_time)
+  const oEnd = getTime(originalEndTime.value)
+  
+  return cStart !== oStart || cEnd !== oEnd
+})
+
 const saveButtonLabel = computed(() => {
   if (loading.value) return 'Enregistrement...'
   
-  // Logic: "Enregistrer et soumettre" everyday an approval will be needed
-  // 1. New public event -> pending (not applicable here, this is Edit)
-  // 2. Draft -> Public Pending
-  // 3. Approved -> Edit -> Pending (if not superadmin)
-  
   if (isSuperAdmin.value) return 'Enregistrer'
   
-  if (originalVisibility.value === 'public_approved' || form.value.visibility === 'public_pending' || form.value.visibility === 'public_rejected') {
-     // If we are approved, any edit might trigger re-approval (specifically time).
-     // Ideally we check if time changed.
-     // If we simply say "Enregistrer et soumettre" for all approved events, it is safe.
-     return 'Enregistrer et soumettre'
-  }
-  
+  // Logic:
+  // 1. If date changed -> "Enregistrer et soumettre"
+  if (isDateModified.value) return 'Enregistrer et soumettre'
+
+  // 2. If rejected -> "Enregistrer et soumettre"
+  if (form.value.visibility === 'public_rejected') return 'Enregistrer et soumettre'
+
+  // 3. Otherwise (approved, pending, refused loop handled above) -> "Enregistrer"
   return 'Enregistrer'
 })
 
@@ -369,6 +386,8 @@ const loadEvent = async () => {
     
     originalOrgId.value = event.organization_id
     originalVisibility.value = event.visibility
+    originalStartTime.value = formatDateTimeLocal(startLocal)
+    originalEndTime.value = formatDateTimeLocal(endLocal)
     currentOrganization.value = event.organization
     eventLoaded.value = true
     
@@ -471,25 +490,7 @@ const updateEvent = async (shouldRedirect = true) => {
   }
 }
 
-const saveAndResubmit = async () => {
-  try {
-    // First save the changes (without redirecting)
-    await updateEvent(false)
-    
-    // Then submit for approval
-    loading.value = true // Ensure loading stays true
-    await api.post(`/events/${eventId}/submit-for-approval`)
-    
-    router.push(`/events/${eventId}`)
-  } catch (err) {
-    // Error is handled in updateEvent or here
-    if (!error.value) { // If updateEvent didn't set error (e.g. submit failed)
-      console.error('Failed to resubmit:', err)
-      error.value = err.response?.data?.detail || 'Échec de la soumission'
-    }
-    loading.value = false
-  }
-}
+
 
 const deleteEvent = async () => {
   if (!confirm('Êtes-vous sûr de vouloir supprimer cet événement ? Cette action est irréversible.')) {

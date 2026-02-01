@@ -14,7 +14,7 @@ const routes = [
         path: '/dashboard',
         name: 'Dashboard',
         component: Dashboard,
-        meta: { layout: 'normal', requiresAuth: true }
+        meta: { layout: 'normal' }
     },
     {
         path: '/login',
@@ -161,7 +161,7 @@ router.beforeEach((to, from, next) => {
     const isAuthenticated = !!token
 
     // Public routes that anyone can access
-    const publicRoutes = ['/login', '/', '/events', '/organizations', '/walldisplay']
+    const publicRoutes = ['/login', '/', '/events', '/organizations', '/walldisplay', '/dashboard']
     // Also allow organization and event detail pages, and countdown
     const isPublicDetailPage = (
         (to.path.match(/^\/(organizations|events)\/[^/]+$/) && !to.path.endsWith('/edit')) ||
@@ -183,6 +183,8 @@ router.beforeEach((to, from, next) => {
     if (!isAuthenticated) {
         // Store target path for redirect after login
         localStorage.setItem('auth_redirect_url', to.fullPath)
+        console.log("User is not authenticated, page :", to.path)
+
         next('/login')
     } else {
         next()

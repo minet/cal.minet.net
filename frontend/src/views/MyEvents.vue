@@ -139,14 +139,6 @@
                 >
                   <PencilIcon class="h-5 w-5" />
                 </router-link>
-                <button 
-                  v-if="event.visibility === 'draft' || event.visibility === 'public_rejected'"
-                  @click.prevent="submitForApproval(event)"
-                  class="p-2 text-gray-400 hover:text-emerald-600 transition-colors"
-                  title="Soumettre pour approbation"
-                >
-                  <PaperAirplaneIcon class="h-5 w-5" />
-                </button>
               </div>
             </div>
           </div>
@@ -254,17 +246,6 @@ const loadEvents = async () => {
     console.error('Failed to load events:', err)
   } finally {
     loading.value = false
-  }
-}
-
-const submitForApproval = async (event) => {
-  try {
-    await api.post(`/events/${event.id}/submit-for-approval`)
-    event.visibility = 'public_pending'
-    event.rejection_message = null
-  } catch (err) {
-    console.error('Failed to submit for approval:', err)
-    alert(err.response?.data?.detail || 'Échec de la soumission')
   }
 }
 

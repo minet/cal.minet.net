@@ -66,9 +66,7 @@
       </ul>
     </div>
     
-    <div v-else class="text-center py-12 bg-white rounded-lg shadow-sm">
-        <p class="text-gray-500">Veuillez sélectionner une organisation pour gérer ses tags.</p>
-    </div>
+
   </div>
 </template>
 

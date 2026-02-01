@@ -13,19 +13,20 @@
         
         <!-- Desktop Actions -->
         <div class="mt-4 sm:mt-0 flex items-center space-x-4">
+          <router-link to="/dashboard" class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+            <CalendarIcon class="h-5 w-5 mr-2" />
+            Accéder au calendrier
+          </router-link>
+          
           <template v-if="isAuthenticated">
-            <router-link to="/dashboard" class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
-              <CalendarIcon class="h-5 w-5 mr-2" />
-              Accéder au calendrier
-            </router-link>
             <router-link to="/profile" class="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
               <UserIcon class="h-5 w-5 mr-2 text-gray-400" />
               Mon Profil
             </router-link>
           </template>
           <template v-else>
-             <router-link to="/login" class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
-              <ArrowRightOnRectangleIcon class="h-5 w-5 mr-2" />
+             <router-link to="/login" class="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+              <ArrowRightOnRectangleIcon class="h-5 w-5 mr-2 text-gray-400" />
               Se connecter
             </router-link>
           </template>
@@ -125,16 +126,9 @@
 
     <!-- Mobile FAB -->
     <div class="fixed bottom-6 right-6 sm:hidden z-40">
-      <template v-if="isAuthenticated">
-        <router-link to="/dashboard" class="flex items-center justify-center h-14 w-14 rounded-full bg-indigo-600 text-white shadow-lg focus:outline-none hover:bg-indigo-500 transition-colors">
-          <CalendarIcon class="h-6 w-6" />
-        </router-link>
-      </template>
-      <template v-else>
-        <router-link to="/login" class="flex items-center justify-center h-14 w-14 rounded-full bg-indigo-600 text-white shadow-lg focus:outline-none hover:bg-indigo-500 transition-colors">
-          <ArrowRightOnRectangleIcon class="h-6 w-6" />
-        </router-link>
-      </template>
+      <router-link to="/dashboard" class="flex items-center justify-center h-14 w-14 rounded-full bg-indigo-600 text-white shadow-lg focus:outline-none hover:bg-indigo-500 transition-colors">
+        <CalendarIcon class="h-6 w-6" />
+      </router-link>
     </div>
   </div>
 </template>
