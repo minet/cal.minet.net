@@ -1,6 +1,7 @@
 <template>
   <div 
-    class="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 h-full flex flex-col"
+    class="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 h-full flex flex-col cursor-pointer"
+    @click="navigateToEvent"
     :class="{
       'border-2': ['public_rejected', 'public_pending', 'private'].includes(event.visibility),
       'border-red-500 opacity-25': event.visibility === 'public_rejected',
@@ -145,12 +146,12 @@
             +{{ event.guest_organizations.length }}
           </span>
         </span>
-        <router-link :to="`/events/${event.id}`" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center group">
+        <span class="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center group">
           Voir détails
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
           </svg>
-        </router-link>
+        </span>
       </div>
     </div>
   </div>
@@ -158,6 +159,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { formatLocalDate } from '../utils/dateUtils'
 
 import ReactionList from './ReactionList.vue'
@@ -178,6 +180,11 @@ const refreshReactions = async () => {
   } catch (error) {
     console.error('Failed to refresh reactions', error)
   }
+}
+
+const router = useRouter()
+const navigateToEvent = () => {
+  router.push(`/events/${props.event.id}`)
 }
 
 const formattedDate = computed(() => {

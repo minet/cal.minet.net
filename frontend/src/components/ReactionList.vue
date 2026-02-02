@@ -4,7 +4,7 @@
     <button
       v-for="reaction in sortedReactions"
       :key="reaction.emoji"
-      @click="toggleReaction(reaction.emoji)"
+      @click.stop="toggleReaction(reaction.emoji)"
       :class="[
         'inline-flex items-center px-2 py-1 rounded-full text-sm font-medium border transition-colors',
         reaction.user_reacted 
@@ -20,7 +20,7 @@
     <!-- Add Reaction Button -->
     <div v-if="btnAdd && !hasUserReacted" class="relative" ref="pickerContainer">
       <button
-        @click="showPicker = !showPicker"
+        @click.stop="showPicker = !showPicker"
         class="inline-flex items-center justify-center h-7 w-7 rounded-full bg-gray-50 border border-gray-200 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
         title="Ajouter une réaction"
       >
