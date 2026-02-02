@@ -230,6 +230,7 @@ const loadUserOrganizations = async () => {
 }
 
 const handleLogout = () => {
+  sessionStorage.setItem('has_auto_clicked_login_session', 'true')
   logout()
 }
 
