@@ -111,6 +111,34 @@
       </button>
     </div>
 
+    <!-- Admin Status Selector -->
+    <div v-if="isPublic && isSuperAdmin" class="mt-4 p-4 bg-purple-50 rounded-xl border border-purple-200 shadow-sm">
+      <label class="block text-sm font-semibold text-purple-900 mb-2 flex items-center">
+        <ShieldCheckIcon class="h-5 w-5 mr-2 text-purple-600" />
+        Statut de validation (Admin)
+      </label>
+      <select
+        :value="visibility"
+        @change="selectVisibility($event.target.value)"
+        class="block w-full rounded-md border-purple-200 bg-white py-2 px-3 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-purple-500 sm:text-sm text-purple-900"
+      >
+        <option value="public_pending">En attente</option>
+        <option value="public_approved">Approuvé</option>
+        <option value="public_rejected">Refusé</option>
+      </select>
+
+      <div v-if="visibility === 'public_rejected'" class="mt-3">
+        <label class="block text-xs font-medium text-purple-800 mb-1">Motif du refus</label>
+        <textarea
+          :value="rejectionMessage"
+          @input="$emit('update:rejectionMessage', $event.target.value)"
+          rows="2"
+          class="block w-full rounded-md border-purple-200 bg-white py-1.5 px-3 text-sm placeholder-purple-300 focus:border-purple-500 focus:ring-purple-500"
+          placeholder="Expliquez pourquoi cet événement est refusé..."
+        ></textarea>
+      </div>
+    </div>
+
     <!-- Approval Notice (shown for public pending) -->
     <div v-if="isPending" class="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
       <div class="flex items-start gap-3">
@@ -204,10 +232,12 @@ import {
   GlobeAltIcon, 
   CheckCircleIcon,
   ClockIcon,
-  ExclamationCircleIcon
+  ExclamationCircleIcon,
+  ShieldCheckIcon
 } from '@heroicons/vue/24/outline'
 import { CheckBadgeIcon } from '@heroicons/vue/24/solid'
 import GroupSelector from './GroupSelector.vue'
+import { useAuth } from '../composables/useAuth'
 
 const props = defineProps({
   visibility: {
@@ -233,9 +263,10 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:visibility', 'update:groupId', 'update:hideDetails'])
+const emit = defineEmits(['update:visibility', 'update:groupId', 'update:hideDetails', 'update:rejectionMessage'])
 
 const localGroupId = ref(props.groupId)
+const { isSuperAdmin } = useAuth()
 const hideDetails = ref(props.hideDetails)
 
 const isPublic = computed(() => {

@@ -713,8 +713,8 @@ def approve_event(
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     
-    if event.visibility != EventVisibility.PUBLIC_PENDING:
-        raise HTTPException(status_code=400, detail="Event is not pending approval")
+    #if event.visibility != EventVisibility.PUBLIC_PENDING:
+    #    raise HTTPException(status_code=400, detail="Event is not pending approval")
     
     event.visibility = EventVisibility.PUBLIC_APPROVED
     event.approved_at = datetime.now(timezone.utc)
@@ -765,8 +765,8 @@ def reject_event(
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     
-    if event.visibility != EventVisibility.PUBLIC_PENDING:
-        raise HTTPException(status_code=400, detail="Event is not pending approval")
+    #if event.visibility != EventVisibility.PUBLIC_PENDING:
+    #    raise HTTPException(status_code=400, detail="Event is not pending approval")
     
     event.visibility = EventVisibility.PUBLIC_REJECTED
     event.rejection_message = request.message

@@ -184,7 +184,7 @@
                   v-model:group-id="form.group_id"
 
                   v-model:hide-details="form.hide_details"
-                  :rejection-message="form.rejection_message"
+                  v-model:rejection-message="form.rejection_message"
                   :organization-id="form.organization_id"
                 />
               </div>
@@ -468,14 +468,28 @@ const updateEvent = async (shouldRedirect = true) => {
       hide_details: form.value.hide_details,
       group_id: form.value.group_id,
       tag_ids: form.value.tag_ids,
-      tag_ids: form.value.tag_ids,
-      guest_organization_ids: form.value.guest_organization_ids,
       guest_organization_ids: form.value.guest_organization_ids,
       links: form.value.links.filter(link => link.name && link.url),
       featured: form.value.featured
     }
+
+    const targetVisibility = form.value.visibility
+    const message = form.value.rejection_message
     
+    // If superadmin rejecting: set to pending first (via PUT), then reject (via POST)
+    if (isSuperAdmin.value && targetVisibility === 'public_rejected') {
+      eventData.visibility = 'public_pending'
+    }
+
     await api.put(`/events/${eventId}`, eventData)
+
+    // Handle explicit rejection flow
+    if (isSuperAdmin.value && targetVisibility === 'public_rejected') {
+      await api.post(`/events/${eventId}/reject`, {
+        message: message || 'Refusé par un administrateur'
+      })
+    }
+    
     if (shouldRedirect) {
       router.push(`/events/${eventId}`)
     }
