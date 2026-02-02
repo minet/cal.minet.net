@@ -103,12 +103,12 @@
 
         <div class="mt-8 text-sm text-gray-500 space-y-2 border-t border-gray-100 pt-6">
            <p v-if="info.item_type === 'event'">
-             Vous pouvez synchroniser votre calendrier sur votre téléphone via <router-link to="/profile" class="text-indigo-600 hover:text-indigo-500 hover:underline">Mon profil</router-link>.
+             Vous pouvez synchroniser votre calendrier sur votre téléphone via <router-link to="/profile/add_calendar" class="text-indigo-600 hover:text-indigo-500 hover:underline">Mon profil</router-link>.
            </p>
            <p v-if="info.item_type === 'organization' || info.item_type === 'tag'">
              Gérez vos abonnements sur <router-link to="/subscriptions" class="text-indigo-600 hover:text-indigo-500 hover:underline">Mes abonnements</router-link>.
              <br/>
-             Activez la synchronisation mobile via <router-link to="/profile" class="text-indigo-600 hover:text-indigo-500 hover:underline">Mon profil</router-link>.
+             Activez la synchronisation mobile via <router-link to="/profile/add_calendar" class="text-indigo-600 hover:text-indigo-500 hover:underline">Mon profil</router-link>.
            </p>
         </div>
       </div>

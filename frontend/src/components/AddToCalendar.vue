@@ -170,4 +170,10 @@ const googleCalendarUrl = computed(() => {
   return `https://www.google.com/calendar/render?cid=${cid}`
 })
 
+defineExpose({
+  open: () => {
+    isOpen.value = true
+  }
+})
+
 </script>

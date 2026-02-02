@@ -181,7 +181,7 @@
             <div v-if="isCurrentUser && !isEditing" class="sm:col-span-2 border-t border-gray-100 pt-4 mt-2">
               <dt class="text-sm font-medium text-gray-500 mb-1">Calendrier personnel (ICS)</dt>
               <dd class="mt-1">
-                <AddToCalendar :url="icsUrl" />
+                <AddToCalendar ref="addToCalendarRef" :url="icsUrl" />
                 <p class="mt-1 text-xs text-gray-500">Synchronisez vos événements avec votre application de calendrier préférée.</p>
               </dd>
             </div>
@@ -557,6 +557,33 @@ const toggleNotifications = async () => {
     }
   }
 }
+
+const addToCalendarRef = ref(null)
+
+const triggerAddCalendar = () => {
+  if (route.path === '/profile/add_calendar' && addToCalendarRef.value) {
+    addToCalendarRef.value.open()
+  }
+}
+
+// Watch for loading completion to trigger the popup
+watch(loading, (newVal) => {
+  if (!newVal) {
+    // Wait for next tick to ensure v-if rendering
+    setTimeout(() => {
+      triggerAddCalendar()
+    }, 100)
+  }
+})
+
+// Also watch securekey because that's what makes the component appear in some cases (icsUrl dependency)
+watch(securekey, (newVal) => {
+  if (newVal) {
+    setTimeout(() => {
+      triggerAddCalendar()
+    }, 100)
+  }
+})
 
 onMounted(() => {
   loadUser().then(() => {

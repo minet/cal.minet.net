@@ -10,7 +10,6 @@
         <div 
           v-if="organization.logo_url" 
           :class="logoContainerClasses"
-          :style="{ backgroundColor: organization.color_secondary || '#f3f4f6' }"
         >
           <img :src="organization.logo_url" :alt="organization.name" class="w-full h-full object-cover rounded" />
         </div>
@@ -168,7 +167,7 @@ const logoContainerClasses = computed(() => {
     lg: 'h-16 w-16'
   }
   
-  return `flex-shrink-0 ${sizes[props.size]} rounded bg-gray-100 flex items-center justify-center overflow-hidden`
+  return `flex-shrink-0 ${sizes[props.size]} rounded flex items-center justify-center overflow-hidden`
 })
 
 const logoIconClasses = computed(() => {

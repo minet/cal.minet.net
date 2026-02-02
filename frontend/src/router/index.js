@@ -60,6 +60,12 @@ const routes = [
         meta: { layout: 'normal' }
     },
     {
+        path: '/profile/add_calendar',
+        name: 'ProfileAddCalendar',
+        component: () => import('../views/UserProfileView.vue'),
+        meta: { layout: 'normal' }
+    },
+    {
         path: '/users/:id',
         name: 'UserProfile',
         component: () => import('../views/UserProfileView.vue'),
