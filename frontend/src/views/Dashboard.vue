@@ -605,6 +605,10 @@ const getEventTitle = (event) => {
   return event.title
 }
 
+watch([currentDate, viewType], () => {
+  loadEvents()
+})
+
 const loadEvents = async () => {
   loading.value = true
   try {
@@ -643,7 +647,6 @@ const loadEvents = async () => {
         params: {
             size: 512,
             start_date: start_date,
-            end_date: end_date,
             end_date: end_date,
             upcoming: false, // Disable default upcoming filter to see past events in current view
             limit: 1000 // Increase limit to ensure we get all events for the month
