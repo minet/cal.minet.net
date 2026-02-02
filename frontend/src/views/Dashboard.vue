@@ -388,6 +388,7 @@ const nextPeriod = () => {
 
 const goToToday = () => {
   currentDate.value = new Date()
+  currentDate.value.setHours(0, 0, 0, 0)
   if (viewType.value === 'week') {
     nextTick(scrollToToday)
   }
@@ -476,7 +477,7 @@ const weekDays = computed(() => {
 
 const toLocalISOString = (date) => {
   const options = { year: 'numeric', month: '2-digit', day: '2-digit' }
-  const formatted = new Intl.DateTimeFormat('fr-CA', options).format(date)
+  const formatted = new Intl.DateTimeFormat('fr-FR', options).format(date)
   return formatted
 }
 
@@ -682,6 +683,10 @@ const loadUserMemberships = async () => {
 }
 
 onMounted(async () => {
+  // Set current date to start of day
+  currentDate.value = new Date()
+  currentDate.value.setUTCHours(0, 0, 0, 0)
+
   // Check for OIDC callback token in URL
   const urlParams = new URLSearchParams(window.location.search)
   const authToken = urlParams.get('token')
