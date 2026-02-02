@@ -303,7 +303,7 @@ def get_visibility_conditions(current_user: Optional[User], session: Session):
 
 
     # 2. Own events (always visible to creator)
-    conditions.append(Event.created_by_id == current_user.id)
+    conditions.append(and_(Event.created_by_id == current_user.id, Event.visibility == EventVisibility.PRIVATE)) # pyright: ignore
     
     # 3. Organization Memberships
     # Fetch all memberships for the user to determine access
