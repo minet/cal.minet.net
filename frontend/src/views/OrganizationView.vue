@@ -16,7 +16,7 @@
         <div class="flex items-center justify-between">
           <div class="flex items-center space-x-4">
             <div 
-              class="h-16 w-16 rounded-full flex items-center justify-center overflow-hidden transition-colors"
+              class="h-16 w-16 rounded-xl flex items-center justify-center overflow-hidden transition-colors"
               :style="{ backgroundColor: organization.color_secondary || '#f3f4f6' }"
               :class="{ 'bg-indigo-100': !organization.color_secondary }"
             >

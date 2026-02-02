@@ -116,6 +116,20 @@
                 </div>
               </div>
 
+              <div class="sm:col-span-full">
+                <label for="location_url" class="block text-sm font-medium leading-6 text-gray-900">Lien du lieu (Google Maps, OpenStreetMap...) (optionnel)</label>
+                <div class="mt-2">
+                  <input 
+                    type="url" 
+                    name="location_url" 
+                    id="location_url" 
+                    v-model="form.location_url" 
+                    class="block w-full rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
+                    placeholder="https://maps.google.com/..." 
+                  />
+                </div>
+              </div>
+
                <!-- Featured Field (Superadmin Only) -->
               <div v-if="isSuperAdmin" class="col-span-full">
                 <label for="featured" class="block text-sm font-medium leading-6 text-gray-900">
@@ -251,6 +265,7 @@ const form = ref({
   start_time: '',
   end_time: '',
   location: '',
+  location_url: '',
   poster_url: null,
   organization_id: '',
   visibility: 'public_pending',
@@ -359,6 +374,7 @@ const loadEvent = async () => {
       start_time: formatDateTimeLocal(startLocal),
       end_time: formatDateTimeLocal(endLocal),
       location: event.location || '',
+      location_url: event.location_url || '',
       poster_url: event.poster_url || '',
       visibility: event.visibility || 'public_pending',
 
@@ -463,6 +479,7 @@ const updateEvent = async (shouldRedirect = true) => {
       start_time: localToUtc(form.value.start_time),
       end_time: localToUtc(form.value.end_time),
       location: form.value.location,
+      location_url: form.value.location_url,
       poster_url: form.value.poster_url,
       visibility: form.value.visibility,
       hide_details: form.value.hide_details,
