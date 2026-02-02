@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Form, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from sqlmodel import Session, select
+from sqlmodel import Session, select, and_, func
 
 from app.database import get_session
 from app.models import Event, EventVisibility, Membership, Role, User
@@ -77,42 +77,31 @@ async def read_users_me(
     pending_count = 0
     if current_user.is_superadmin:
         pending_count = session.exec(
-            select(Event).where(Event.visibility == EventVisibility.PUBLIC_PENDING)
-        ).all()
-        pending_count = len(pending_count)
-    
+            select(func.count(Event.id)).where(Event.visibility == EventVisibility.PUBLIC_PENDING) #pyright: ignore
+        ).first()
+        
     # Calculate rejected events (My events)
     # Events created by user
     user_rejected = session.exec(
-        select(Event).where(
+        select(func.count(Event.id)) #pyright: ignore
+        .distinct()
+        .outerjoin(
+            Membership,
+            and_(
+                Membership.organization_id == Event.organization_id,
+                Membership.user_id == current_user.id,
+                Membership.role.in_([Role.ORG_ADMIN, Role.ORG_MEMBER]) #pyright: ignore
+            )
+        )
+        .where(
+            Membership.id.is_not(None), #pyright: ignore
             Event.visibility == EventVisibility.PUBLIC_REJECTED,
-            Event.created_by_id == current_user.id,
             Event.start_time > datetime.now(timezone.utc)
         )
-    ).all()
-    rejected_ids = {e.id for e in user_rejected}
-    
-    # Events in orgs where user is admin
-    admin_memberships = session.exec(
-        select(Membership).where(
-            Membership.user_id == current_user.id,
-            Membership.role == Role.ORG_ADMIN
-        )
-    ).all()
-    org_ids = [m.organization_id for m in admin_memberships]
-    
-    if org_ids:
-        org_rejected = session.exec(
-            select(Event).where(
-                Event.visibility == EventVisibility.PUBLIC_REJECTED,
-                Event.organization_id.in_(org_ids) # pyright: ignore
-            )
-        ).all()
-        for e in org_rejected:
-            rejected_ids.add(e.id)
+    ).first()
             
     user_dict["pending_approvals_count"] = pending_count
-    user_dict["rejected_events_count"] = len(rejected_ids)
+    user_dict["rejected_events_count"] = user_rejected
     return user_dict
 
 @router.put("/me")

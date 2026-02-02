@@ -97,7 +97,6 @@
               <Dropdown
                 :model-value="member.role"
                 @update:model-value="updateMemberRole(member, $event)"
-                :disabled="member.user_id === currentUserId"
                 :options="[
                   { value: 'org_viewer', label: 'Lecteur' },
                   { value: 'org_member', label: 'Éditeur' },
