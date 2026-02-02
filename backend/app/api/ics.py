@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 import hashlib
 from uuid import UUID
+from dateutil import tz
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from icalendar import Calendar, Event as IcalEvent
@@ -23,10 +24,11 @@ from app.models import (
 
 config = Config('.env')
 BASE_URL = config.get("APP_BASE_URL")
+APP_TIMEZONE = tz.gettz(config.get("APP_TIMEZONE", default="UTC"))
 
 assert BASE_URL is not None, "APP_BASE_URL must be set in .env"
 assert config.get("SECRET_KEY") is not None, "SECRET_KEY must be set in .env"
-
+assert APP_TIMEZONE is not None, "APP_TIMEZONE must be a valid timezone"
 
 def securekey_gen(user_id: str | UUID):
     global_key = config.get("SECRET_KEY")
@@ -130,17 +132,17 @@ def export_user_calendar(securekey: str, user_id: str, session: Session = Depend
     
     # Create iCalendar
     cal = Calendar()
-    cal.add('prodid', '-//Calend\'INT Personal Calendar//mxm.dk//')
+    cal.add('prodid', '-//Calend\'INT//mxm.dk//')
     cal.add('version', '2.0')
-    cal.add('X-WR-CALNAME', 'Mon calendrier Calend\'INT')
-    cal.add('X-WR-TIMEZONE', 'Europe/Paris')
+    cal.add('X-WR-CALNAME', 'Calend\'INT')
+    cal.add('X-WR-TIMEZONE', config.get("APP_TIMEZONE", default="UTC"))
     
     for event in events:
         ievent = IcalEvent()
         ievent.add('summary', event.title)
-        ievent.add('dtstart', event.start_time)
-        ievent.add('dtend', event.end_time)
-        ievent.add('dtstamp', datetime.now(timezone.utc))
+        ievent.add('dtstart', event.start_time.astimezone(tz=APP_TIMEZONE))
+        ievent.add('dtend', event.end_time.astimezone(tz=APP_TIMEZONE))
+        ievent.add('dtstamp', event.created_at.astimezone(tz=APP_TIMEZONE))
         ievent.add('uid', f'{event.id}@{BASE_URL}')
         
         # Build description with poster and event link

@@ -33,6 +33,7 @@ services:
       - CRON_DELAY=${CRON_DELAY:-900} # Default 15 minutes
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+      - APP_TIMEZONE=${APP_TIMEZONE:-UTC}
     depends_on:
       db:
         condition: service_healthy
