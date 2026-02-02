@@ -323,8 +323,17 @@ watch([date, time], ([newDate, newTime], [oldDate, oldTime]) => {
   emitUpdates()
 })
 
-// Watch changes to End Date/Time just to emit
-watch([endDate, endTimeVal], () => {
+
+// Make sure the start time does not go above the end time
+watch([date, time, endDate, endTimeVal], () => {
+  if (date.value && time.value && endDate.value && endTimeVal.value) {
+    const start = new Date(`${date.value}T${time.value}:00`)
+    const end = new Date(`${endDate.value}T${endTimeVal.value}:00`)
+    if (start.getTime() > end.getTime()) {
+      endDate.value = date.value
+      endTimeVal.value = time.value
+    }
+  }
   emitUpdates()
 })
 
