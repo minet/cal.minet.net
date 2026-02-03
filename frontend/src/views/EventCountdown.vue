@@ -46,7 +46,10 @@
       <div class="flex flex-col items-center justify-center min-h-screen p-6 text-center">
         <!-- Organization Pill -->
         <div v-if="event.organization" class="mb-6 flex justify-center flex-wrap gap-4">
-            <div class="inline-flex items-center bg-white/80 backdrop-blur-md shadow-md rounded-full px-4 py-2 border border-white/20 transform transition-transform hover:scale-105">
+            <router-link 
+                :to="`/organizations/${event.organization.id}`"
+                class="inline-flex items-center bg-white/80 backdrop-blur-md shadow-md rounded-full px-4 py-2 border border-white/20 transform transition-transform hover:scale-105 hover:bg-white/90 cursor-pointer"
+            >
                 <img 
                     v-if="event.organization.logo_url" 
                     :src="event.organization.logo_url" 
@@ -54,10 +57,11 @@
                     alt="Org Logo" 
                 />
                 <span class="text-xl font-bold tracking-tight text-gray-900">{{ event.organization.name }}</span>
-            </div>
+            </router-link>
 
-            <div v-for="guest in event.guest_organizations" :key="guest.id"
-                class="inline-flex items-center bg-white/80 backdrop-blur-md shadow-md rounded-full px-4 py-2 border border-white/20 transform transition-transform hover:scale-105"
+            <router-link v-for="guest in event.guest_organizations" :key="guest.id"
+                :to="`/organizations/${guest.id}`"
+                class="inline-flex items-center bg-white/80 backdrop-blur-md shadow-md rounded-full px-4 py-2 border border-white/20 transform transition-transform hover:scale-105 hover:bg-white/90 cursor-pointer"
             >
                 <img 
                     v-if="guest.logo_url" 
@@ -66,7 +70,7 @@
                     alt="Guest Logo" 
                 />
                 <span class="text-lg font-semibold tracking-tight text-gray-800">{{ guest.name }}</span>
-            </div>
+            </router-link>
         </div>
 
         <!-- Event Title -->
@@ -96,7 +100,32 @@
             </div>
         </div>
 
-        <!-- Reactions -->
+        <!-- Actions -->
+        <div class="flex flex-wrap justify-center gap-4 mb-8 w-full px-4">
+             <!-- External Links -->
+             <a 
+                v-for="link in event.event_links" 
+                :key="link.id" 
+                :href="link.url" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                class="flex items-center px-6 py-3 rounded-full font-bold shadow-lg transform transition hover:scale-105 backdrop-blur-sm"
+                :style="{ backgroundColor: primaryColor, color: linkTextColor }"
+            >
+                <LinkIcon class="w-5 h-5 mr-2" />
+                {{ link.name }}
+            </a>
+
+            <!-- Internal Link -->
+            <router-link 
+                :to="`/events/${event.id}`" 
+                class="flex items-center px-6 py-3 rounded-full font-bold shadow-lg transform transition hover:scale-105 backdrop-blur-sm bg-white/20 hover:bg-white/30 text-white border border-white/10"
+            >
+                <span>Voir l'événement</span>
+                <ArrowRightIcon class="w-5 h-5 ml-2" />
+            </router-link>
+        </div>
+
         <div class="mb-8 flex justify-center">
             <div class="bg-white/60 backdrop-blur-md rounded-2xl p-4 shadow-lg inline-block">
                 <ReactionList 
@@ -109,6 +138,8 @@
                 />
             </div>
         </div>
+
+
       </div>
     </div>
   </div>
@@ -129,9 +160,9 @@ import api from '../utils/api'
 import { useAuth } from '../composables/useAuth'
 import CountdownTimer from '../components/CountdownTimer.vue'
 import ReactionList from '../components/ReactionList.vue'
-import { MapPinIcon, CalendarIcon } from '@heroicons/vue/24/outline'
+import { MapPinIcon, CalendarIcon, LinkIcon, ArrowRightIcon } from '@heroicons/vue/24/outline'
 import LoginModal from '../components/LoginModal.vue'
-import { getEventGradient } from '../utils/colorUtils'
+import { getEventGradient, hexToRgb, rgbToHsl } from '../utils/colorUtils'
 
 const showLoginModal = ref(false)
 const loginDescription = ref("Connectez-vous pour réagir, ajouter cet événement à votre calendrier et profiter de toutes les fonctionnalités !")
@@ -162,6 +193,18 @@ const backgroundGradient = computed(() => {
 const bubbleColor = computed(() => {
     if (!event.value?.organization) return '#e5e7eb'
     return event.value.organization.color_secondary || '#e5e7eb' 
+})
+
+const primaryColor = computed(() => {
+    return event.value?.organization?.color_primary || '#4f46e5'
+})
+
+const linkTextColor = computed(() => {
+    const hex = primaryColor.value
+    const rgb = hexToRgb(hex)
+    if (!rgb) return 'white'
+    const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b)
+    return hsl.l > 0.6 ? '#111827' : 'white' 
 })
 
 const loadEvent = async () => {
