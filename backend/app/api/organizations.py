@@ -33,7 +33,7 @@ def create_organization(
 
 @router.get("/", response_model=List[OrganizationRead])
 def list_organizations(session: Session = Depends(get_session)):
-    orgs = session.exec(select(Organization).order_by(Organization.name.asc())).all()
+    orgs = session.exec(select(Organization).order_by(Organization.name.asc())).all() # pyright: ignore
     return [o.to_read_model() for o in orgs]
 
 @router.get("/{org_id}", response_model=OrganizationRead)

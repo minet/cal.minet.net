@@ -207,13 +207,14 @@
         </div>
 
         <!-- Visibility & Group Info -->
-        <div v-if="event.visibility === 'private' && event.group" class="bg-white shadow-sm rounded-lg p-6">
+        <div v-if="event.visibility === 'private'" class="bg-white shadow-sm rounded-lg p-6">
           <h3 class="text-sm font-medium text-gray-900 mb-2">Groupe</h3>
           <p class="text-sm text-gray-700 flex items-center">
             <LockClosedIcon class="h-5 w-5 text-gray-400 mr-2" />
-            <span class="font-medium text-gray-900">{{ event.group.name }}</span>
+            <span v-if="event.group" class="font-medium text-gray-900">{{ event.group.name }}</span>
+            <span v-else class="font-medium text-gray-900">Mandat (tous les membres)</span>
           </p>
-          <p class="text-xs text-gray-500 mt-1">Événement privé, visible uniquement par les membres du groupe</p>
+          <p class="text-xs text-gray-500 mt-1">Événement privé, visible uniquement par les membres du groupe sélectionné.</p>
         </div>
         
         <OrganizationCard 
