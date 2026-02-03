@@ -69,9 +69,9 @@ def can_view_event(event: Event, user: Optional[User], session: Session) -> tupl
             if group_membership:
                 return True, ""
         else:
-            return is_member, "You are not a member of the organization"
+            return is_in_org, "You are not part of the organization"
         
-        return False, "You are not a member of the organization"
+        return False, "You are not part of the right group to view this event"
     
     return False, "You are not authorized to view this event"
 
@@ -91,11 +91,13 @@ def can_edit_event(event: Event, user: User, session: Session) -> tuple[bool, st
     if membership.role == Role.ORG_ADMIN:
         return True, ""
         
-    # Org Members can edit everything EXCEPT Private (unless author, handled above)
+    # Org Members can edit everything EXCEPT Private (unless author)
     if membership.role == Role.ORG_MEMBER and event.created_by_id == user.id:
         return True, ""
+    elif membership.role == Role.ORG_MEMBER and event.visibility == EventVisibility.PRIVATE:
+        return False, "You are not authorized to edit this private event, only the author and the admins can edit it"
     elif membership.role == Role.ORG_MEMBER:
-        return False, "You are not authorized to edit this event"
+        return True, ""
         
     # Viewers (or others) cannot edit
     return False, "You are not authorized to edit this event"
@@ -333,6 +335,15 @@ def get_visibility_conditions(current_user: Optional[User], session: Session):
                 and_( # pyright: ignore
                     Event.visibility == EventVisibility.PRIVATE,
                     col(Event.organization_id).in_(admin_org_ids)
+                )
+            )
+        else:
+            # If the group_id is null, then the event is private to the members/viewers/admins of the organization
+            conditions.append(
+                and_( # pyright: ignore
+                    Event.visibility == EventVisibility.PRIVATE,
+                    Event.group_id == None,
+                    col(Event.organization_id).in_(org_ids)
                 )
             )
     
