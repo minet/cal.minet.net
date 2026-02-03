@@ -36,7 +36,7 @@
          <div class="flex flex-col items-center justify-center p-12 text-center max-w-5xl mx-auto">
              <h1 class="text-7xl lg:text-9xl font-black mb-12 text-gray-900 tracking-tight">Calend'INT</h1>
              <p class="text-4xl lg:text-5xl font-medium text-gray-700 mb-16 leading-normal">
-                 Retrouvez tous les événements et ajoutez les vôtres sur 
+                 Retrouvez tous les événements et ajoutez les vôtres sur
                  <span class="text-indigo-600 font-bold block mt-4">cal.minet.net</span>
              </p>
              <div class="bg-white p-8 rounded-3xl shadow-2xl ring-8 ring-indigo-50 h-100 w-100">
@@ -174,10 +174,10 @@ const UPDATE_INTERVAL_MS = 100
 const REFRESH_INTERVAL_MS = 15 * 60 * 1000 // 15 minutes
 
 const currentEvent = computed(() => {
-  return { isAd: true }
   if (events.value.length === 0) return {}
   // If index is equal to length, it's the ad slide
   if (currentIndex.value === events.value.length) {
+    return { isAd: true }
   }
   return events.value[currentIndex.value]
 })
@@ -225,15 +225,16 @@ const fetchEvents = async () => {
       const startTime = new Date(event.start_time)
       const endTime = new Date(event.end_time)
       
-      const isPublic = event.visibility === 'public_approved'
-      const isUpcoming = startTime <= threeDaysLater || event.is_featured
+      const isUpcoming = startTime > now || (startTime <= now && endTime >= now) // Standard upcoming check logic or rely solely on start/end
+      // Feed "upcoming=true" usually returns future events. 
+      // We want to keep the 3 day window strict for *normal* events, but relax for featured.
+      const isInWindow = startTime <= threeDaysLater || event.is_featured
       const isNotOver = endTime > now
       
-      return isPublic && isUpcoming && isNotOver
+      return isInWindow && isNotOver
     }).sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
     
     // If current index is out of bounds after refresh, reset it
-    // Note: bounds is now length + 1 (for ad)
     if (currentIndex.value > events.value.length) {
         currentIndex.value = 0
     }
@@ -252,22 +253,32 @@ const fetchEvents = async () => {
 const startSlideshow = () => {
     if (events.value.length === 0) return
 
-    clearInterval(slideTimer)
+    clearTimeout(slideTimer)
     clearInterval(progressTimer)
 
     progress.value = 0
     let elapsed = 0
+    
+    // Determine duration for CURRENT slide
+    // If currentEvent is Ad (isAd=true) or not featured, use standard duration.
+    // If featured, use double.
+    const getDuration = () => {
+        if (currentEvent.value.isAd) return DURATION_MS
+        return currentEvent.value.is_featured ? DURATION_MS * 2 : DURATION_MS
+    }
+
+    let currentDuration = getDuration()
 
     progressTimer = setInterval(() => {
         elapsed += UPDATE_INTERVAL_MS
-        progress.value = (elapsed / DURATION_MS) * 100
+        progress.value = Math.min((elapsed / currentDuration) * 100, 100)
     }, UPDATE_INTERVAL_MS)
 
-    slideTimer = setInterval(() => {
+    slideTimer = setTimeout(() => {
         nextSlide()
-        elapsed = 0
-        progress.value = 0
-    }, DURATION_MS)
+        // Recursively restart slideshow for next slide to handle varying durations
+        startSlideshow()
+    }, currentDuration)
 }
 
 const nextSlide = () => {
@@ -290,7 +301,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-    clearInterval(slideTimer)
+    clearTimeout(slideTimer) // Changed from clearInterval
     clearInterval(progressTimer)
     clearInterval(refreshTimer)
 })
