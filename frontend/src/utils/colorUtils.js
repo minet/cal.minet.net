@@ -7,6 +7,9 @@ export function getEventGradient(mainOrg, guestOrgs = []) {
         return o.color_primary || '#f3f4f64d';
     });
 
+    if (orgs.some(o => o.slug === 'in-act')) {
+        return 'linear-gradient(135deg, rgb(237, 34, 36), rgb(243, 91, 34), rgb(249, 150, 33), rgb(245, 193, 30), rgb(241, 235, 27) 27%, rgb(241, 235, 27), rgb(241, 235, 27) 33%, rgb(99, 199, 32), rgb(12, 155, 73), rgb(33, 135, 141), rgb(57, 84, 165), rgb(97, 55, 155), rgb(147, 40, 142))';
+    }
     if (colors.length === 1) return colors[0];
 
     return `linear-gradient(135deg, ${colors.join(', ')})`;
@@ -20,6 +23,10 @@ export function getEventGradientLight(mainOrg, guestOrgs = []) {
         return o.color_secondary || '#f9fafbea';
     });
 
+    if (orgs.some(o => o.slug === 'in-act')) {
+        return 'linear-gradient(135deg, #ffadad, #ffd6a5, #fdffb6, #caffbf, #9bf6ff, #a0c4ff, #bdb2ff)';
+
+    }
     if (colors.length === 1) return colors[0];
 
     return `linear-gradient(135deg, ${colors.join(', ')})`;
