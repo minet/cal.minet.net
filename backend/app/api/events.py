@@ -461,7 +461,7 @@ def list_processed_approvals(
             EventVisibility.PUBLIC_APPROVED, 
             EventVisibility.PUBLIC_REJECTED
         ]))
-        .order_by(Event.start_time.desc()) #pyright: ignore
+        .order_by(Event.approved_at.desc()) #pyright: ignore
         .limit(50)
     ).all()
     
@@ -769,6 +769,7 @@ def reject_event(
     #    raise HTTPException(status_code=400, detail="Event is not pending approval")
     
     event.visibility = EventVisibility.PUBLIC_REJECTED
+    event.approved_at = datetime.now(timezone.utc)
     event.rejection_message = request.message
     
     session.add(event)
