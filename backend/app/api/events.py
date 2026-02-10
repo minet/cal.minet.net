@@ -115,9 +115,9 @@ def create_event(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid visibility value")
     
-    # If private, group_id is required
-    if visibility == EventVisibility.PRIVATE and not event_data.group_id:
-        raise HTTPException(status_code=400, detail="group_id required for private events")
+    # If private, group_id is required (no, now we use null to mean all members/viewers)
+    #if visibility == EventVisibility.PRIVATE and not event_data.group_id:
+    #    raise HTTPException(status_code=400, detail="group_id required for private events")
     
     # Verify group exists and belongs to organization if provided
     if event_data.group_id:

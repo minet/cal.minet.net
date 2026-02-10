@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 
 from app.api.auth import get_current_user
 from app.database import get_session
-from app.models import Group, GroupMembership, Membership, Organization, Role, User
+from app.models import Group, GroupMembership, Membership, Organization, Role, User, Event
 
 router = APIRouter()
 
@@ -156,7 +156,24 @@ def delete_group(
     if not check_org_admin(current_user, str(group.organization_id), session):
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    # Delete group (memberships will cascade)
+    # Delete memberships
+    memberships = session.exec(
+        select(GroupMembership).where(GroupMembership.group_id == UUID(group_id))
+    ).all()
+    for membership in memberships:
+        session.delete(membership)
+    session.commit()
+
+    # Change the group_id of events to null
+    events = session.exec(
+        select(Event).where(Event.group_id == UUID(group_id))
+    ).all()
+    for event in events:
+        event.group_id = None
+        session.add(event)
+    session.commit()
+
+    # Delete group
     session.delete(group)
     session.commit()
     
