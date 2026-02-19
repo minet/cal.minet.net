@@ -17,4 +17,4 @@ RUN uv sync --locked
 # Then copy the rest of the project
 COPY . /app
 # Use multiple workers for production
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--proxy-headers", "--forwarded-allow-ips=*"]
