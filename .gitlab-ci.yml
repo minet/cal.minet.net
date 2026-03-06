@@ -9,9 +9,6 @@ variables:
   SWARM_FOLDER: /mnt/cephfs/swarm/stacks/cal.minet.net
   DOCKER_BUILDKIT: 1
 
-services:
-  - docker:dind
-
 before_script:
   - docker login -u $CI_REGISTRY_USER -p $CI_JOB_TOKEN $CI_REGISTRY
 
