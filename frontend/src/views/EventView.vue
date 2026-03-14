@@ -199,7 +199,8 @@
                 target="_blank" 
                 class="flex items-center text-sm text-indigo-600 hover:text-indigo-500 hover:underline group"
               >
-                <LinkIcon class="h-4 w-4 mr-2 text-gray-400 group-hover:text-indigo-500" />
+                <img v-if="getSocialIcon(link.url)" :src="getSocialIcon(link.url)" class="h-4 w-4 mr-2 object-contain opacity-70 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                <LinkIcon v-else class="h-4 w-4 mr-2 text-gray-400 group-hover:text-indigo-500 flex-shrink-0" />
                 {{ link.name }}
               </a>
             </li>
@@ -270,6 +271,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import api from '../utils/api'
+import { getSocialIcon } from '../utils/social'
 import { 
   ClockIcon, 
   MapPinIcon, 

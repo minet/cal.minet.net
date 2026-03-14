@@ -144,7 +144,8 @@
       <ul class="space-y-2">
         <li v-for="link in organization.organization_links" :key="link.id">
             <a :href="link.url" target="_blank" class="text-indigo-600 hover:text-indigo-800 flex items-center">
-                <LinkIcon class="h-4 w-4 mr-2" />
+                <img v-if="getSocialIcon(link.url)" :src="getSocialIcon(link.url)" class="h-4 w-4 mr-2 object-contain opacity-70 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                <LinkIcon v-else class="h-4 w-4 mr-2 flex-shrink-0" />
                 {{ link.name }}
             </a>
         </li>
@@ -257,6 +258,7 @@ import UserAvatar from '../components/UserAvatar.vue'
 
 import TagBadge from '../components/TagBadge.vue'
 import api from '../utils/api'
+import { getSocialIcon } from '../utils/social'
 import { 
   PencilIcon, 
   ChevronRightIcon, 
