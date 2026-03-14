@@ -329,6 +329,7 @@ def update_organization(
     org.logo_url = org_update.logo_url
     org.type = org_update.type
     org.parent_id = org_update.parent_id
+    org.delete_after = org_update.delete_after
     org.color_primary = org_update.color_primary
     org.color_secondary = org_update.color_secondary
     org.color_dark = org_update.color_dark

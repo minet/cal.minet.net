@@ -57,6 +57,35 @@
                 />
               </div>
 
+              <div class="col-span-full border border-gray-200 rounded-md p-4">
+                <div class="flex h-6 items-center flex-row">
+                  <input
+                    id="enableDeleteAfter"
+                    name="enableDeleteAfter"
+                    type="checkbox"
+                    v-model="enableDeleteAfter"
+                    class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+                  />
+                  <div class="ml-3 text-sm leading-6">
+                    <label for="enableDeleteAfter" class="font-medium text-gray-900">Suppression automatique</label>
+                    <p class="text-gray-500">Si activé, l'organisation sera supprimée automatiquement après la date indiquée.</p>
+                  </div>
+                </div>
+
+                <div v-if="enableDeleteAfter" class="mt-4">
+                    <label for="delete_after" class="block text-sm font-medium leading-6 text-gray-900">Date de suppression</label>
+                    <div class="mt-2 text-gray-600">
+                        <input
+                            type="datetime-local"
+                            id="delete_after"
+                            required
+                            v-model="form.delete_after"
+                            class="block rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                        />
+                    </div>
+                </div>
+              </div>
+
               <div class="col-span-full">
                 <ImageUpload v-model="form.logo_url" label="Logo de l'organisation (optionnel)" crop />
               </div>
@@ -92,8 +121,11 @@ const form = reactive({
   description: '',
   type: 'association',
   logo_url: null,
-  parent_id: null
+  parent_id: null,
+  delete_after: null
 })
+
+const enableDeleteAfter = ref(false)
 
 const parentOrganizations = ref([])
 const error = ref('')
@@ -121,7 +153,15 @@ const createOrg = async () => {
     // Generate slug from name
     form.slug = form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
     
-    await api.post('/organizations/', form)
+    // Check if delete_after is disabled
+    const payload = { ...form }
+    if (!enableDeleteAfter.value) {
+      payload.delete_after = null
+    } else {
+      payload.delete_after = form.delete_after ? new Date(form.delete_after).toISOString() : null
+    }
+    
+    await api.post('/organizations/', payload)
     router.push('/organizations')
   } catch (err) {
     console.error('Failed to create organization:', err)

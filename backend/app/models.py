@@ -70,6 +70,7 @@ class Organization(SQLModel, table=True):
     color_dark: Optional[str] = Field(default=None)
     type: OrganizationType
     parent_id: Optional[UUID] = Field(default=None, foreign_key="organization.id")
+    delete_after: Optional[datetime] = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

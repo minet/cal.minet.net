@@ -62,6 +62,7 @@ class OrganizationRead(BaseModel):
     slug: Optional[str] = None
     description: Optional[str] = None
     parent_id: Optional[UUID] = None
+    delete_after: Optional[datetime] = None
     color_primary: Optional[str] = None
     color_secondary: Optional[str] = None
     color_dark: Optional[str] = None
@@ -80,6 +81,7 @@ class OrganizationRead(BaseModel):
             slug=org.slug,
             description=org.description,
             parent_id=org.parent_id,
+            delete_after=org.delete_after,
             color_primary=org.color_primary,
             color_secondary=org.color_secondary,
             color_dark=org.color_dark,

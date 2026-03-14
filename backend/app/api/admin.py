@@ -146,3 +146,36 @@ async def search_ldap_users(
             uid=u.uid
         ) for u in users
     ]
+
+@router.post("/housekeeping")
+async def housekeeping(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Trigger housekeeping to delete organizations that passed their delete_after date"""
+    from datetime import datetime, timezone
+    from app.models import Organization
+    from app.api.organizations import delete_organization
+
+    if not current_user.is_superadmin:
+        raise HTTPException(status_code=403, detail="Superadmin access required")
+
+    now = datetime.now(timezone.utc)
+    orgs_to_delete = session.exec(
+        select(Organization).where(
+            Organization.delete_after != None,
+            col(Organization.delete_after) <= now
+        )
+    ).all()
+
+    count = 0
+    errors = 0
+    for org in orgs_to_delete:
+        try:
+            delete_organization(str(org.id), current_user, session)
+            count += 1
+        except Exception as e:
+            print(f"Error deleting org {org.id}: {e}")
+            errors += 1
+
+    return {"message": f"Housekeeping complete. Deleted {count} orgs. Errors: {errors}"}

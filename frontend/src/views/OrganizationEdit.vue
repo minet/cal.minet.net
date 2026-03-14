@@ -71,6 +71,34 @@
                 />
               </div>
 
+              <div class="col-span-full border border-gray-200 rounded-md p-4 mt-6">
+                <div class="flex h-6 items-center flex-row">
+                  <input
+                    id="enableDeleteAfter"
+                    name="enableDeleteAfter"
+                    type="checkbox"
+                    v-model="enableDeleteAfter"
+                    class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+                  />
+                  <div class="ml-3 text-sm leading-6">
+                    <label for="enableDeleteAfter" class="font-medium text-gray-900">Suppression automatique</label>
+                    <p class="text-gray-500">Si activé, l'organisation sera supprimée automatiquement après la date indiquée.</p>
+                  </div>
+                </div>
+
+                <div v-if="enableDeleteAfter" class="mt-4">
+                    <label for="delete_after" class="block text-sm font-medium leading-6 text-gray-900">Date de suppression</label>
+                    <div class="mt-2 text-gray-600">
+                        <input
+                            type="datetime-local"
+                            id="delete_after"
+                            required
+                            v-model="form.delete_after"
+                            class="block rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                        />
+                    </div>
+                </div>
+              </div>
 
               <div class="sm:col-span-4 grid grid-cols-1 gap-6">
                 <!-- Primary Color -->
@@ -274,10 +302,12 @@ const form = reactive({
   type: 'association',
   logo_url: null,
   parent_id: null,
+  delete_after: null,
   color_primary: '#000000',
   color_secondary: '#ffffff',
   color_dark: '#000000'
 })
+const enableDeleteAfter = ref(false)
 const error = ref('')
 const loading = ref(false)
 const links = ref([])
@@ -344,6 +374,8 @@ const loadOrganization = async () => {
     form.type = organization.value.type || 'association'
     form.logo_url = organization.value.logo_url
     form.parent_id = organization.value.parent_id
+    form.delete_after = organization.value.delete_after ? organization.value.delete_after.substring(0, 16) : null
+    enableDeleteAfter.value = !!form.delete_after
     
     // Set color from saved values or default
     form.color_primary = organization.value.color_primary || '#000000'
@@ -380,6 +412,12 @@ const updateOrg = async () => {
     
     const payload = {
         ...form
+    }
+
+    if (!enableDeleteAfter.value) {
+      payload.delete_after = null
+    } else {
+      payload.delete_after = form.delete_after ? new Date(form.delete_after).toISOString() : null
     }
 
     await api.put(`/organizations/${route.params.id}`, payload)
