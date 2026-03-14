@@ -352,7 +352,7 @@ def delete_organization(
     from app.models import (
         Membership, Subscription, Tag, OrganizationLink, 
         Group, GroupMembership, Event, EventLink, EventTag, 
-        EventReaction, EventGuestOrganization
+        EventReaction, EventGuestOrganization, GHOST_ORGANIZATION_ID
     )
     from app.services.storage import delete_file
     
@@ -360,6 +360,8 @@ def delete_organization(
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
     
+    org_name = org.name
+    org_parent = org.parent_id if org.parent_id else GHOST_ORGANIZATION_ID
     # Check permissions (same as edit, effectively ORG_ADMIN or SUPERADMIN)
     can_edit, reason = can_edit_organization(org_id, current_user, session)
     if not can_edit:
@@ -403,39 +405,16 @@ def delete_organization(
         for gm in group_members:
             session.delete(gm)
             
-        # Note: Events related to Group are also related to Organization, so they will be handled in Events section
-        
+        # Note: Events related to Group are also related to Organization, so their group_id will be set to None in step 6.
         session.delete(group)
         
-    # 6. Delete Events and their dependencies
+    # 6. Reassign Events to Ghost Organization or parent organization
     events = session.exec(select(Event).where(Event.organization_id == org_id)).all()
     for event in events:
-        # Delete Event Links
-        event_links = session.exec(select(EventLink).where(EventLink.event_id == event.id)).all()
-        for el in event_links:
-            session.delete(el)
-            
-        # Delete Event Tags
-        event_tags_remaining = session.exec(select(EventTag).where(EventTag.event_id == event.id)).all()
-        for et in event_tags_remaining:
-            session.delete(et)
-            
-        # Delete Event Reactions
-        reactions = session.exec(select(EventReaction).where(EventReaction.event_id == event.id)).all()
-        for r in reactions:
-            session.delete(r)
-            
-        # Delete Event Guest Organizations (where this event is the host)
-        guest_orgs = session.exec(select(EventGuestOrganization).where(EventGuestOrganization.event_id == event.id)).all()
-        for go in guest_orgs:
-            session.delete(go)
-
-        # Delete Event Poster
-        if event.poster_url and event.poster_url.startswith("/uploads/"):
-            filename = event.poster_url.replace("/uploads/", "")
-            delete_file(filename)
-            
-        session.delete(event)
+        event.organization_id = org_parent
+        event.title = f"({org_name}) {event.title}"
+        event.group_id = None
+        session.add(event)
         
     # 7. Clean up Guest Events (where this org is a guest)
     guest_entries = session.exec(select(EventGuestOrganization).where(EventGuestOrganization.organization_id == org_id)).all()

@@ -5,6 +5,9 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Field, Relationship, SQLModel, Session
 
+GHOST_USER_ID = UUID("00000000-0000-4000-8000-000000000001")
+GHOST_ORGANIZATION_ID = UUID("00000000-0000-4000-8000-000000000002")
+
 class OrganizationType(str, Enum):
     ASSOCIATION = "association"
     CLUB = "club"
@@ -156,7 +159,6 @@ class Event(SQLModel, table=True):
     organization_id: UUID = Field(foreign_key="organization.id")
     created_by_id: UUID = Field(foreign_key="user.id")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    # New fields for approval workflow
     rejection_message: Optional[str] = None
     hide_details: bool = Field(default=False)
     approved_at: Optional[datetime] = None

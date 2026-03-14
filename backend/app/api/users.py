@@ -375,6 +375,7 @@ async def delete_user(
     session: Session = Depends(get_session)
 ):
     """Delete a user"""
+    from app.models import GHOST_USER_ID, ShortLink, UserPushToken
     if not current_user.is_superadmin:
         raise HTTPException(status_code=403, detail="Not authorized")
     
@@ -390,10 +391,6 @@ async def delete_user(
     # Delete everything that mentions the user
     
     # 1. Memberships
-    session.exec(select(Membership).where(Membership.user_id == user.id)).all()
-    # Execute delete directly not supported by sqlmodel session.exec(delete(...)) nicely without some workaround or iteration
-    # Iterate and delete is safer for ORM consistency
-    
     memberships = session.exec(select(Membership).where(Membership.user_id == user.id)).all()
     for m in memberships:
         session.delete(m)
@@ -414,12 +411,21 @@ async def delete_user(
         session.delete(r)
 
     # 5. Events created by user
-    # Note: This is destructive for organization events if the creator leaves. 
-    # But necessary to satisfy FK constraints unless we reassign them.
-    # Instruction is "delete everything that mentions him".
     events = session.exec(select(Event).where(Event.created_by_id == user.id)).all()
     for e in events:
-        session.delete(e)
+        e.created_by_id = GHOST_USER_ID
+        session.add(e)
+
+    # 6. ShortLinks created by user
+    shortlinks = session.exec(select(ShortLink).where(ShortLink.created_by_id == user.id)).all()
+    for sl in shortlinks:
+        sl.created_by_id = GHOST_USER_ID
+        session.add(sl)
+
+    # 7. Push Tokens
+    push_tokens = session.exec(select(UserPushToken).where(UserPushToken.user_id == user.id)).all()
+    for pt in push_tokens:
+        session.delete(pt)
 
     session.delete(user)
     session.commit()
