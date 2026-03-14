@@ -184,7 +184,8 @@ def load_fixtures(target_email: str, fixtures_dir: str = "fixtures"):
                 membership = Membership(
                     user_id=user.id,
                     organization_id=org.id,
-                    role=role
+                    role=role,
+                    title=mem_data.get("title")
                 )
                 session.add(membership)
                 print(f"  Assigned {user.email} as {role} of {org.name}")

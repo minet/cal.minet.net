@@ -3,6 +3,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi import APIRouter, Body, Depends, HTTPException
+from pydantic import BaseModel
 from sqlmodel import Session, col, select
 
 from app.api.auth import get_current_user, get_current_user_optional
@@ -47,7 +48,9 @@ def get_organization(org_id: str, session: Session = Depends(get_session)):
 def get_organization_members(org_id: str, session: Session = Depends(get_session)):
     """Get all members of an organization"""
     memberships = session.exec(
-        select(Membership).where(Membership.organization_id == org_id)
+        select(Membership)
+        .where(Membership.organization_id == org_id)
+        .order_by(col(Membership.order).asc())
     ).all()
     
     result = []
@@ -59,12 +62,46 @@ def get_organization_members(org_id: str, session: Session = Depends(get_session
                 "user_id": str(user.id),
                 "email": user.email,
                 "full_name": user.full_name,
-                "role": membership.role
+                "role": membership.role,
+                "title": membership.title,
+                "order": membership.order
             })
     
     return result
 
+class MemberReorderRequest(BaseModel):
+    membership_ids: List[str]
 
+@router.post("/{org_id}/members/reorder")
+def reorder_organization_members(
+    org_id: str,
+    request: MemberReorderRequest,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Reorder members in an organization (requires org_admin or superadmin)"""
+    # Check permissions
+    if not current_user.is_superadmin:
+        membership = session.exec(
+            select(Membership).where(
+                Membership.user_id == current_user.id,
+                Membership.organization_id == org_id,
+                Membership.role == Role.ORG_ADMIN
+            )
+        ).first()
+        
+        if not membership:
+            raise HTTPException(status_code=403, detail="Not authorized")
+            
+    # Update orders
+    for index, membership_id in enumerate(request.membership_ids):
+        member = session.get(Membership, membership_id)
+        if member and str(member.organization_id) == org_id:
+            member.order = index
+            session.add(member)
+            
+    session.commit()
+    return {"message": "Members reordered successfully"}
 
 # ...
 
@@ -73,6 +110,7 @@ def add_organization_member(
     org_id: str,
     email: str = Body(...),
     role: str = Body(...),
+    title: Optional[str] = Body(None),
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
@@ -115,7 +153,8 @@ def add_organization_member(
     new_membership = Membership(
         user_id=user.id,
         organization_id=org_id, # type: ignore
-        role=role_enum
+        role=role_enum,
+        title=title
     )
     session.add(new_membership)
     session.commit()
@@ -127,7 +166,8 @@ def add_organization_member(
 def update_member_role(
     org_id: str,
     membership_id: str,
-    role: Role, # Changed to Role enum
+    role: Optional[Role] = None, # Make role optional so we can update title only
+    title: Optional[str] = None,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
@@ -150,8 +190,12 @@ def update_member_role(
     if not membership or str(membership.organization_id) != org_id:
         raise HTTPException(status_code=404, detail="Membership not found")
     
-    # Update role
-    membership.role = role
+    # Update role and title
+    if role is not None:
+        membership.role = role
+    if title is not None:
+        membership.title = title
+    
     session.add(membership)
     session.commit()
     

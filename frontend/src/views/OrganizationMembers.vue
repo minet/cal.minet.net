@@ -45,10 +45,18 @@
     <div class="bg-white shadow-sm rounded-lg p-6 mb-6">
       <h2 class="text-lg font-medium text-gray-900 mb-4">Ajouter un membre</h2>
       <div class="flex flex-col sm:flex-row gap-3">
-        <div class="flex-1">
+        <div class="flex-1 min-w-0">
           <UserSearchSelector
             placeholder="Rechercher un utilisateur par nom ou email..."
             @select="onUserSelect"
+          />
+        </div>
+        <div class="w-full sm:w-48">
+          <input 
+            v-model="newMemberTitle" 
+            type="text" 
+            placeholder="Poste (ex: Président)" 
+            class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
           />
         </div>
         <Dropdown
@@ -76,9 +84,22 @@
       </div>
 
       <ul v-else class="divide-y divide-gray-200">
-        <li v-for="member in members" :key="member.id" class="p-6">
+        <li 
+          v-for="(member, index) in members" 
+          :key="member.id" 
+          class="p-4 sm:p-6 transition-colors"
+          :class="{'bg-gray-50 ring-2 ring-indigo-500 ring-inset': dragIndex === index}"
+          draggable="true"
+          @dragstart="onDragStart(index, $event)"
+          @dragover.prevent
+          @drop="onDrop(index)"
+          @dragend="dragIndex = null"
+        >
           <div class="flex flex-col sm:flex-row sm:items-center justify-between">
             <div class="flex items-center space-x-3">
+              <div class="cursor-grab hover:text-indigo-600 text-gray-400 touch-none flex-shrink-0" title="Maintenir pour réorganiser">
+                <Bars3Icon class="h-5 w-5" />
+              </div>
               <div class="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
                 <img v-if="member.profile_picture_url" :src="member.profile_picture_url" :alt="getFullName(member)" class="h-full w-full object-cover" />
                 <span v-else class="text-gray-600 font-medium text-sm">
@@ -93,7 +114,14 @@
               </div>
             </div>
 
-            <div class="mt-2 sm:mt-0 flex items-center space-x-3 w-full sm:w-auto">
+            <div class="mt-2 sm:mt-0 flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
+              <input 
+                :value="member.title"
+                @change="updateMemberTitle(member, $event.target.value)"
+                type="text" 
+                placeholder="Poste" 
+                class="block w-full sm:w-32 rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+              />
               <Dropdown
                 :model-value="member.role"
                 @update:model-value="updateMemberRole(member, $event)"
@@ -123,7 +151,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
-import { TrashIcon } from '@heroicons/vue/24/outline'
+import { TrashIcon, Bars3Icon } from '@heroicons/vue/24/outline'
 import UserSearchSelector from '../components/UserSearchSelector.vue'
 import Dropdown from '../components/Dropdown.vue'
 import api from '../utils/api'
@@ -134,11 +162,44 @@ const organization = ref(null)
 const members = ref([])
 const selectedUser = ref(null)
 const newMemberRole = ref('org_member')
+const newMemberTitle = ref('')
 const loading = ref(false)
 const loadingMembers = ref(false)
 const error = ref('')
 
 const currentUserId = computed(() => user.value?.id)
+
+const dragIndex = ref(null)
+
+const onDragStart = (index, event) => {
+  dragIndex.value = index
+  event.dataTransfer.effectAllowed = 'move'
+}
+
+const onDrop = async (dropIndex) => {
+  if (dragIndex.value === null || dragIndex.value === dropIndex) return
+  
+  const originalMembers = [...members.value]
+  const draggedItem = members.value.splice(dragIndex.value, 1)[0]
+  members.value.splice(dropIndex, 0, draggedItem)
+  dragIndex.value = null
+  
+  await saveOrder(originalMembers)
+}
+
+const saveOrder = async (originalMembers) => {
+  try {
+    const membershipIds = members.value.map(m => m.id)
+    await api.post(`/organizations/${route.params.id}/members/reorder`, {
+      membership_ids: membershipIds
+    })
+  } catch (err) {
+    console.error('Failed to save order:', err)
+    error.value = err.response?.data?.detail || 'Impossible de sauvegarder le nouvel ordre'
+    members.value = originalMembers // Revert on failure
+    await loadMembers()
+  }
+}
 
 const getFullName = (member) => {
   if (member.full_name) {
@@ -195,11 +256,13 @@ const addMember = async () => {
   try {
     await api.post(`/organizations/${route.params.id}/members`, {
       email: selectedUser.value.email,
-      role: newMemberRole.value
+      role: newMemberRole.value,
+      title: newMemberTitle.value || null
     })
     
     selectedUser.value = null
     newMemberRole.value = 'org_member'
+    newMemberTitle.value = ''
     await loadMembers()
   } catch (err) {
     console.error('Failed to add member:', err)
@@ -220,6 +283,20 @@ const updateMemberRole = async (member, newRole) => {
   } catch (err) {
     console.error('Failed to update role:', err)
     error.value = err.response?.data?.detail || 'Impossible de modifier le rôle'
+  }
+}
+
+const updateMemberTitle = async (member, newTitle) => {
+  try {
+    await api.put(
+      `/organizations/${route.params.id}/members/${member.id}`,
+      null,
+      { params: { title: newTitle || null } }
+    )
+    await loadMembers()
+  } catch (err) {
+    console.error('Failed to update title:', err)
+    error.value = err.response?.data?.detail || 'Impossible de modifier le poste'
   }
 }
 

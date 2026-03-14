@@ -92,6 +92,8 @@ class Membership(SQLModel, table=True):
     user_id: UUID = Field(foreign_key="user.id")
     organization_id: UUID = Field(foreign_key="organization.id")
     role: Role = Field(default=Role.ORG_VIEWER)
+    title: Optional[str] = Field(default=None)
+    order: int = Field(default=0)
 
     user: User = Relationship(back_populates="memberships")
     organization: Organization = Relationship(back_populates="members")

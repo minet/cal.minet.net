@@ -182,21 +182,25 @@
       </div>
       
       <ul v-else class="divide-y divide-gray-200">
-        <li v-for="member in members" :key="member.user_id" class="py-4 flex items-center justify-between">
-          <router-link :to="`/users/${member.user_id}`" class="flex items-center space-x-3 hover:bg-gray-50 p-2 rounded-lg transition-colors text-left w-full sm:w-auto">
+        <li v-for="member in members" :key="member.user_id" class="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+          <router-link :to="`/users/${member.user_id}`" class="flex items-start space-x-3 hover:bg-gray-50 p-2 rounded-lg transition-colors text-left flex-1 min-w-0">
             <UserAvatar 
               :src="member.profile_picture_url" 
               :name="member.full_name || member.email" 
               size="md" 
+              class="shrink-0 mt-0.5"
             />
-            <div>
-              <p class="text-sm font-medium text-gray-900">{{ member.full_name || member.email }}</p>
-              <p class="text-xs text-gray-500">{{ member.email }}</p>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-medium text-gray-900 break-words">{{ member.full_name || member.email }}</p>
+              <p class="text-xs text-gray-500 truncate">{{ member.email }}</p>
+              <p v-if="member.title" class="text-sm text-indigo-600 mt-1 break-words font-medium">{{ member.title }}</p>
             </div>
           </router-link>
-          <span :class="getRoleBadgeClass(member.role)" class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ml-2">
-            {{ getRoleLabel(member.role) }}
-          </span>
+          <div class="flex items-center pl-14 sm:pl-0 shrink-0">
+            <span :class="getRoleBadgeClass(member.role)" class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset">
+              {{ getRoleLabel(member.role) }}
+            </span>
+          </div>
         </li>
       </ul>
     </div>

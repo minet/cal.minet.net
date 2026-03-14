@@ -48,6 +48,7 @@ class MembershipWithOrganization(BaseModel):
     user_id: str
     organization_id: str
     role: str
+    title: Optional[str] = None
     organization: Organization | None = None
 
     class Config:
@@ -91,6 +92,7 @@ async def get_user_memberships(
             user_id=str(membership.user_id),
             organization_id=str(membership.organization_id),
             role=membership.role.value,
+            title=membership.title,
             organization=org
         ))
     
@@ -151,6 +153,7 @@ async def get_other_user_memberships(
             user_id=str(membership.user_id),
             organization_id=str(membership.organization_id),
             role=membership.role.value,
+            title=membership.title,
             organization=org
         ))
     
