@@ -342,6 +342,28 @@ async def toggle_superadmin(
     
     return user
 
+@router.put("/{user_id}/exempt-ldap", response_model=UserRead)
+async def toggle_exempt_from_rgpd_delete(
+    user_id: str,
+    exempt: bool,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Toggle exempt from LDAP sync status (Superadmin only)"""
+    if not current_user.is_superadmin:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    user = session.get(User, UUID(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user.exempt_from_rgpd_delete = exempt
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    
+    return user
+
 @router.put("/{user_id}/active", response_model=UserRead)
 async def toggle_active(
     user_id: str,

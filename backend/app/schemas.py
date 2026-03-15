@@ -98,6 +98,7 @@ class UserRead(BaseModel):
     phone_number: Optional[str] = None
     facebook_link: Optional[str] = None
     is_superadmin: bool = False
+    exempt_from_rgpd_delete: bool = False
     is_active: bool = True
     notification_delay: int = 15
 

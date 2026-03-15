@@ -26,6 +26,21 @@
           </div>
         </div>
 
+        <!-- LDAP Exempt Toggle -->
+        <div class="bg-white p-4 rounded-md shadow-sm">
+          <h3 class="text-sm font-medium text-gray-900 mb-2">Utilisateur permanent</h3>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-500">Ne pas supprimer l'utilisateur du site web s'il n'est pas dans
+              l'annuaire</span>
+            <Switch :modelValue="profileUser.exempt_from_rgpd_delete" @update:modelValue="toggleLdapExempt"
+              :class="[profileUser.exempt_from_rgpd_delete ? 'bg-purple-600' : 'bg-gray-200', 'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-600 focus:ring-offset-2']">
+              <span class="sr-only">Toggle LDAP exempt</span>
+              <span aria-hidden="true"
+                :class="[profileUser.exempt_from_rgpd_delete ? 'translate-x-5' : 'translate-x-0', 'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out']" />
+            </Switch>
+          </div>
+        </div>
+
         <!-- Add Role -->
         <div class="bg-white p-4 rounded-md shadow-sm">
           <h3 class="text-sm font-medium text-gray-900 mb-2">Ajouter un rôle</h3>
@@ -363,6 +378,19 @@ const toggleSuperadmin = async (newValue) => {
     console.error('Failed to toggle superadmin:', error)
     // Revert on error
     profileUser.value.is_superadmin = !newValue
+  }
+}
+
+const toggleLdapExempt = async (newValue) => {
+  // Optimistic update
+  profileUser.value.exempt_from_rgpd_delete = newValue
+
+  try {
+    await api.put(`/users/${profileUser.value.id}/exempt-ldap?exempt=${newValue}`)
+  } catch (error) {
+    console.error('Failed to toggle LDAP exempt:', error)
+    // Revert on error
+    profileUser.value.exempt_from_rgpd_delete = !newValue
   }
 }
 

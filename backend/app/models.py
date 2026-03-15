@@ -49,6 +49,7 @@ class User(SQLModel, table=True):
     phone_number: Optional[str] = None
     is_active: bool = Field(default=True)
     is_superadmin: bool = Field(default=False)
+    exempt_from_rgpd_delete: bool = Field(default=False)
     notification_delay: int = Field(default=45) # Minutes before event
 
     memberships: List["Membership"] = Relationship(back_populates="user")

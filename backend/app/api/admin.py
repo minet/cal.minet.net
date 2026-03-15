@@ -12,6 +12,7 @@ from sqlmodel import Session, col, delete, select
 from app.api.auth import get_current_user
 from app.database import get_session
 from app.models import LDAPUser, User
+from app.schemas import UserRead
 
 router = APIRouter()
 
@@ -179,3 +180,31 @@ async def housekeeping(
             errors += 1
 
     return {"message": f"Housekeeping complete. Deleted {count} orgs. Errors: {errors}"}
+
+@router.get("/ldap/orphans", response_model=List[UserRead])
+async def get_ldap_orphaned_users(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Retrieve users absent from LDAP cache that are not exempt"""
+    from app.models import GHOST_USER_ID, LDAPUser
+    from sqlmodel import func
+
+    if not current_user.is_superadmin:
+        raise HTTPException(status_code=403, detail="Superadmin access required")
+
+    ldap_count = session.exec(select(func.count(col(LDAPUser.id)))).first()
+    if not ldap_count:
+        return []
+
+    subq = select(LDAPUser.email)
+    
+    orphans = session.exec(
+        select(User).where(
+            User.email.notin_(subq), # pyright: ignore
+            User.exempt_from_rgpd_delete == False,
+            User.id != GHOST_USER_ID
+        )
+    ).all()
+    
+    return [u for u in orphans]
