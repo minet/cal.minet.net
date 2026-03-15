@@ -39,11 +39,12 @@ async def sync_ldap_users(
     ldap_host = os.getenv("LDAP_HOST", "ldapha.imtbs-tsp.eu")
     ldap_port = int(os.getenv("LDAP_PORT", "636"))
     base_dn = os.getenv("LDAP_BASE_DN", "ou=active,dc=int-evry,dc=fr")
+    bind_dn = os.getenv("LDAP_BIND_DN", "")
     ignore_certs = os.getenv("LDAP_IGNORE_CERTS", "true").lower() in ("true", "1", "yes", "y")
     ldap_filter = os.getenv("LDAP_FILTER", "(&(objectClass=person)(mail=*))")
     
     # Construct User DN
-    user_dn = f"uid={creds.username},{base_dn}"
+    user_dn = f"uid={creds.username},{bind_dn}"
     
     try:
         if ignore_certs:
