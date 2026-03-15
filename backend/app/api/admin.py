@@ -40,6 +40,7 @@ async def sync_ldap_users(
     ldap_port = int(os.getenv("LDAP_PORT", "636"))
     base_dn = os.getenv("LDAP_BASE_DN", "ou=active,dc=int-evry,dc=fr")
     ignore_certs = os.getenv("LDAP_IGNORE_CERTS", "true").lower() in ("true", "1", "yes", "y")
+    ldap_filter = os.getenv("LDAP_FILTER", "(&(objectClass=person)(mail=*))")
     
     # Construct User DN
     user_dn = f"uid={creds.username},{base_dn}"
@@ -64,7 +65,7 @@ async def sync_ldap_users(
         # Search for valid users (usually have mail)
         conn.search(
             search_base=base_dn,
-            search_filter='(&(objectClass=person)(mail=*))',
+            search_filter=ldap_filter,
             search_scope=SUBTREE,
             attributes=['mail', 'cn', 'displayName', 'uid', 'givenName', 'sn']
         )
@@ -197,11 +198,11 @@ async def get_ldap_orphaned_users(
     if not ldap_count:
         return []
 
-    subq = select(LDAPUser.email)
+    subq_email = select(LDAPUser.email)
     
     orphans = session.exec(
         select(User).where(
-            User.email.notin_(subq), # pyright: ignore
+            User.email.notin_(subq_email), # pyright: ignore
             User.exempt_from_rgpd_delete == False,
             User.id != GHOST_USER_ID
         )
