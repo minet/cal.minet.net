@@ -56,7 +56,7 @@
             v-model="newMemberTitle" 
             type="text" 
             placeholder="Poste (ex: Président)" 
-            class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+            class="block w-full rounded-md border-0 px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
           />
         </div>
         <Dropdown
@@ -97,8 +97,28 @@
         >
           <div class="flex flex-col sm:flex-row sm:items-center justify-between">
             <div class="flex items-center space-x-3">
-              <div class="cursor-grab hover:text-indigo-600 text-gray-400 touch-none flex-shrink-0" title="Maintenir pour réorganiser">
+              <!-- Desktop Drag Handle -->
+              <div class="hidden sm:block cursor-grab hover:text-indigo-600 text-gray-400 touch-none flex-shrink-0" title="Maintenir pour réorganiser">
                 <Bars3Icon class="h-5 w-5" />
+              </div>
+              <!-- Mobile Up/Down Arrows -->
+              <div class="flex flex-col sm:hidden flex-shrink-0 mr-2 -ml-2">
+                 <button 
+                  @click.stop="moveMember(index, -1)" 
+                  :disabled="index === 0"
+                  class="p-1 text-gray-400 hover:text-indigo-600 disabled:opacity-30 disabled:hover:text-gray-400"
+                  title="Monter"
+                 >
+                    <ChevronUpIcon class="h-5 w-5" />
+                 </button>
+                 <button 
+                  @click.stop="moveMember(index, 1)" 
+                  :disabled="index === members.length - 1"
+                  class="p-1 text-gray-400 hover:text-indigo-600 disabled:opacity-30 disabled:hover:text-gray-400"
+                  title="Descendre"
+                 >
+                    <ChevronDownIcon class="h-5 w-5" />
+                 </button>
               </div>
               <div class="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
                 <img v-if="member.profile_picture_url" :src="member.profile_picture_url" :alt="getFullName(member)" class="h-full w-full object-cover" />
@@ -120,7 +140,7 @@
                 @change="updateMemberTitle(member, $event.target.value)"
                 type="text" 
                 placeholder="Poste" 
-                class="block w-full sm:w-32 rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                class="block w-full sm:w-32 rounded-md border-0 px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
               />
               <Dropdown
                 :model-value="member.role"
@@ -151,7 +171,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
-import { TrashIcon, Bars3Icon } from '@heroicons/vue/24/outline'
+import { TrashIcon, Bars3Icon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/vue/24/outline'
 import UserSearchSelector from '../components/UserSearchSelector.vue'
 import Dropdown from '../components/Dropdown.vue'
 import api from '../utils/api'
@@ -183,6 +203,20 @@ const onDrop = async (dropIndex) => {
   const draggedItem = members.value.splice(dragIndex.value, 1)[0]
   members.value.splice(dropIndex, 0, draggedItem)
   dragIndex.value = null
+  
+  await saveOrder(originalMembers)
+}
+
+const moveMember = async (index, direction) => {
+  if (index + direction < 0 || index + direction >= members.value.length) return
+  
+  const originalMembers = [...members.value]
+  const newIndex = index + direction
+  
+  // Swap elements
+  const temp = members.value[index]
+  members.value[index] = members.value[newIndex]
+  members.value[newIndex] = temp
   
   await saveOrder(originalMembers)
 }
