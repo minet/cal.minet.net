@@ -205,6 +205,7 @@ def get_group_members(
                 "user_id": str(user.id),
                 "email": user.email,
                 "full_name": user.full_name,
+                "profile_picture_url": user.profile_picture_url,
                 "joined_at": membership.joined_at.isoformat()
             })
     

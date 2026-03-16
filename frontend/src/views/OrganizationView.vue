@@ -182,28 +182,28 @@
         <p class="text-sm text-gray-500">Aucun membre</p>
       </div>
       
-      <ul v-else class="divide-y divide-gray-200">
-        <li v-for="member in members" :key="member.user_id" class="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
-          <router-link :to="`/users/${member.user_id}`" class="flex items-start space-x-3 hover:bg-gray-50 p-2 rounded-lg transition-colors text-left flex-1 min-w-0">
-            <UserAvatar 
-              :src="member.profile_picture_url" 
-              :name="member.full_name || member.email" 
-              size="md" 
-              class="shrink-0 mt-0.5"
-            />
-            <div class="min-w-0 flex-1">
-              <p class="text-sm font-medium text-gray-900 break-words">{{ member.full_name || member.email }}</p>
-              <p class="text-xs text-gray-500 truncate">{{ member.email }}</p>
-              <p v-if="member.title" class="text-sm text-indigo-600 mt-1 break-words font-medium">{{ member.title }}</p>
-            </div>
-          </router-link>
-          <div class="flex items-center pl-14 sm:pl-0 shrink-0">
-            <span :class="getRoleBadgeClass(member.role)" class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset">
-              {{ getRoleLabel(member.role) }}
-            </span>
-          </div>
-        </li>
-      </ul>
+      <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <router-link 
+          v-for="member in members" 
+          :key="member.user_id"
+          :to="`/users/${member.user_id}`" 
+          class="flex flex-col items-center p-4 rounded-xl border transition-all text-center group bg-white"
+          :class="[
+            ['org_admin', 'superadmin'].includes(member.role) ? 'border-gray-100 shadow-md shadow-blue-500/40 hover:shadow-lg hover:shadow-blue-500/60' : 
+            member.role === 'org_member' ? 'border-gray-100 shadow-md shadow-green-500/40 hover:shadow-lg hover:shadow-green-500/60' : 
+            'border-gray-100 hover:border-indigo-100 hover:shadow-md'
+          ]"
+        >
+          <UserAvatar 
+            :src="member.profile_picture_url" 
+            :name="member.full_name || member.email" 
+            size="xl" 
+            class="mb-3 shadow-sm group-hover:scale-105 transition-transform duration-300"
+          />
+          <p class="text-sm font-medium text-gray-900 line-clamp-2 w-full">{{ member.full_name || member.email }}</p>
+          <p v-if="member.title" class="text-xs text-indigo-600 mt-1 line-clamp-2 w-full">{{ member.title }}</p>
+        </router-link>
+      </div>
     </div>
 
     <!-- Future Events -->
@@ -218,22 +218,13 @@
         <p class="text-sm text-gray-500">Aucun événement à venir</p>
       </div>
       
-      <ul v-else class="divide-y divide-gray-200">
-        <li v-for="event in events" :key="event.id" class="py-4">
-          <router-link :to="`/events/${event.id}`" class="block hover:bg-gray-50 -mx-6 px-6 py-3 transition-colors">
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="text-sm font-medium text-gray-900">{{ event.title }}</p>
-                <p class="text-xs text-gray-500 mt-1">
-                  {{ formatDate(event.start_time) }}
-                  <span v-if="event.location"> • {{ event.location }}</span>
-                </p>
-              </div>
-              <ChevronRightIcon class="h-5 w-5 text-gray-400" />
-            </div>
-          </router-link>
-        </li>
-      </ul>
+      <div v-else class="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,18rem)] gap-6 justify-start mt-4">
+        <EventCard
+            v-for="event in events"
+            :key="event.id"
+            :event="event"
+        />
+      </div>
     </div>
     <!-- Hidden Share Button for Tags -->
     <ShareButton 
@@ -255,6 +246,7 @@ import ShareButton from '../components/ShareButton.vue'
 import ActionPanel from '../components/ActionPanel.vue'
 import ActionPanelButton from '../components/ActionPanelButton.vue'
 import UserAvatar from '../components/UserAvatar.vue'
+import EventCard from '../components/EventCard.vue'
 
 import TagBadge from '../components/TagBadge.vue'
 import api from '../utils/api'

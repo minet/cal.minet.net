@@ -62,6 +62,7 @@ def get_organization_members(org_id: str, session: Session = Depends(get_session
                 "user_id": str(user.id),
                 "email": user.email,
                 "full_name": user.full_name,
+                "profile_picture_url": user.profile_picture_url,
                 "role": membership.role,
                 "title": membership.title,
                 "order": membership.order
