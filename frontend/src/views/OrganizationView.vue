@@ -5,131 +5,86 @@
 
   <div v-else-if="organization">
     <!-- Header -->
-    <header 
-      class="shadow-sm rounded-lg mb-6 overflow-hidden transition-colors"
-      :style="{ 
-        backgroundColor: organization.color_secondary || '#f3f4f6',
-        borderTop: `4px solid ${organization.color_primary || '#4f46e5'}`
-      }"
-    >
+    <header class="shadow-sm rounded-lg mb-6 overflow-hidden transition-colors" :style="{
+      backgroundColor: organization.color_secondary || '#f3f4f6',
+      borderTop: `4px solid ${organization.color_primary || '#4f46e5'}`
+    }">
       <div class="px-4 py-6 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between">
           <div class="flex items-center space-x-4">
-            <div 
-              class="h-16 w-16 rounded-xl flex items-center justify-center overflow-hidden transition-colors"
+            <div class="h-16 w-16 rounded-xl flex items-center justify-center overflow-hidden transition-colors"
               :style="{ backgroundColor: organization.color_secondary || '#f3f4f6' }"
-              :class="{ 'bg-indigo-100': !organization.color_secondary }"
-            >
-              <img v-if="organization.logo_url" :src="organization.logo_url" :alt="organization.name" class="h-full w-full object-cover" />
-              <span 
-                v-else 
-                class="text-2xl font-semibold"
-                :style="{ color: organization.color_primary || '#4f46e5' }"
-                :class="{ 'text-indigo-600': !organization.color_primary }"
-              >{{ organization.name.charAt(0) }}</span>
+              :class="{ 'bg-indigo-100': !organization.color_secondary }">
+              <img v-if="organization.logo_url" :src="organization.logo_url" :alt="organization.name"
+                class="h-full w-full object-cover" />
+              <span v-else class="text-2xl font-semibold" :style="{ color: organization.color_primary || '#4f46e5' }"
+                :class="{ 'text-indigo-600': !organization.color_primary }">{{ organization.name.charAt(0) }}</span>
             </div>
             <div>
               <h1 class="text-3xl font-bold tracking-tight text-gray-900">{{ organization.name }}</h1>
               <p class="text-sm text-gray-500">{{ organization.type }}</p>
             </div>
           </div>
-          
+
 
         </div>
 
       </div>
     </header>
 
-    <ActionPanel 
-       title="Actions"
-       content-class="flex flex-col lg:flex-row lg:flex-wrap lg:gap-3 lg:space-y-0"
-    >
-         <ShareButton 
-            v-if="isMember || (user && user.is_superadmin)"
-            :item-id="organization.id" 
-            item-type="organization" 
-            :block="true"
-            variant="indigo"
-            class="lg:w-auto"
-            :organization="organization"
-         />
-         
-         <SubscribeButton 
-            v-if="!isMember" 
-            :organization-id="organization.id" 
-            class="w-full lg:w-auto" 
-         />
-         
-         <ActionPanelButton 
-            v-if="canEdit"
-            :to="`/organizations/${organization.id}/tags`"
-            :icon="TagIcon"
-            variant="purple"
-            class="w-full lg:w-auto"
-          >
-            Tags
-          </ActionPanelButton>
-          
-          <ActionPanelButton 
-            v-if="canEdit"
-            :to="`/organizations/${organization.id}/groups`"
-            :icon="UsersIcon"
-            variant="emerald"
-            class="w-full lg:w-auto"
-          >
-            Groupes
-          </ActionPanelButton>
-          
-          <ActionPanelButton 
-            v-if="canEdit"
-            :to="`/organizations/${organization.id}/members`"
-            :icon="UserGroupIcon"
-            variant="gray"
-            class="w-full lg:w-auto"
-          >
-            Membres
-          </ActionPanelButton>
-          
-          <ActionPanelButton 
-            v-if="canEdit"
-            :to="`/organizations/${organization.id}/edit`"
-            :icon="PencilIcon"
-            variant="sky"
-            class="w-full lg:w-auto"
-          >
-            Modifier
-          </ActionPanelButton>
+    <ActionPanel title="Actions" content-class="flex flex-col lg:flex-row lg:flex-wrap lg:gap-3 lg:space-y-0">
+      <ShareButton v-if="isMember || (user && user.is_superadmin)" :item-id="organization.id" item-type="organization"
+        :block="true" variant="indigo" class="lg:w-auto" :organization="organization" />
 
-          <template #footer>
-            <p v-if="!isMember" class="text-xs text-gray-500 mt-2 text-center" >
-              S'abonner ajoute les événements à votre <router-link to="/profile" class="text-indigo-600 hover:underline">calendrier</router-link>
-            </p>
-          </template>
+      <SubscribeButton v-if="!isMember" :organization-id="organization.id" class="w-full lg:w-auto" />
+
+      <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/tags`" :icon="TagIcon" variant="purple"
+        class="w-full lg:w-auto">
+        Tags
+      </ActionPanelButton>
+
+      <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/groups`" :icon="UsersIcon"
+        variant="emerald" class="w-full lg:w-auto">
+        Groupes
+      </ActionPanelButton>
+
+      <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/members`" :icon="UserGroupIcon"
+        variant="gray" class="w-full lg:w-auto">
+        Membres
+      </ActionPanelButton>
+
+      <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/edit`" :icon="PencilIcon" variant="sky"
+        class="w-full lg:w-auto">
+        Modifier
+      </ActionPanelButton>
+
+      <template #footer>
+        <p v-if="!isMember" class="text-xs text-gray-500 mt-2 text-center">
+          S'abonner ajoute les événements à votre <router-link to="/profile"
+            class="text-indigo-600 hover:underline">calendrier</router-link>
+        </p>
+      </template>
     </ActionPanel>
 
     <!-- Description -->
     <div v-if="organization.description" class="bg-white shadow-sm rounded-lg p-6 mb-6">
       <h2 class="text-lg font-medium text-gray-900 mb-3">Description</h2>
-      <p class="text-gray-700 whitespace-pre-wrap">{{ organization.description }}</p>
+      <OrgDescriptionRenderer :description="organization.description" :members="members"
+        :allowed-image-urls="orgImages.map(i => i.url)" />
     </div>
 
     <!-- Parent Organization -->
     <div v-if="parent" class="bg-white shadow-sm rounded-lg p-6 mb-6">
       <h2 class="text-lg font-medium text-gray-900 mb-3">Organisation parente</h2>
-        <router-link 
-        :to="`/organizations/${parent.id}`"
-        class="flex items-center space-x-3 hover:bg-gray-50 p-3 rounded-lg transition-colors"
-      >
-        <div 
-          class="h-10 w-10 rounded-full flex items-center justify-center transition-colors"
-          :style="{ backgroundColor: parent.color_secondary || '#f3f4f6' }"
-        >
-          <img v-if="parent.logo_url" :src="parent.logo_url" :alt="parent.name" class="h-full w-full object-cover rounded-full" />
-          <span 
-            v-else 
-            class="font-semibold"
-            :style="{ color: parent.color_primary || '#4f46e5' }"
-          >{{ parent.name.charAt(0) }}</span>
+      <router-link :to="`/organizations/${parent.id}`"
+        class="flex items-center space-x-3 hover:bg-gray-50 p-3 rounded-lg transition-colors">
+        <div class="h-10 w-10 rounded-full flex items-center justify-center transition-colors"
+          :style="{ backgroundColor: parent.color_secondary || '#f3f4f6' }">
+          <img v-if="parent.logo_url" :src="parent.logo_url" :alt="parent.name"
+            class="h-full w-full object-cover rounded-full" />
+          <span v-else class="font-semibold" :style="{ color: parent.color_primary || '#4f46e5' }">{{
+            parent.name.charAt(0)
+            }}</span>
         </div>
         <div>
           <p class="text-sm font-medium text-gray-900">{{ parent.name }}</p>
@@ -137,17 +92,19 @@
         </div>
       </router-link>
     </div>
-    
+
     <!-- Custom Links -->
-    <div v-if="organization.organization_links && organization.organization_links.length > 0" class="bg-white shadow-sm rounded-lg p-6 mb-6">
+    <div v-if="organization.organization_links && organization.organization_links.length > 0"
+      class="bg-white shadow-sm rounded-lg p-6 mb-6">
       <h2 class="text-lg font-medium text-gray-900 mb-3">Liens</h2>
       <ul class="space-y-2">
         <li v-for="link in organization.organization_links" :key="link.id">
-            <a :href="link.url" target="_blank" class="text-indigo-600 hover:text-indigo-800 flex items-center">
-                <img v-if="getSocialIcon(link.url)" :src="getSocialIcon(link.url)" class="h-4 w-4 mr-2 object-contain opacity-70 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-                <LinkIcon v-else class="h-4 w-4 mr-2 flex-shrink-0" />
-                {{ link.name }}
-            </a>
+          <a :href="link.url" target="_blank" class="text-indigo-600 hover:text-indigo-800 flex items-center">
+            <img v-if="getSocialIcon(link.url)" :src="getSocialIcon(link.url)"
+              class="h-4 w-4 mr-2 object-contain opacity-70 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+            <LinkIcon v-else class="h-4 w-4 mr-2 flex-shrink-0" />
+            {{ link.name }}
+          </a>
         </li>
       </ul>
     </div>
@@ -156,84 +113,49 @@
     <div v-if="tags.length > 0" class="bg-white shadow-sm rounded-lg p-6 mb-6">
       <h2 class="text-lg font-medium text-gray-900 mb-4">Tags</h2>
       <div class="flex flex-wrap gap-2">
-        <TagBadge 
-          v-for="tag in tags" 
-          :key="tag.id" 
-          :tag="tag" 
-          :organization="organization"
-          :subscribed="isSubscribedToTag(tag.id)"
-          :show-subscribe="true"
-          :show-share="isMember || (user && user.is_superadmin)"
-          @toggle-subscription="toggleTagSubscription"
-          @share="openTagShare"
-        />
+        <TagBadge v-for="tag in tags" :key="tag.id" :tag="tag" :organization="organization"
+          :subscribed="isSubscribedToTag(tag.id)" :show-subscribe="true"
+          :show-share="isMember || (user && user.is_superadmin)" @toggle-subscription="toggleTagSubscription"
+          @share="openTagShare" />
       </div>
     </div>
 
     <!-- Members -->
     <div class="bg-white shadow-sm rounded-lg p-6 mb-6">
       <h2 class="text-lg font-medium text-gray-900 mb-4">Membres</h2>
-      
+
       <div v-if="loadingMembers" class="text-center py-4">
         <p class="text-sm text-gray-500">Chargement...</p>
       </div>
-      
+
       <div v-else-if="members.length === 0" class="text-center py-8">
         <p class="text-sm text-gray-500">Aucun membre</p>
       </div>
-      
+
       <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        <router-link 
-          v-for="member in members" 
-          :key="member.user_id"
-          :to="`/users/${member.user_id}`" 
-          class="flex flex-col items-center p-4 rounded-xl border transition-all text-center group bg-white"
-          :class="[
-            ['org_admin', 'superadmin'].includes(member.role) ? 'border-gray-100 shadow-md shadow-blue-500/40 hover:shadow-lg hover:shadow-blue-500/60' : 
-            member.role === 'org_member' ? 'border-gray-100 shadow-md shadow-green-500/40 hover:shadow-lg hover:shadow-green-500/60' : 
-            'border-gray-100 hover:border-indigo-100 hover:shadow-md'
-          ]"
-        >
-          <UserAvatar 
-            :src="member.profile_picture_url" 
-            :name="member.full_name || member.email" 
-            size="xl" 
-            class="mb-3 shadow-sm group-hover:scale-105 transition-transform duration-300"
-          />
-          <p class="text-sm font-medium text-gray-900 line-clamp-2 w-full">{{ member.full_name || member.email }}</p>
-          <p v-if="member.title" class="text-xs text-indigo-600 mt-1 line-clamp-2 w-full">{{ member.title }}</p>
-        </router-link>
+        <MemberCard v-for="member in members" :key="member.user_id" :member="member" />
       </div>
     </div>
 
     <!-- Future Events -->
     <div class="bg-white shadow-sm rounded-lg p-6">
       <h2 class="text-lg font-medium text-gray-900 mb-4">Événements à venir</h2>
-      
+
       <div v-if="loadingEvents" class="text-center py-4">
         <p class="text-sm text-gray-500">Chargement...</p>
       </div>
-      
+
       <div v-else-if="events.length === 0" class="text-center py-8">
         <p class="text-sm text-gray-500">Aucun événement à venir</p>
       </div>
-      
+
       <div v-else class="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,18rem)] gap-6 justify-start mt-4">
-        <EventCard
-            v-for="event in events"
-            :key="event.id"
-            :event="event"
-        />
+        <EventCard v-for="event in events" :key="event.id" :event="event" />
       </div>
     </div>
     <!-- Hidden Share Button for Tags -->
-    <ShareButton 
-      v-if="activeShareTag" 
-      ref="tagShareButton" 
-      :item-id="activeShareTag.id" 
-      item-type="tag" 
-      class="hidden" 
-    />
+    <ShareButton v-if="activeShareTag" ref="tagShareButton" :item-id="activeShareTag.id" item-type="tag"
+      class="hidden" />
   </div>
 </template>
 
@@ -245,17 +167,19 @@ import SubscribeButton from '../components/SubscribeButton.vue'
 import ShareButton from '../components/ShareButton.vue'
 import ActionPanel from '../components/ActionPanel.vue'
 import ActionPanelButton from '../components/ActionPanelButton.vue'
+import MemberCard from '../components/MemberCard.vue'
 import UserAvatar from '../components/UserAvatar.vue'
 import EventCard from '../components/EventCard.vue'
+import OrgDescriptionRenderer from '../components/OrgDescriptionRenderer.vue'
 
 import TagBadge from '../components/TagBadge.vue'
 import api from '../utils/api'
 import { getSocialIcon } from '../utils/social'
-import { 
-  PencilIcon, 
-  ChevronRightIcon, 
-  UserGroupIcon, 
-  TagIcon, 
+import {
+  PencilIcon,
+  ChevronRightIcon,
+  UserGroupIcon,
+  TagIcon,
   UsersIcon,
   LinkIcon
 } from '@heroicons/vue/24/outline'
@@ -272,6 +196,7 @@ const canEdit = ref(false)
 const loading = ref(true)
 const loadingMembers = ref(false)
 const loadingEvents = ref(false)
+const orgImages = ref([])
 
 const activeShareTag = ref(null)
 const tagShareButton = ref(null)
@@ -323,7 +248,7 @@ const loadOrganization = async () => {
   try {
     const response = await api.get(`/organizations/${route.params.id}`)
     organization.value = response.data
-    
+
     // Load parent if exists
     if (organization.value.parent_id) {
       const parentResponse = await api.get(`/organizations/${organization.value.parent_id}`)
@@ -392,6 +317,15 @@ const checkCanEdit = async () => {
   }
 }
 
+const loadImages = async () => {
+  try {
+    const response = await api.get(`/organizations/${route.params.id}/images`)
+    orgImages.value = response.data
+  } catch {
+    // Silently ignore – user likely not a member
+  }
+}
+
 import { askPermissionAndSubscribe } from '../utils/push'
 
 const isSubscribedToTag = (tagId) => {
@@ -400,7 +334,7 @@ const isSubscribedToTag = (tagId) => {
 
 const toggleTagSubscription = async (tag) => {
   const subscription = subscriptions.value.find(sub => sub.tag?.id === tag.id)
-  
+
   try {
     if (subscription) {
       await api.delete(`/subscriptions/tags/${tag.id}`)
@@ -421,7 +355,10 @@ const toggleTagSubscription = async (tag) => {
 const loadAll = () => {
   loading.value = true
   loadOrganization()
-  loadMembers()
+  loadMembers().then(() => {
+    // images require membership – load after members to avoid 403 for non-members
+    loadImages()
+  })
   loadEvents()
   loadTags()
   loadSubscriptions()

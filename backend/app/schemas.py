@@ -44,6 +44,12 @@ class OrganizationLinkRead(BaseModel):
     url: str
     order: int
 
+class OrganizationImageRead(BaseModel):
+    id: UUID
+    url: str
+    filename: str
+    created_at: datetime
+    
 class EventLinkCreate(BaseModel):
     name: str
     url: str

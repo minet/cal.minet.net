@@ -60,6 +60,15 @@ class User(SQLModel, table=True):
         from app.schemas import UserPublicRead
         return UserPublicRead.from_model(self)
 
+class OrganizationImage(SQLModel, table=True):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(foreign_key="organization.id")
+    url: str
+    filename: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    organization: Optional["Organization"] = Relationship(back_populates="images")
+
 class Organization(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     name: str = Field(unique=True, index=True)
@@ -82,6 +91,7 @@ class Organization(SQLModel, table=True):
     tags: List["Tag"] = Relationship(back_populates="organization")
     subscribers: List["Subscription"] = Relationship(back_populates="organization")
     groups: List["Group"] = Relationship(back_populates="organization")
+    images: List["OrganizationImage"] = Relationship(back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
 
     organization_links: List["OrganizationLink"] = Relationship(back_populates="organization")

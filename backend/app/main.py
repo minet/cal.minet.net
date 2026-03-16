@@ -18,6 +18,7 @@ from app.api import (
     groups,
     ics,
     notifications,
+    organization_images,
     organization_links,
     organizations,
     short_links,
@@ -103,6 +104,7 @@ app.include_router(subscriptions.router, prefix="/subscriptions", tags=["subscri
 app.include_router(groups.router, tags=["groups"])
 app.include_router(tags.router, tags=["tags"])
 app.include_router(organization_links.router, tags=["organization-links"])
+app.include_router(organization_images.router, tags=["organization-images"])
 app.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 app.include_router(short_links.router, prefix="/short-links", tags=["short-links"])
 

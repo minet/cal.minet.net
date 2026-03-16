@@ -2,8 +2,9 @@ import os
 
 from sqlmodel import SQLModel, Session, create_engine
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/calendint")
-
+DATABASE_URL = os.getenv("DATABASE_URL")
+if DATABASE_URL is None:
+    raise ValueError("DATABASE_URL is not set, please set it in the environment variables.")
 engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
 
 def get_session():

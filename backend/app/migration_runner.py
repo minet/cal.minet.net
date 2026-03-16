@@ -43,7 +43,9 @@ def get_available_migrations():
 
 def dump_database(number):
     """Dump the database to a SQL file in the migration directory."""
-    db_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/calendint")
+    db_url = os.getenv("DATABASE_URL")
+    if db_url is None:
+        raise ValueError("DATABASE_URL is not set, please set it in the environment variables.")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     dump_file = STATE_DIR / f"dump_{number:03}_{timestamp}.sql"
     

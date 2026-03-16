@@ -1,11 +1,14 @@
 import os
 from sqlalchemy import create_engine, text
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/calendint")
-
+DATABASE_URL = os.getenv("DATABASE_URL")
+if DATABASE_URL is None: raise ValueError("DATABASE_URL is not set, please set it in the environment variables.")
 def run_migration():
     print(f"Connecting to {DATABASE_URL}...")
     try:
+        if DATABASE_URL is None:
+            raise ValueError("DATABASE_URL is not set, please set it in the environment variables.")
+
         engine = create_engine(DATABASE_URL)
         with engine.connect() as conn:
             conn.execution_options(isolation_level="AUTOCOMMIT")

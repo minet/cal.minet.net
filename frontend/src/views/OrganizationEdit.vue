@@ -18,176 +18,123 @@
                 <ImageUpload v-model="form.logo_url" label="Logo de l'organisation (optionnel)" crop />
               </div>
               <div class="sm:col-span-4">
-                <label for="name" class="block text-sm font-medium leading-6 text-gray-900">Nom de l'organisation</label>
+                <label for="name" class="block text-sm font-medium leading-6 text-gray-900">Nom de
+                  l'organisation</label>
                 <div class="mt-2">
-                  <input 
-                    type="text" 
-                    name="name" 
-                    id="name" 
-                    required
-                    v-model="form.name" 
-                    class="block w-full rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" 
-                    placeholder="MINE T" 
-                  />
+                  <input type="text" name="name" id="name" required v-model="form.name"
+                    class="block w-full rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                    placeholder="MINE T" />
                 </div>
               </div>
 
               <div class="col-span-full">
                 <label for="description" class="block text-sm font-medium leading-6 text-gray-900">Description</label>
                 <div class="mt-2">
-                  <textarea 
-                    id="description" 
-                    name="description" 
-                    rows="3" 
-                    v-model="form.description" 
-                    class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                  ></textarea>
+                  <OrgDescriptionEditor v-model="form.description" :organization-id="route.params.id" :members="members"
+                    @images-updated="orgImages = $event" />
                 </div>
               </div>
 
               <div class="sm:col-span-3">
-                <Dropdown
-                  v-model="form.type"
-                  label="Type"
-                  :options="[
-                    { value: 'association', label: 'Association' },
-                    { value: 'club', label: 'Club' },
-                    { value: 'liste', label: 'Liste' },
-                    { value: 'administration', label: 'Administration' },
-                    { value: 'gate', label: 'GATE' }
-                  ]"
-                />
+                <Dropdown v-model="form.type" label="Type" :options="[
+                  { value: 'association', label: 'Association' },
+                  { value: 'club', label: 'Club' },
+                  { value: 'liste', label: 'Liste' },
+                  { value: 'administration', label: 'Administration' },
+                  { value: 'gate', label: 'GATE' }
+                ]" />
               </div>
 
               <div class="col-span-full">
-                <Dropdown
-                  v-model="form.parent_id"
-                  label="Organisation parente (optionnel)"
-                  :options="[
-                    { value: null, label: 'Aucune' },
-                    ...parentOrganizations.map(org => ({ value: org.id, label: org.name }))
-                  ]"
-                  hint="Vous pouvez uniquement définir une organisation parente si vous en êtes admin"
-                />
+                <Dropdown v-model="form.parent_id" label="Organisation parente (optionnel)" :options="[
+                  { value: null, label: 'Aucune' },
+                  ...parentOrganizations.map(org => ({ value: org.id, label: org.name }))
+                ]" hint="Vous pouvez uniquement définir une organisation parente si vous en êtes admin" />
               </div>
 
               <div class="col-span-full border border-gray-200 rounded-md p-4 mt-6">
                 <div class="flex h-6 items-center flex-row">
-                  <input
-                    id="enableDeleteAfter"
-                    name="enableDeleteAfter"
-                    type="checkbox"
-                    v-model="enableDeleteAfter"
-                    class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
-                  />
+                  <input id="enableDeleteAfter" name="enableDeleteAfter" type="checkbox" v-model="enableDeleteAfter"
+                    class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" />
                   <div class="ml-3 text-sm leading-6">
                     <label for="enableDeleteAfter" class="font-medium text-gray-900">Suppression automatique</label>
-                    <p class="text-gray-500">Si activé, l'organisation sera supprimée automatiquement après la date indiquée.</p>
+                    <p class="text-gray-500">Si activé, l'organisation sera supprimée automatiquement après la date
+                      indiquée.</p>
                   </div>
                 </div>
 
                 <div v-if="enableDeleteAfter" class="mt-4">
-                    <label for="delete_after" class="block text-sm font-medium leading-6 text-gray-900">Date de suppression</label>
-                    <div class="mt-2 text-gray-600">
-                        <input
-                            type="datetime-local"
-                            id="delete_after"
-                            required
-                            v-model="form.delete_after"
-                            class="block rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                        />
-                    </div>
+                  <label for="delete_after" class="block text-sm font-medium leading-6 text-gray-900">Date de
+                    suppression</label>
+                  <div class="mt-2 text-gray-600">
+                    <input type="datetime-local" id="delete_after" required v-model="form.delete_after"
+                      class="block rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" />
+                  </div>
                 </div>
               </div>
 
               <div class="sm:col-span-4 grid grid-cols-1 gap-6">
                 <!-- Primary Color -->
                 <div class="col-span-1">
-                  <label for="color_primary" class="block text-sm font-medium leading-6 text-gray-900">Couleur Principale</label>
+                  <label for="color_primary" class="block text-sm font-medium leading-6 text-gray-900">Couleur
+                    Principale</label>
                   <div class="mt-2 flex items-center gap-x-3">
-                    <input 
-                      type="color" 
-                      id="color_primary" 
-                      name="color_primary" 
-                      v-model="form.color_primary"
-                      class="h-10 w-20 rounded border border-gray-300 p-1 cursor-pointer"
-                    />
-                    <input 
-                      type="text" 
-                      v-model="form.color_primary"
+                    <input type="color" id="color_primary" name="color_primary" v-model="form.color_primary"
+                      class="h-10 w-20 rounded border border-gray-300 p-1 cursor-pointer" />
+                    <input type="text" v-model="form.color_primary"
                       class="block flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                      placeholder="#000000"
-                    />
+                      placeholder="#000000" />
                   </div>
                 </div>
 
                 <!-- Secondary Color (Light) -->
                 <div class="col-span-1">
-                  <label for="color_secondary" class="block text-sm font-medium leading-6 text-gray-900">Couleur Claire</label>
+                  <label for="color_secondary" class="block text-sm font-medium leading-6 text-gray-900">Couleur
+                    Claire</label>
                   <div class="mt-2 flex items-center gap-x-3">
-                    <input 
-                      type="color" 
-                      id="color_secondary" 
-                      name="color_secondary" 
-                      v-model="form.color_secondary"
-                      class="h-10 w-20 rounded border border-gray-300 p-1 cursor-pointer"
-                    />
-                    <input 
-                      type="text" 
-                      v-model="form.color_secondary"
+                    <input type="color" id="color_secondary" name="color_secondary" v-model="form.color_secondary"
+                      class="h-10 w-20 rounded border border-gray-300 p-1 cursor-pointer" />
+                    <input type="text" v-model="form.color_secondary"
                       class="block flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                      placeholder="#ffffff"
-                    />
+                      placeholder="#ffffff" />
                   </div>
                 </div>
 
                 <!-- Dark Color -->
                 <div class="col-span-1">
-                  <label for="color_dark" class="block text-sm font-medium leading-6 text-gray-900">Couleur Sombre</label>
+                  <label for="color_dark" class="block text-sm font-medium leading-6 text-gray-900">Couleur
+                    Sombre</label>
                   <div class="mt-2 flex items-center gap-x-3">
-                    <input 
-                      type="color" 
-                      id="color_dark" 
-                      name="color_dark" 
-                      v-model="form.color_dark"
-                      class="h-10 w-20 rounded border border-gray-300 p-1 cursor-pointer"
-                    />
-                    <input 
-                      type="text" 
-                      v-model="form.color_dark"
+                    <input type="color" id="color_dark" name="color_dark" v-model="form.color_dark"
+                      class="h-10 w-20 rounded border border-gray-300 p-1 cursor-pointer" />
+                    <input type="text" v-model="form.color_dark"
                       class="block flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                      placeholder="#000000"
-                    />
+                      placeholder="#000000" />
                   </div>
                 </div>
               </div>
 
-              
+
               <div class="col-span-full">
                 <label class="block text-sm font-medium leading-6 text-gray-900 mb-2">Liens personnalisés</label>
                 <div class="space-y-3">
-                  <div v-for="(link, index) in links" :key="index" class="grid grid-cols-1 gap-3 sm:flex sm:items-center">
+                  <div v-for="(link, index) in links" :key="index"
+                    class="grid grid-cols-1 gap-3 sm:flex sm:items-center">
                     <div class="hidden sm:block flex-none cursor-move text-gray-400">
                       <span class="text-xs">{{ index + 1 }}.</span>
                     </div>
-                    <input 
-                      v-model="link.name" 
-                      type="text" 
-                      placeholder="Nom (ex: Site web)" 
-                      class="block w-full sm:w-1/3 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                    />
-                    <input 
-                      v-model="link.url" 
-                      type="url" 
-                      placeholder="URL (https://...)" 
-                      class="block w-full sm:flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                    />
-                    <button type="button" @click="removeLink(index)" class="inline-flex items-center justify-center p-2 text-sm text-red-600 hover:text-red-800 sm:w-auto border border-red-200 rounded sm:border-0">
+                    <input v-model="link.name" type="text" placeholder="Nom (ex: Site web)"
+                      class="block w-full sm:w-1/3 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" />
+                    <input v-model="link.url" type="url" placeholder="URL (https://...)"
+                      class="block w-full sm:flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" />
+                    <button type="button" @click="removeLink(index)"
+                      class="inline-flex items-center justify-center p-2 text-sm text-red-600 hover:text-red-800 sm:w-auto border border-red-200 rounded sm:border-0">
                       <TrashIcon class="h-5 w-5" />
                       <span class="ml-2 sm:hidden">Supprimer</span>
                     </button>
                   </div>
-                  <button type="button" @click="addLink" class="text-sm text-indigo-600 hover:text-indigo-800 font-semibold flex items-center">
+                  <button type="button" @click="addLink"
+                    class="text-sm text-indigo-600 hover:text-indigo-800 font-semibold flex items-center">
                     <PlusIcon class="h-4 w-4 mr-1" /> Ajouter un lien
                   </button>
                 </div>
@@ -198,27 +145,19 @@
 
         <div class="mt-6 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-y-6 sm:gap-y-0">
           <!-- Delete Button -->
-          <button 
-            type="button" 
-            @click="showDeleteModal1 = true"
-            class="w-full sm:w-auto flex justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
-          >
+          <button type="button" @click="showDeleteModal1 = true"
+            class="w-full sm:w-auto flex justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">
             Supprimer l'organisation
           </button>
 
           <div class="flex flex-col-reverse sm:flex-row items-center gap-x-6 gap-y-3 sm:gap-y-0 w-full sm:w-auto">
-            <router-link 
-            :to="`/organizations/${organization.id}`"
-            class="w-full text-center sm:w-auto text-sm font-semibold leading-6 text-gray-900"
-            >
-            Annuler
+            <router-link :to="`/organizations/${organization.id}`"
+              class="w-full text-center sm:w-auto text-sm font-semibold leading-6 text-gray-900">
+              Annuler
             </router-link>
-            <button 
-                type="submit" 
-                :disabled="loading"
-                class="w-full sm:w-auto rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50"
-            >
-                {{ loading ? 'Enregistrement...' : 'Enregistrer' }}
+            <button type="submit" :disabled="loading"
+              class="w-full sm:w-auto rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50">
+              {{ loading ? 'Enregistrement...' : 'Enregistrer' }}
             </button>
           </div>
         </div>
@@ -229,21 +168,29 @@
       <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
       <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
         <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-          <div class="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
+          <div
+            class="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
             <div class="sm:flex sm:items-start">
-              <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+              <div
+                class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
                 <ExclamationTriangleIcon class="h-6 w-6 text-red-600" aria-hidden="true" />
               </div>
               <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
-                <h3 class="text-base font-semibold leading-6 text-gray-900" id="modal-title">Supprimer l'organisation ?</h3>
+                <h3 class="text-base font-semibold leading-6 text-gray-900" id="modal-title">Supprimer l'organisation ?
+                </h3>
                 <div class="mt-2">
-                  <p class="text-sm text-gray-500">Êtes-vous sûr de vouloir supprimer cette organisation ? Cette action supprimera également tous les événements, membres, tags et abonnements associés.</p>
+                  <p class="text-sm text-gray-500">Êtes-vous sûr de vouloir supprimer cette organisation ? Cette action
+                    supprimera également tous les événements, membres, tags et abonnements associés.</p>
                 </div>
               </div>
             </div>
             <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
-              <button type="button" class="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto" @click="showDeleteModal1 = false; showDeleteModal2 = true">Continuer</button>
-              <button type="button" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto" @click="showDeleteModal1 = false">Annuler</button>
+              <button type="button"
+                class="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto"
+                @click="showDeleteModal1 = false; showDeleteModal2 = true">Continuer</button>
+              <button type="button"
+                class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+                @click="showDeleteModal1 = false">Annuler</button>
             </div>
           </div>
         </div>
@@ -255,23 +202,31 @@
       <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
       <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
         <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-          <div class="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
+          <div
+            class="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
             <div class="sm:flex sm:items-start">
-              <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+              <div
+                class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
                 <ExclamationTriangleIcon class="h-6 w-6 text-red-600" aria-hidden="true" />
               </div>
               <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
-                <h3 class="text-base font-semibold leading-6 text-gray-900" id="modal-title">Confirmation définitive</h3>
+                <h3 class="text-base font-semibold leading-6 text-gray-900" id="modal-title">Confirmation définitive
+                </h3>
                 <div class="mt-2">
-                  <p class="text-sm text-gray-500">Cette action est <strong>IRRÉVERSIBLE</strong>. Toutes les données seront définitivement effacées. Confirmez-vous la suppression ?</p>
+                  <p class="text-sm text-gray-500">Cette action est <strong>IRRÉVERSIBLE</strong>. Toutes les données
+                    seront définitivement effacées. Confirmez-vous la suppression ?</p>
                 </div>
               </div>
             </div>
             <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
-              <button type="button" :disabled="isDeleting" class="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto disabled:opacity-50" @click="deleteOrg">
+              <button type="button" :disabled="isDeleting"
+                class="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto disabled:opacity-50"
+                @click="deleteOrg">
                 {{ isDeleting ? 'Suppression...' : 'Supprimer définitivement' }}
               </button>
-              <button type="button" :disabled="isDeleting" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto" @click="showDeleteModal2 = false">Annuler</button>
+              <button type="button" :disabled="isDeleting"
+                class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+                @click="showDeleteModal2 = false">Annuler</button>
             </div>
           </div>
         </div>
@@ -286,6 +241,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import ImageUpload from '../components/ImageUpload.vue'
 import Dropdown from '../components/Dropdown.vue'
+import OrgDescriptionEditor from '../components/OrgDescriptionEditor.vue'
 import api from '../utils/api'
 import { getSaturation, generateColorVariant } from '../utils/colorUtils'
 import { TrashIcon, PlusIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
@@ -312,6 +268,8 @@ const error = ref('')
 const loading = ref(false)
 const links = ref([])
 const deletedLinkIds = ref([])
+const members = ref([])
+const orgImages = ref([])
 
 const showDeleteModal1 = ref(false)
 const showDeleteModal2 = ref(false)
@@ -351,7 +309,7 @@ const loadParentOrganizations = async () => {
       .filter(m => m.role === 'org_admin')
       .map(m => m.organization)
       .filter(org => org !== null && org.id !== route.params.id) // Exclude current org
-    
+
     // If user is superadmin, load all organizations
     if (user.value?.is_superadmin) {
       const allOrgsResponse = await api.get('/organizations/')
@@ -366,7 +324,7 @@ const loadOrganization = async () => {
   try {
     const response = await api.get(`/organizations/${route.params.id}`)
     organization.value = response.data
-    
+
     // Pre-fill form
     form.name = organization.value.name
     form.slug = organization.value.slug
@@ -376,18 +334,22 @@ const loadOrganization = async () => {
     form.parent_id = organization.value.parent_id
     form.delete_after = organization.value.delete_after ? organization.value.delete_after.substring(0, 16) : null
     enableDeleteAfter.value = !!form.delete_after
-    
+
     // Set color from saved values or default
     form.color_primary = organization.value.color_primary || '#000000'
     form.color_secondary = organization.value.color_secondary || '#ffffff'
     form.color_dark = organization.value.color_dark || '#000000'
-    
+
     // Load links
     if (organization.value.organization_links) {
-        links.value = organization.value.organization_links.map(l => ({...l}))
+      links.value = organization.value.organization_links.map(l => ({ ...l }))
     } else {
-        links.value = []
+      links.value = []
     }
+
+    // Load members for description editor
+    const membersRes = await api.get(`/organizations/${route.params.id}/members`)
+    members.value = membersRes.data
 
     // Check permissions
     const permResponse = await api.get(`/organizations/${route.params.id}/can-edit`)
@@ -403,15 +365,15 @@ const loadOrganization = async () => {
 const updateOrg = async () => {
   loading.value = true
   error.value = ''
-  
+
   try {
     // Generate slug from name if changed
     if (!form.slug || form.slug !== organization.value.slug) {
       form.slug = form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
     }
-    
+
     const payload = {
-        ...form
+      ...form
     }
 
     if (!enableDeleteAfter.value) {
@@ -421,23 +383,23 @@ const updateOrg = async () => {
     }
 
     await api.put(`/organizations/${route.params.id}`, payload)
-    
+
     // Handle links
     // 1. Delete removed links
     for (const id of deletedLinkIds.value) {
-        await api.delete(`/organization-links/${id}`)
+      await api.delete(`/organization-links/${id}`)
     }
-    
+
     // 2. Add/Update links
     for (const [index, link] of links.value.entries()) {
-        const linkData = { ...link, order: index + 1 }
-        if (link.id) {
-            await api.put(`/organization-links/${link.id}`, linkData)
-        } else {
-            if (link.name && link.url) {
-                await api.post(`/organizations/${route.params.id}/links`, linkData)
-            }
+      const linkData = { ...link, order: index + 1 }
+      if (link.id) {
+        await api.put(`/organization-links/${link.id}`, linkData)
+      } else {
+        if (link.name && link.url) {
+          await api.post(`/organizations/${route.params.id}/links`, linkData)
         }
+      }
     }
 
     router.push(`/organizations/${route.params.id}`)
@@ -450,18 +412,18 @@ const updateOrg = async () => {
 }
 
 const deleteOrg = async () => {
-    isDeleting.value = true
-    error.value = ''
-    try {
-        await api.delete(`/organizations/${route.params.id}`)
-        router.push('/')
-    } catch (err) {
-        console.error('Failed to delete organization:', err)
-        error.value = err.response?.data?.detail || 'Échec de la suppression de l\'organisation'
-    } finally {
-        isDeleting.value = false
-        showDeleteModal2.value = false
-    }
+  isDeleting.value = true
+  error.value = ''
+  try {
+    await api.delete(`/organizations/${route.params.id}`)
+    router.push('/')
+  } catch (err) {
+    console.error('Failed to delete organization:', err)
+    error.value = err.response?.data?.detail || 'Échec de la suppression de l\'organisation'
+  } finally {
+    isDeleting.value = false
+    showDeleteModal2.value = false
+  }
 }
 
 onMounted(() => {
