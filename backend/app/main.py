@@ -84,7 +84,7 @@ async def lifespan(app: FastAPI):
 
     task.cancel()
 
-app = FastAPI(title="Calend'INT API", lifespan=lifespan)
+app = FastAPI(title="Calend'INT API", lifespan=lifespan, root_path="/api")
 
 # Add SessionMiddleware for OIDC
 app.add_middleware(
