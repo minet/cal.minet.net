@@ -141,17 +141,17 @@
                 </dd>
               </div>
 
-              <div v-if="profileUser.facebook_link">
-                <dt class="text-sm font-medium text-gray-500">Facebook</dt>
-                <dd class="mt-1 text-sm text-gray-900 flex items-center">
-                  <img v-if="getSocialIcon(profileUser.facebook_link)" :src="getSocialIcon(profileUser.facebook_link)"
-                    class="h-4 w-4 mr-2 object-contain flex-shrink-0" />
-                  <svg v-else class="h-4 w-4 mr-2 text-blue-600 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                    <path
-                      d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.791-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                  </svg>
-                  <a :href="profileUser.facebook_link" target="_blank" class="text-indigo-600 hover:underline">Voir le
-                    profil</a>
+              <!-- Links (read-only) -->
+              <div v-if="profileUser.links && profileUser.links.length > 0" class="sm:col-span-2">
+                <dt class="text-sm font-medium text-gray-500 mb-1">Liens</dt>
+                <dd class="mt-1 flex flex-wrap gap-3">
+                  <a v-for="link in profileUser.links" :key="link.id" :href="link.url" target="_blank"
+                    class="flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 hover:underline">
+                    <img v-if="getSocialIcon(link.url)" :src="getSocialIcon(link.url)"
+                      class="h-4 w-4 object-contain flex-shrink-0" />
+                    <LinkIcon v-else class="h-4 w-4 flex-shrink-0" />
+                    {{ link.name }}
+                  </a>
                 </dd>
               </div>
             </template>
@@ -163,9 +163,24 @@
                   placeholder="+33 6 12 34 56 78" />
               </div>
 
-              <div>
-                <TextInput v-model="editForm.facebook_link" label="Lien Facebook" type="url"
-                  placeholder="https://facebook.com/..." />
+              <!-- Links editor -->
+              <div class="sm:col-span-2">
+                <dt class="text-sm font-medium text-gray-500 mb-2">Liens</dt>
+                <div class="space-y-2">
+                  <div v-for="(link, idx) in editLinks" :key="link.id || idx" class="flex items-center gap-2">
+                    <input v-model="link.name" type="text" placeholder="Nom (ex: Facebook)"
+                      class="block w-1/3 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm" />
+                    <input v-model="link.url" type="url" placeholder="URL (https://...)"
+                      class="block flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm" />
+                    <button type="button" @click="removeEditLink(idx)" class="p-1.5 text-red-500 hover:text-red-700">
+                      <XMarkIcon class="h-4 w-4" />
+                    </button>
+                  </div>
+                  <button type="button" @click="addEditLink"
+                    class="text-sm text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1">
+                    <PlusIcon class="h-4 w-4" /> Ajouter un lien
+                  </button>
+                </div>
               </div>
             </template>
 
@@ -185,7 +200,8 @@
       <!-- Roles and Memberships Card -->
       <div v-if="isCurrentUser || isSuperAdmin" class="bg-white shadow-sm rounded-lg overflow-hidden">
         <div class="px-4 py-5 sm:p-6">
-          <h2 class="text-lg font-medium text-gray-900 mb-4">{{ isCurrentUser ? 'Mes rôles dans les organisations' : 'Rôles dans les organisations' }}</h2>
+          <h2 class="text-lg font-medium text-gray-900 mb-4">{{ isCurrentUser ? 'Mes rôles dans les organisations' :
+            'Rôles dans les organisations' }}</h2>
 
           <div v-if="loadingMemberships" class="text-center py-4">
             <p class="text-sm text-gray-500">Chargement...</p>
@@ -194,7 +210,10 @@
           <div v-else-if="memberships.length === 0" class="text-center py-8">
             <UserGroupIcon class="mx-auto h-12 w-12 text-gray-400" />
             <h3 class="mt-2 text-sm font-medium text-gray-900">Aucune organisation</h3>
-            <p class="mt-1 text-sm text-gray-500">{{ isCurrentUser ? "Vous n'êtes membre d'aucune organisation pour le moment." : "Cet utilisateur n'est membre d'aucune organisation." }}</p>
+            <p class="mt-1 text-sm text-gray-500">{{ 
+            isCurrentUser ? "Vous n'êtes membre d'aucune organisation pour le moment." 
+            : "Cet utilisateur n'est membre d'aucune organisation." }}
+            </p>
           </div>
 
           <div v-else class="space-y-4">
@@ -282,7 +301,10 @@ import {
   ArrowRightIcon,
   BellIcon,
   TrashIcon,
-  NoSymbolIcon
+  NoSymbolIcon,
+  LinkIcon,
+  PlusIcon,
+  XMarkIcon
 } from '@heroicons/vue/24/outline'
 
 const route = useRoute()
@@ -304,10 +326,11 @@ const newRoleForm = ref({
 
 const editForm = ref({
   profile_picture_url: '',
-  facebook_link: '',
   phone_number: '',
   notification_delay: 15
 })
+
+const editLinks = ref([])
 
 const isCurrentUser = computed(() => {
   if (!currentUser.value || !profileUser.value) return false
@@ -330,10 +353,12 @@ const loadUser = async () => {
     if (isCurrentUser.value) {
       editForm.value = {
         profile_picture_url: profileUser.value.profile_picture_url || '',
-        facebook_link: profileUser.value.facebook_link || '',
         phone_number: profileUser.value.phone_number || '',
         notification_delay: profileUser.value.notification_delay || 15
       }
+      // Load links
+      const linksRes = await api.get('/users/me/links')
+      editLinks.value = linksRes.data.map(l => ({ ...l }))
     }
   } catch (error) {
     console.error('Failed to load user:', error)
@@ -424,10 +449,10 @@ const cancelEditing = () => {
   if (profileUser.value) {
     editForm.value = {
       profile_picture_url: profileUser.value.profile_picture_url || '',
-      facebook_link: profileUser.value.facebook_link || '',
       phone_number: profileUser.value.phone_number || '',
       notification_delay: profileUser.value.notification_delay || 15
     }
+    editLinks.value = (profileUser.value.links || []).map(l => ({ ...l }))
   }
 }
 
@@ -466,12 +491,43 @@ const saveProfile = async () => {
   try {
     const response = await api.put('/users/me', editForm.value)
     profileUser.value = response.data
+
+    // Sync links: delete removed, update existing, create new
+    const originalIds = new Set((profileUser.value.links || []).map(l => l.id))
+    const currentIds = new Set(editLinks.value.filter(l => l.id).map(l => l.id))
+
+    // Delete removed
+    for (const id of originalIds) {
+      if (!currentIds.has(id)) {
+        await api.delete(`/users/me/links/${id}`)
+      }
+    }
+    // Create or update
+    for (const [idx, link] of editLinks.value.entries()) {
+      if (link.id && originalIds.has(link.id)) {
+        await api.put(`/users/me/links/${link.id}`, { ...link, order: idx })
+      } else {
+        await api.post('/users/me/links', { name: link.name, url: link.url, order: idx })
+      }
+    }
+
+    // Reload user to get fresh links
+    const refreshed = await api.get('/users/me')
+    profileUser.value = refreshed.data
     isEditing.value = false
   } catch (error) {
     console.error('Failed to update profile:', error)
   } finally {
     saving.value = false
   }
+}
+
+const addEditLink = () => {
+  editLinks.value.push({ id: null, name: '', url: '', order: editLinks.value.length })
+}
+
+const removeEditLink = (idx) => {
+  editLinks.value.splice(idx, 1)
 }
 
 

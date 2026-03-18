@@ -49,6 +49,17 @@ class OrganizationImageRead(BaseModel):
     url: str
     filename: str
     created_at: datetime
+
+class UserLinkRead(BaseModel):
+    id: UUID
+    name: str
+    url: str
+    order: int
+
+class UserLinkCreate(BaseModel):
+    name: str
+    url: str
+    order: int = 0
     
 class EventLinkCreate(BaseModel):
     name: str
@@ -102,11 +113,11 @@ class UserRead(BaseModel):
     full_name: Optional[str] = None
     profile_picture_url: Optional[str] = None
     phone_number: Optional[str] = None
-    facebook_link: Optional[str] = None
     is_superadmin: bool = False
     exempt_from_rgpd_delete: bool = False
     is_active: bool = True
     notification_delay: int = 15
+    links: List["UserLinkRead"] = []
 
     class Config:
         from_attributes = True
@@ -115,7 +126,6 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     profile_picture_url: Optional[str] = None
     phone_number: Optional[str] = None
-    facebook_link: Optional[str] = None
     notification_delay: Optional[int] = None
 
 class PushTokenCreate(BaseModel):
@@ -127,19 +137,20 @@ class UserPublicRead(BaseModel):
     full_name: Optional[str] = None
     profile_picture_url: Optional[str] = None
     phone_number: Optional[str] = None
-    facebook_link: Optional[str] = None
+    links: List["UserLinkRead"] = []
 
     class Config:
         from_attributes = True
 
     @classmethod
     def from_model(cls, user: "User") -> "UserPublicRead":
+        from app.models import UserLink
         return cls(
             id=user.id,
             full_name=user.full_name,
             profile_picture_url=user.profile_picture_url,
             phone_number=user.phone_number,
-            facebook_link=user.facebook_link
+            links=[UserLinkRead(id=l.id, name=l.name, url=l.url, order=l.order) for l in user.links]
         )
 
 class GroupRead(BaseModel):

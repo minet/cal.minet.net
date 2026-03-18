@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlmodel import Session, or_, select, func
+from sqlmodel import Session, col, or_, select, func
 from starlette.config import Config
 
 from app.api.auth import get_current_user
@@ -18,8 +18,9 @@ from app.models import (
     Role,
     Subscription,
     User,
+    UserLink,
 )
-from app.schemas import UserPublicRead, UserRead, PaginatedResponse
+from app.schemas import UserPublicRead, UserRead, PaginatedResponse, UserLinkRead, UserLinkCreate
 from app.utils.email import send_email
 
 router = APIRouter()
@@ -29,7 +30,6 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     profile_picture_url: Optional[str] = None
     phone_number: Optional[str] = None
-    facebook_link: Optional[str] = None
 
 class UserInvite(BaseModel):
     email: str
@@ -181,14 +181,104 @@ async def update_user_profile(
         user.profile_picture_url = user_data.profile_picture_url
     if user_data.phone_number is not None:
         user.phone_number = user_data.phone_number
-    if user_data.facebook_link is not None:
-        user.facebook_link = user_data.facebook_link
-    
+
     session.add(user)
     session.commit()
     session.refresh(user)
-    
-    return user
+
+    return _user_read(user, session)
+
+# --- User Links and helpers ---
+
+def _user_read(user: User, session: Session) -> UserRead:
+    """Build a UserRead response with eagerly-loaded links."""
+    links = session.exec(
+        select(UserLink).where(UserLink.user_id == user.id).order_by(col(UserLink.order))
+    ).all()
+    return UserRead(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        profile_picture_url=user.profile_picture_url,
+        phone_number=user.phone_number,
+        is_superadmin=user.is_superadmin,
+        exempt_from_rgpd_delete=user.exempt_from_rgpd_delete,
+        is_active=user.is_active,
+        notification_delay=user.notification_delay,
+        links=[UserLinkRead(id=l.id, name=l.name, url=l.url, order=l.order) for l in links],
+    )
+
+@router.get("/me/links", response_model=List[UserLinkRead])
+async def list_my_links(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    links = session.exec(
+        select(UserLink).where(UserLink.user_id == current_user.id).order_by(col(UserLink.order))
+    ).all()
+    return links
+
+@router.get("/{user_id}/links", response_model=List[UserLinkRead])
+async def list_user_links(
+    user_id: str,
+    session: Session = Depends(get_session),
+):
+    """Public endpoint – no auth required"""
+    uid = UUID(user_id)
+    links = session.exec(
+        select(UserLink).where(UserLink.user_id == uid).order_by(col(UserLink.order))
+    ).all()
+    return links
+
+@router.post("/me/links", response_model=UserLinkRead)
+async def create_my_link(
+    link_data: UserLinkCreate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    from uuid import uuid4
+    link = UserLink(
+        id=uuid4(),
+        user_id=current_user.id,
+        name=link_data.name,
+        url=link_data.url,
+        order=link_data.order,
+    )
+    session.add(link)
+    session.commit()
+    session.refresh(link)
+    return link
+
+@router.put("/me/links/{link_id}", response_model=UserLinkRead)
+async def update_my_link(
+    link_id: str,
+    link_data: UserLinkCreate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    link = session.get(UserLink, UUID(link_id))
+    if not link or link.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Lien introuvable")
+    link.name = link_data.name
+    link.url = link_data.url
+    link.order = link_data.order
+    session.add(link)
+    session.commit()
+    session.refresh(link)
+    return link
+
+@router.delete("/me/links/{link_id}")
+async def delete_my_link(
+    link_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    link = session.get(UserLink, UUID(link_id))
+    if not link or link.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Lien introuvable")
+    session.delete(link)
+    session.commit()
+    return {"ok": True}
 
 @router.get("/search", response_model=List[UserSearchResult])
 async def search_users(
@@ -228,14 +318,13 @@ async def get_user_profile(
 ):
     """Get a user's public profile by ID"""
     if user_id == "me":
-        # Ensure we return UserRead compatible dict
-        return current_user
+        return _user_read(current_user, session)
 
     user = session.get(User, UUID(user_id))
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
-    return user
+
+    return _user_read(user, session)
 
 @router.get("/", response_model=PaginatedResponse[UserRead])
 async def list_users(
@@ -444,7 +533,12 @@ async def delete_user(
         sl.created_by_id = GHOST_USER_ID
         session.add(sl)
 
-    # 7. Push Tokens
+    # 7. User Links
+    user_links = session.exec(select(UserLink).where(UserLink.user_id == user.id)).all()
+    for ul in user_links:
+        session.delete(ul)
+
+    # 8. Push Tokens
     push_tokens = session.exec(select(UserPushToken).where(UserPushToken.user_id == user.id)).all()
     for pt in push_tokens:
         session.delete(pt)

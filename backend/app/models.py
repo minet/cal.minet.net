@@ -33,6 +33,15 @@ class UserPushToken(SQLModel, table=True):
 
     user: "User" = Relationship(back_populates="push_tokens")
 
+class UserLink(SQLModel, table=True):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    user_id: UUID = Field(foreign_key="user.id")
+    name: str
+    url: str
+    order: int = Field(default=0)
+
+    user: Optional["User"] = Relationship(back_populates="links")
+
 class EventVisibility(str, Enum):
     DRAFT = "draft"
     PRIVATE = "private"
@@ -45,7 +54,6 @@ class User(SQLModel, table=True):
     email: str = Field(unique=True, index=True)
     full_name: Optional[str] = None
     profile_picture_url: Optional[str] = None
-    facebook_link: Optional[str] = None
     phone_number: Optional[str] = None
     is_active: bool = Field(default=True)
     is_superadmin: bool = Field(default=False)
@@ -55,6 +63,7 @@ class User(SQLModel, table=True):
     memberships: List["Membership"] = Relationship(back_populates="user")
     subscriptions: List["Subscription"] = Relationship(back_populates="user")
     push_tokens: List["UserPushToken"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    links: List["UserLink"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
     def to_public_read_model(self):
         from app.schemas import UserPublicRead

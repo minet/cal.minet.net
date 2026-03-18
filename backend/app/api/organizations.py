@@ -8,7 +8,7 @@ from sqlmodel import Session, col, select
 
 from app.api.auth import get_current_user, get_current_user_optional
 from app.database import get_session
-from app.models import EventVisibility, Membership, Organization, Role, User
+from app.models import EventVisibility, Membership, Organization, Role, User, UserLink
 from app.schemas import EventRead, OrganizationRead
 
 router = APIRouter()
@@ -57,17 +57,22 @@ def get_organization_members(org_id: str, session: Session = Depends(get_session
     for membership in memberships:
         user = session.get(User, membership.user_id)
         if user:
+            user_links = session.exec(
+                select(UserLink).where(UserLink.user_id == user.id).order_by(col(UserLink.order))
+            ).all()
             result.append({
                 "id": str(membership.id),
                 "user_id": str(user.id),
                 "email": user.email,
                 "full_name": user.full_name,
                 "profile_picture_url": user.profile_picture_url,
+                "phone_number": user.phone_number,
                 "role": membership.role,
                 "title": membership.title,
-                "order": membership.order
+                "order": membership.order,
+                "links": [{"id": str(l.id), "name": l.name, "url": l.url, "order": l.order} for l in user_links],
             })
-    
+
     return result
 
 class MemberReorderRequest(BaseModel):
