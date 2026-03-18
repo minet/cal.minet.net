@@ -42,7 +42,7 @@
               </div>
               <div class="min-w-0 flex-auto">
                 <p class="text-sm font-semibold leading-6 text-gray-900">{{ org.name }}</p>
-                <p class="mt-1 truncate text-xs leading-5 text-gray-500">{{ org.description }}</p>
+                <p class="mt-1 truncate text-xs leading-5 text-gray-500">{{ org.description ? org.description.split('\n')[0] : '' }}</p>
               </div>
             </div>
             <div class="mt-2 sm:mt-0 flex flex-row sm:flex-col items-center sm:items-end gap-2 shrink-0">
