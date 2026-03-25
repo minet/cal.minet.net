@@ -2,6 +2,12 @@
 
 Calend'INT is an associative calendar platform designed for campus students to discover and subscribe to events from various student organizations (associations, clubs, BDE lists, etc.).
 
+## Screenshots
+
+![Home Page](./docs/home.png)
+![Calendar View](./docs/calendar.png)
+![Countdown View](./docs/countdown.png)
+
 ## Features
 
 - **User Accounts**: Sign up and manage your subscriptions.
@@ -24,6 +30,7 @@ Calend'INT is an associative calendar platform designed for campus students to d
 ## Getting Started
 
 1. **Clone the repository** (if applicable):
+
    ```bash
    git clone <repository-url>
    cd calendint
@@ -31,6 +38,7 @@ Calend'INT is an associative calendar platform designed for campus students to d
 
 2. **Start the application**:
    Run the following command in the root directory of the project. **The docker-compose.yml file is used for development, and the stack.yaml file is used for production** (on docker swarm).
+
    ```bash
    # Dev mode
    docker compose up --watch --build
@@ -43,16 +51,19 @@ Calend'INT is an associative calendar platform designed for campus students to d
 ## Usage
 
 ### User Registration
+
 - Go to the Frontend URL.
 - Click on "Register" to create a new account.
 - Log in with your credentials.
 
 ### Managing Organizations & Events
+
 - Navigate to the **Organizations** tab to view or create organizations.
 - Navigate to the **Events** tab to view or create events.
-- *Note: Currently, permission enforcement is basic. You may need to manually adjust database roles for advanced testing.*
+- _Note: Currently, permission enforcement is basic. You may need to manually adjust database roles for advanced testing._
 
 ### ICS Export
+
 - Each user can find a link to import the calendar of the events he is subscribed to in the **Mon profil** tab.
 
 ## Development
@@ -75,6 +86,7 @@ docker compose exec backend python make_superadmin.py <email>
 To enable push notifications, you need to generate VAPID keys.
 
 1. Generate keys:
+
    ```bash
    # You can use the web-push library or an online generator
    # Example using npx:
