@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import hashlib
+from urllib.parse import urlparse
 from uuid import UUID
 from dateutil import tz
 
@@ -24,6 +25,7 @@ from app.models import (
 
 config = Config('.env')
 BASE_URL = config.get("APP_BASE_URL")
+MAIL_DOMAIN = urlparse(BASE_URL).hostname or BASE_URL
 APP_TIMEZONE = tz.gettz(config.get("APP_TIMEZONE", default="UTC"))
 
 assert BASE_URL is not None, "APP_BASE_URL must be set in .env"
@@ -172,13 +174,13 @@ def export_user_calendar(securekey: str, user_id: str, session: Session = Depend
 
         # ORGANIZER — main hosting organization
         if event.organization:
-            organizer = vCalAddress(f'urn:uuid:{event.organization.id}')
+            organizer = vCalAddress(f'mailto:{event.organization.slug}@{MAIL_DOMAIN}')
             organizer.params['cn'] = vText(event.organization.name)
             ievent.add('organizer', organizer)
 
         # ATTENDEEs — guest organizations as co-organizers (ROLE=CHAIR per RFC 5545)
         for guest in event.guest_organizations:
-            attendee = vCalAddress(f'urn:uuid:{guest.id}')
+            attendee = vCalAddress(f'mailto:{guest.slug}@{MAIL_DOMAIN}')
             attendee.params['cn'] = vText(guest.name)
             attendee.params['cutype'] = vText('GROUP')
             attendee.params['role'] = vText('CHAIR')
