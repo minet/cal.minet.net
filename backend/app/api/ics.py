@@ -137,13 +137,21 @@ def export_user_calendar(securekey: str, user_id: str, session: Session = Depend
     cal.add('X-WR-CALNAME', 'Calend\'INT')
     cal.add('X-WR-TIMEZONE', config.get("APP_TIMEZONE", default="UTC"))
     
+    now_utc = datetime.now(timezone.utc)
+
     for event in events:
         ievent = IcalEvent()
         ievent.add('summary', event.title)
         ievent.add('dtstart', event.start_time.astimezone(tz=APP_TIMEZONE))
         ievent.add('dtend', event.end_time.astimezone(tz=APP_TIMEZONE))
-        ievent.add('dtstamp', event.created_at.astimezone(tz=APP_TIMEZONE))
+        # DTSTAMP = time this particular revision of the event was generated (RFC 5545 §3.8.7.2)
+        ievent.add('dtstamp', now_utc)
         ievent.add('uid', f'{event.id}@{BASE_URL}')
+        # SEQUENCE tells Google Calendar (and others) that this is a newer revision
+        ievent.add('sequence', event.sequence or 0)
+        # LAST-MODIFIED = when the event content last changed
+        last_modified = event.updated_at or event.created_at
+        ievent.add('last-modified', last_modified.astimezone(timezone.utc))
         
         # Build description with poster and event link
         description_parts = []

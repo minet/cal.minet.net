@@ -605,6 +605,8 @@ def reset_event_status(
     event.rejection_message = None
     event.approved_at = None
     event.submitted_at = datetime.now(timezone.utc)
+    event.sequence = (event.sequence or 0) + 1
+    event.updated_at = datetime.now(timezone.utc)
 
     session.add(event)
     session.commit()
@@ -795,6 +797,10 @@ def update_event(
     ):
         event.submitted_at = datetime.now(timezone.utc)
 
+    # Bump iCal revision counter and last-modified timestamp
+    event.sequence = (event.sequence or 0) + 1
+    event.updated_at = datetime.now(timezone.utc)
+
     session.add(event)
     session.commit()
     session.refresh(event)
@@ -872,6 +878,8 @@ def approve_event(
     event.visibility = EventVisibility.PUBLIC_APPROVED
     event.approved_at = datetime.now(timezone.utc)
     event.rejection_message = None  # Clear any previous rejection
+    event.sequence = (event.sequence or 0) + 1
+    event.updated_at = datetime.now(timezone.utc)
 
     session.add(event)
     session.commit()
@@ -927,6 +935,8 @@ def reject_event(
     event.visibility = EventVisibility.PUBLIC_REJECTED
     event.approved_at = datetime.now(timezone.utc)
     event.rejection_message = request.message
+    event.sequence = (event.sequence or 0) + 1
+    event.updated_at = datetime.now(timezone.utc)
 
     session.add(event)
     session.commit()

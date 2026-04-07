@@ -8,6 +8,7 @@ from sqlmodel import Field, Relationship, SQLModel, Session
 GHOST_USER_ID = UUID("00000000-0000-4000-8000-000000000001")
 GHOST_ORGANIZATION_ID = UUID("00000000-0000-4000-8000-000000000002")
 
+
 class OrganizationType(str, Enum):
     ASSOCIATION = "association"
     CLUB = "club"
@@ -15,23 +16,27 @@ class OrganizationType(str, Enum):
     ADMINISTRATION = "administration"
     GATE = "gate"
 
+
 class Role(str, Enum):
     ORG_ADMIN = "org_admin"
     ORG_MEMBER = "org_member"
     ORG_VIEWER = "org_viewer"
 
+
 class EventGuestOrganization(SQLModel, table=True):
     event_id: UUID = Field(foreign_key="event.id", primary_key=True)
     organization_id: UUID = Field(foreign_key="organization.id", primary_key=True)
+
 
 class UserPushToken(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     user_id: UUID = Field(foreign_key="user.id")
     endpoint: str = Field(index=True)
-    keys: str # JSON string of keys
+    keys: str  # JSON string of keys
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     user: "User" = Relationship(back_populates="push_tokens")
+
 
 class UserLink(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -42,12 +47,14 @@ class UserLink(SQLModel, table=True):
 
     user: Optional["User"] = Relationship(back_populates="links")
 
+
 class EventVisibility(str, Enum):
     DRAFT = "draft"
     PRIVATE = "private"
     PUBLIC_PENDING = "public_pending"
     PUBLIC_REJECTED = "public_rejected"
     PUBLIC_APPROVED = "public_approved"
+
 
 class User(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -58,16 +65,22 @@ class User(SQLModel, table=True):
     is_active: bool = Field(default=True)
     is_superadmin: bool = Field(default=False)
     exempt_from_rgpd_delete: bool = Field(default=False)
-    notification_delay: int = Field(default=45) # Minutes before event
+    notification_delay: int = Field(default=45)  # Minutes before event
 
     memberships: List["Membership"] = Relationship(back_populates="user")
     subscriptions: List["Subscription"] = Relationship(back_populates="user")
-    push_tokens: List["UserPushToken"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
-    links: List["UserLink"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    push_tokens: List["UserPushToken"] = Relationship(
+        back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    links: List["UserLink"] = Relationship(
+        back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
     def to_public_read_model(self):
         from app.schemas import UserPublicRead
+
         return UserPublicRead.from_model(self)
+
 
 class OrganizationImage(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -77,6 +90,7 @@ class OrganizationImage(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     organization: Optional["Organization"] = Relationship(back_populates="images")
+
 
 class Organization(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -93,25 +107,37 @@ class Organization(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    parent: Optional["Organization"] = Relationship(back_populates="children", sa_relationship_kwargs={"remote_side": "Organization.id"})
+    parent: Optional["Organization"] = Relationship(
+        back_populates="children",
+        sa_relationship_kwargs={"remote_side": "Organization.id"},
+    )
     children: List["Organization"] = Relationship(back_populates="parent")
     members: List["Membership"] = Relationship(back_populates="organization")
     events: List["Event"] = Relationship(back_populates="organization")
     tags: List["Tag"] = Relationship(back_populates="organization")
     subscribers: List["Subscription"] = Relationship(back_populates="organization")
     groups: List["Group"] = Relationship(back_populates="organization")
-    images: List["OrganizationImage"] = Relationship(back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    images: List["OrganizationImage"] = Relationship(
+        back_populates="organization",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
 
-
-    organization_links: List["OrganizationLink"] = Relationship(back_populates="organization")
-    guest_events: List["Event"] = Relationship(back_populates="guest_organizations", link_model=EventGuestOrganization)
+    organization_links: List["OrganizationLink"] = Relationship(
+        back_populates="organization"
+    )
+    guest_events: List["Event"] = Relationship(
+        back_populates="guest_organizations", link_model=EventGuestOrganization
+    )
 
     def to_read_model(self):
         from app.schemas import OrganizationRead
+
         return OrganizationRead.from_model(self)
+
 
 class Membership(SQLModel, table=True):
     """Link between User and Organization with a specific Role"""
+
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     user_id: UUID = Field(foreign_key="user.id")
     organization_id: UUID = Field(foreign_key="organization.id")
@@ -121,6 +147,7 @@ class Membership(SQLModel, table=True):
 
     user: User = Relationship(back_populates="memberships")
     organization: Organization = Relationship(back_populates="members")
+
 
 class Tag(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -135,20 +162,27 @@ class Tag(SQLModel, table=True):
 
     def to_read_model(self, user: Optional["User"] = None):
         from app.schemas import TagRead
+
         return TagRead.from_model(self, user)
+
 
 class OrganizationLink(SQLModel, table=True):
     """Links attached to organizations"""
+
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     organization_id: UUID = Field(foreign_key="organization.id")
     name: str  # Link display name
     url: str  # Link URL
     order: int = 1  # For ordering
-    
-    organization: Optional["Organization"] = Relationship(back_populates="organization_links")
+
+    organization: Optional["Organization"] = Relationship(
+        back_populates="organization_links"
+    )
+
 
 class EventLink(SQLModel, table=True):
     """Links attached to events (up to 3 per event)"""
+
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     event_id: UUID = Field(foreign_key="event.id")
     name: str  # Link display name
@@ -156,6 +190,7 @@ class EventLink(SQLModel, table=True):
     order: int = 1  # 1-3 for ordering
 
     event: Optional["Event"] = Relationship(back_populates="event_links")
+
 
 class EventTag(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -165,6 +200,7 @@ class EventTag(SQLModel, table=True):
 
     event: Optional["Event"] = Relationship(back_populates="event_tags")
     tag: Tag = Relationship(back_populates="event_links")
+
 
 class Event(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -186,16 +222,24 @@ class Event(SQLModel, table=True):
     approved_at: Optional[datetime] = None
     submitted_at: Optional[datetime] = None
     featured: int = Field(default=0)
+    # For my bro google calendar (all my homies hate him)
+    sequence: int = Field(default=0)
+    updated_at: Optional[datetime] = None
 
     organization: Optional[Organization] = Relationship(back_populates="events")
     group: Optional["Group"] = Relationship(back_populates="events")
     event_links: List["EventLink"] = Relationship(back_populates="event")
     event_tags: List["EventTag"] = Relationship(back_populates="event")
-    guest_organizations: List[Organization] = Relationship(back_populates="guest_events", link_model=EventGuestOrganization)
+    guest_organizations: List[Organization] = Relationship(
+        back_populates="guest_events", link_model=EventGuestOrganization
+    )
     reactions: List["EventReaction"] = Relationship(back_populates="event")
 
-    def to_read_model(self, current_user: Optional["User"] = None, session: Optional["Session"] = None):
+    def to_read_model(
+        self, current_user: Optional["User"] = None, session: Optional["Session"] = None
+    ):
         from app.schemas import EventRead
+
         return EventRead.from_model(self, current_user, session)
 
 
@@ -210,6 +254,7 @@ class Group(SQLModel, table=True):
     members: List["GroupMembership"] = Relationship(back_populates="group")
     events: List[Event] = Relationship(back_populates="group")
 
+
 class GroupMembership(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     group_id: UUID = Field(foreign_key="group.id")
@@ -217,10 +262,14 @@ class GroupMembership(SQLModel, table=True):
     joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     group: Optional[Group] = Relationship(back_populates="members")
-    user: Optional[User] = Relationship() # Assuming User has a back_populates for GroupMembership
+    user: Optional[User] = (
+        Relationship()
+    )  # Assuming User has a back_populates for GroupMembership
+
 
 class Subscription(SQLModel, table=True):
     """User subscription to an Organization or Tag"""
+
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     user_id: UUID = Field(foreign_key="user.id")
     organization_id: Optional[UUID] = Field(default=None, foreign_key="organization.id")
@@ -233,7 +282,6 @@ class Subscription(SQLModel, table=True):
     tag: Optional[Tag] = Relationship(back_populates="subscribers")
 
 
-
 class EventReaction(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     event_id: UUID = Field(foreign_key="event.id")
@@ -244,22 +292,26 @@ class EventReaction(SQLModel, table=True):
     event: Optional[Event] = Relationship(back_populates="reactions")
     user: Optional[User] = Relationship()
 
+
 class LDAPUser(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     email: str = Field(unique=True, index=True)
     full_name: Optional[str] = None
-    uid: Optional[str] = Field(default=None, index=True) 
+    uid: Optional[str] = Field(default=None, index=True)
     synced_at: datetime = Field(default_factory=datetime.now)
+
 
 class ShortLinkType(str, Enum):
     EVENT = "event"
     ORGANIZATION = "organization"
     TAG = "tag"
 
+
 class ShortLinkActionType(str, Enum):
     VIEW = "view"
-    SUBSCRIBE = "subscribe" 
+    SUBSCRIBE = "subscribe"
     COUNTDOWN = "countdown"
+
 
 class ShortLink(SQLModel, table=True):
     id: str = Field(primary_key=True)
@@ -272,14 +324,16 @@ class ShortLink(SQLModel, table=True):
 
     user: Optional[User] = Relationship()
 
+
 class StoredFile(SQLModel, table=True):
     """Tracks every file uploaded to MinIO storage"""
+
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    stored_filename: str = Field(index=True)      # unique name in MinIO (e.g. "abc123.mp4")
-    original_filename: str                          # original name from the user's machine
-    url: str                                        # public URL (/uploads/abc123.mp4)
+    stored_filename: str = Field(index=True)  # unique name in MinIO (e.g. "abc123.mp4")
+    original_filename: str  # original name from the user's machine
+    url: str  # public URL (/uploads/abc123.mp4)
     content_type: str
-    size: int                                       # bytes
+    size: int  # bytes
     uploaded_by_id: UUID = Field(foreign_key="user.id")
     uploaded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
