@@ -3,7 +3,18 @@ from sqlmodel import Session, select, and_, or_, col, func, text
 from sqlalchemy.dialects.postgresql import INTERVAL
 from typing import List, Optional, Sequence, cast
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import os
+
+
+def _app_tz() -> ZoneInfo:
+    tz_name = os.getenv("APP_TIMEZONE", "Europe/Paris")
+    try:
+        return ZoneInfo(tz_name)
+    except ZoneInfoNotFoundError:
+        return ZoneInfo("UTC")
+
+
 from uuid import UUID
 from app.database import get_session
 from app.models import (
@@ -896,7 +907,9 @@ def approve_event(
                 "project_name": "Calend'INT",
                 "user_name": creator.full_name or creator.email.split("@")[0],
                 "event_title": event.title,
-                "event_date": event.start_time.strftime("%d/%m/%Y à %H:%M"),
+                "event_date": event.start_time.astimezone(_app_tz()).strftime(
+                    "%d/%m/%Y à %H:%M"
+                ),
                 "event_location": event.location or "Non spécifié",
                 "event_url": event_url,
                 "year": datetime.now().year,
