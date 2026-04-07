@@ -4,7 +4,7 @@ from uuid import UUID
 from dateutil import tz
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from icalendar import Calendar, Event as IcalEvent
+from icalendar import Calendar, Event as IcalEvent, vCalAddress, vText
 from sqlmodel import Session, and_, col, func, or_, select
 from starlette.config import Config
 
@@ -169,7 +169,22 @@ def export_user_calendar(securekey: str, user_id: str, session: Session = Depend
             
         if event.location:
             ievent.add('location', event.location)
-            
+
+        # ORGANIZER — main hosting organization
+        if event.organization:
+            organizer = vCalAddress(f'urn:uuid:{event.organization.id}')
+            organizer.params['cn'] = vText(event.organization.name)
+            ievent.add('organizer', organizer)
+
+        # ATTENDEEs — guest organizations as co-organizers (ROLE=CHAIR per RFC 5545)
+        for guest in event.guest_organizations:
+            attendee = vCalAddress(f'urn:uuid:{guest.id}')
+            attendee.params['cn'] = vText(guest.name)
+            attendee.params['cutype'] = vText('GROUP')
+            attendee.params['role'] = vText('CHAIR')
+            attendee.params['partstat'] = vText('ACCEPTED')
+            ievent.add('attendee', attendee, encode=False)
+
         cal.add_component(ievent)
     
     return Response(
