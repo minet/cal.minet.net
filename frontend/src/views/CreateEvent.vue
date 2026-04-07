@@ -119,6 +119,27 @@
                 />
               </div>
 
+              <!-- Overlapping events warning -->
+              <div v-if="overlappingEvents.length > 0" class="col-span-full">
+                <div class="rounded-lg bg-orange-50 border border-orange-200 p-3">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2 text-orange-700">
+                      <ExclamationTriangleIcon class="h-5 w-5 shrink-0" />
+                      <span class="text-sm font-medium">
+                        {{ overlappingEvents.length }} événement{{ overlappingEvents.length > 1 ? 's' : '' }} simultané{{ overlappingEvents.length > 1 ? 's' : '' }}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      @click="showOverlapModal = true"
+                      class="text-xs text-orange-600 hover:text-orange-800 underline"
+                    >
+                      Voir
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div class="sm:col-span-3">
                 <label for="location" class="block text-sm font-medium leading-6 text-gray-900">Lieu (optionnel)</label>
                 <div class="mt-2">
@@ -149,6 +170,10 @@
 
               <div class="col-span-full">
                 <ImageUpload v-model="form.poster_url" label="Affiche de l'événement (optionnel)" />
+              </div>
+
+              <div class="col-span-full">
+                <VideoUpload v-model="form.video_url" label="Vidéo d'affiche (optionnel — affiché en autoplay dans le feed)" />
               </div>
 
               <!-- Visibility Selector -->
@@ -228,6 +253,45 @@
       </form>
     </div>
   </div>
+
+  <!-- Overlap Modal -->
+  <div v-if="showOverlapModal" class="fixed inset-0 z-50 overflow-y-auto">
+    <div class="flex min-h-screen items-center justify-center p-4">
+      <div class="fixed inset-0 bg-black/50" @click="showOverlapModal = false"></div>
+      <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-semibold text-gray-900">Événements simultanés</h3>
+          <button @click="showOverlapModal = false" class="text-gray-400 hover:text-gray-500">
+            <XMarkIcon class="h-6 w-6" />
+          </button>
+        </div>
+        <div class="space-y-3 max-h-[60vh] overflow-y-auto">
+          <div
+            v-for="evt in overlappingEvents"
+            :key="evt.id"
+            class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100"
+            @click="$router.push(`/events/${evt.id}`)"
+          >
+            <div
+              class="h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-white font-bold text-xs"
+              :style="{ backgroundColor: evt.organization?.color_secondary || '#f3f4f6' }"
+            >
+              <img v-if="evt.organization?.logo_url" :src="evt.organization.logo_url" class="h-full w-full object-cover rounded-full" />
+              <span v-else :style="{ color: evt.organization?.color_primary || '#4f46e5' }">{{ evt.organization?.name?.charAt(0) }}</span>
+            </div>
+            <div>
+              <h4 class="text-sm font-medium text-gray-900">{{ evt.title }}</h4>
+              <p class="text-xs text-gray-500">{{ formatOverlapDate(evt.start_time) }} – {{ formatOverlapDate(evt.end_time) }}</p>
+              <p class="text-xs text-orange-600 mt-0.5" v-if="evt.visibility === 'public_pending'">En attente de validation</p>
+            </div>
+          </div>
+        </div>
+        <div class="mt-4 flex justify-end">
+          <button @click="showOverlapModal = false" class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900">Fermer</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -239,10 +303,11 @@ import { useAuth } from '../composables/useAuth'
 import { localToUtc } from '../utils/dateUtils'
 import OrganizationSelector from '../components/OrganizationSelector.vue'
 import ImageUpload from '../components/ImageUpload.vue'
+import VideoUpload from '../components/VideoUpload.vue'
 import CollapsibleCard from '../components/CollapsibleCard.vue'
 import VisibilitySelector from '../components/VisibilitySelector.vue'
 import TagSelector from '../components/TagSelector.vue'
-import { PlusIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { PlusIcon, XMarkIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 import DateTimeDurationPicker from '../components/DateTimeDurationPicker.vue'
 
 const router = useRouter()
@@ -256,6 +321,7 @@ const form = ref({
   location: '',
   location_url: '',
   poster_url: '',
+  video_url: '',
   visibility: 'public_pending',
 
   hide_details: false,
@@ -271,6 +337,30 @@ const loading = ref(false)
 const allOrganizations = ref([])
 const isGuestOrgsOpen = ref(false)
 const { user, isSuperAdmin } = useAuth()
+
+const overlappingEvents = ref([])
+const showOverlapModal = ref(false)
+let overlapCheckTimeout = null
+
+const formatOverlapDate = (dateStr) => {
+  if (!dateStr) return ''
+  return new Date(dateStr).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
+
+const checkOverlaps = async () => {
+  if (!form.value.start_time || !form.value.end_time) {
+    overlappingEvents.value = []
+    return
+  }
+  try {
+    const startUtc = localToUtc(form.value.start_time)
+    const endUtc = localToUtc(form.value.end_time)
+    const res = await api.get('/events/overlapping-check', { params: { start_time: startUtc, end_time: endUtc } })
+    overlappingEvents.value = res.data
+  } catch (e) {
+    overlappingEvents.value = []
+  }
+}
 
 const showAllForSuperAdmin = ref(false)
 const superAdminSearchQuery = ref('')
@@ -332,6 +422,12 @@ const formatDateTimeLocal = (date) => {
 
 // updateTimeFromComponents removed
 
+// Watch dates to check overlapping events (debounced)
+watch([() => form.value.start_time, () => form.value.end_time], () => {
+  clearTimeout(overlapCheckTimeout)
+  overlapCheckTimeout = setTimeout(checkOverlaps, 600)
+})
+
 // Watch for changes in organization_id to reset group_id and tag_ids
 watch(() => form.value.organization_id, (newOrgId) => {
   if (!newOrgId) {
@@ -392,6 +488,7 @@ const createEvent = async () => {
       location: form.value.location,
       location_url: form.value.location_url,
       poster_url: form.value.poster_url,
+      video_url: form.value.video_url,
       organization_id: form.value.organization_id,
       visibility: form.value.visibility,
       group_id: form.value.group_id,
@@ -431,6 +528,7 @@ onMounted(() => {
           group_id: duplicateData.group_id ? duplicateData.group_id : '', // Ensure empty string if null
           visibility: 'draft', // Reset to draft
           poster_url: duplicateData.poster_url,
+          video_url: duplicateData.video_url,
           tag_ids: duplicateData.tags?.map(t => t.id) || [],
           guest_organization_ids: duplicateData.guest_organizations?.map(g => g.id) || [],
           hide_details: duplicateData.hide_details,

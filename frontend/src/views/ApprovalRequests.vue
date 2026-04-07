@@ -104,7 +104,11 @@
                     <UserIcon class="h-4 w-4" />
                     <span>{{ event.created_by?.full_name || event.created_by?.email }}</span>
                   </div>
-                  
+                  <div v-if="event.submitted_at" class="flex items-center gap-1 text-amber-600">
+                    <ClockIcon class="h-4 w-4" />
+                    <span>Soumis le {{ formatDate(event.submitted_at) }}</span>
+                  </div>
+
                   <!-- Overlap Indicator -->
                   <div 
                     v-if="overlappingEventsMap[event.id]" 

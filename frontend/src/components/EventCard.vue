@@ -10,11 +10,25 @@
       'opacity-50': event.visibility === 'draft'
     }"
   >
-    <!-- Poster Image (Optional) -->
-    <div v-if="event.poster_url" class="relative sm:h-96 w-full overflow-hidden rounded-t-xl">
-      <img 
-        :src="event.poster_url" 
-        :alt="event.title" 
+    <!-- Poster / Video (Optional) -->
+    <div v-if="event.video_url || event.poster_url" class="relative sm:h-96 w-full overflow-hidden rounded-t-xl">
+      <!-- Video poster: autoplay on hover, muted, loop, no controls -->
+      <div v-if="event.video_url" class="w-full h-full" @mouseenter="playVideo" @mouseleave="pauseVideo">
+        <video
+          ref="videoEl"
+          :src="event.video_url"
+          :poster="event.poster_url || undefined"
+          muted
+          loop
+          playsinline
+          preload="metadata"
+          class="w-full h-full object-cover"
+        />
+      </div>
+      <img
+        v-else
+        :src="event.poster_url"
+        :alt="event.title"
         class="w-full h-full object-cover transform hover:scale-105 transition-transform duration-500"
       />
       <!-- Organization Logo Overlay -->
@@ -158,7 +172,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { formatLocalDate } from '../utils/dateUtils'
 
@@ -183,6 +197,18 @@ const refreshReactions = async () => {
 }
 
 const router = useRouter()
+const videoEl = ref(null)
+
+const playVideo = () => {
+  videoEl.value?.play()
+}
+const pauseVideo = () => {
+  if (videoEl.value) {
+    videoEl.value.pause()
+    videoEl.value.currentTime = 0
+  }
+}
+
 const navigateToEvent = () => {
   router.push(`/events/${props.event.id}`)
 }

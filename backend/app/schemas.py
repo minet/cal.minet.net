@@ -171,6 +171,7 @@ class CreateEvent(BaseModel):
     guest_organization_ids: List[str] = []
     hide_details: bool = False
     poster_url: Optional[str] = None
+    video_url: Optional[str] = None
     links: List[EventLinkCreate] = []
 
 class UpdateEvent(BaseModel):
@@ -185,6 +186,7 @@ class UpdateEvent(BaseModel):
     tag_ids: Optional[List[str]] = None
     guest_organization_ids: Optional[List[str]] = None
     poster_url: Optional[str] = None
+    video_url: Optional[str] = None
     hide_details: Optional[bool] = None
     featured: Optional[int] = None
     links: Optional[List[EventLinkCreate]] = None
@@ -213,9 +215,10 @@ class EventRead(BaseModel):
     visibility: EventVisibility
     hide_details: bool = False
     poster_url: Optional[str] = None
+    video_url: Optional[str] = None
     rejection_message: Optional[str] = None
     approved_at: Optional[datetime] = None
-    approved_at: Optional[datetime] = None
+    submitted_at: Optional[datetime] = None
     created_at: datetime
     
     # New Fields
@@ -326,6 +329,8 @@ class EventRead(BaseModel):
             visibility=event.visibility,
             hide_details=event.hide_details,
             poster_url=None if should_hide else event.poster_url,
+            video_url=None if should_hide else event.video_url,
+            submitted_at=event.submitted_at,
             created_at=event.created_at,
             featured=event.featured,
             is_featured=(event.featured > 0 and start_time.replace(tzinfo=timezone.utc) <= (datetime.now(timezone.utc) + timedelta(days=event.featured))),

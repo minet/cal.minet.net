@@ -85,10 +85,16 @@
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <!-- Main Content -->
       <div class="lg:col-span-2 space-y-6">
-        <!-- Poster -->
-        <div v-if="event.poster_url" class="bg-white shadow-sm rounded-lg overflow-hidden">
-          <img :src="event.poster_url" :alt="event.title" class="w-full object-cover" />
+        <!-- Poster / Video -->
+        <div v-if="event.video_url" class="bg-white shadow-sm rounded-lg overflow-hidden">
+          <video
+          :src="event.video_url"
+          :poster="event.poster_url || undefined"
+          controls
+          class="w-full object-cover"
+          />
         </div>
+        <img v-else-if="event.poster_url" :src="event.poster_url" :alt="event.title" class="bg-white shadow-sm rounded-lg overflow-hidden" />
         
         <!-- Description -->
         <div class="bg-white shadow-sm rounded-lg p-6">

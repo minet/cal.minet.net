@@ -60,10 +60,10 @@
         
         <!-- Poster Side (Left) -->
         <div class="w-full lg:w-1/2 h-1/2 lg:h-full flex items-center justify-center p-8 lg:p-12 relative">
-           <img 
-             v-if="currentEvent.poster_url"
-             :src="currentEvent.poster_url" 
-             class="max-w-full max-h-full w-auto h-auto object-contain shadow-2xl rounded-3xl ring-4 ring-white/50" 
+           <img
+             v-if="currentEvent.poster_url || currentEvent.video_url"
+             :src="currentEvent.poster_url || undefined"
+             class="max-w-full max-h-full w-auto h-auto object-contain shadow-2xl rounded-3xl ring-4 ring-white/50"
              alt="Event Poster"
            >
            <div v-else class="w-full h-full flex items-center justify-center bg-white/30 rounded-3xl backdrop-blur-sm border-4 border-white/50">

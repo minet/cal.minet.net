@@ -177,12 +177,14 @@ class Event(SQLModel, table=True):
     visibility: EventVisibility = Field(default=EventVisibility.PUBLIC_PENDING)
     group_id: Optional[UUID] = Field(default=None, foreign_key="group.id")
     poster_url: Optional[str] = None
+    video_url: Optional[str] = None
     organization_id: UUID = Field(foreign_key="organization.id")
     created_by_id: UUID = Field(foreign_key="user.id")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     rejection_message: Optional[str] = None
     hide_details: bool = Field(default=False)
     approved_at: Optional[datetime] = None
+    submitted_at: Optional[datetime] = None
     featured: int = Field(default=0)
 
     organization: Optional[Organization] = Relationship(back_populates="events")
@@ -269,3 +271,16 @@ class ShortLink(SQLModel, table=True):
     last_used_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     user: Optional[User] = Relationship()
+
+class StoredFile(SQLModel, table=True):
+    """Tracks every file uploaded to MinIO storage"""
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    stored_filename: str = Field(index=True)      # unique name in MinIO (e.g. "abc123.mp4")
+    original_filename: str                          # original name from the user's machine
+    url: str                                        # public URL (/uploads/abc123.mp4)
+    content_type: str
+    size: int                                       # bytes
+    uploaded_by_id: UUID = Field(foreign_key="user.id")
+    uploaded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    uploaded_by: Optional[User] = Relationship()
