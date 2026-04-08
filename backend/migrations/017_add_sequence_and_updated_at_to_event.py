@@ -1,5 +1,8 @@
 import os
 from sqlalchemy import create_engine, text
+import logging
+
+logger = logging.getLogger(__name__)
 
 DATABASE_URL: str = os.getenv("DATABASE_URL") or ""
 if not DATABASE_URL:
@@ -9,13 +12,13 @@ if not DATABASE_URL:
 
 
 def run_migration():
-    print(f"Connecting to {DATABASE_URL}...")
+    logger.info(f"Connecting to {DATABASE_URL}...")
     try:
         engine = create_engine(DATABASE_URL)
         with engine.connect() as conn:
             conn.execution_options(isolation_level="AUTOCOMMIT")
 
-            print("Adding sequence column to event table...")
+            logger.info("Adding sequence column to event table...")
             conn.execute(
                 text(
                     """
@@ -24,7 +27,7 @@ def run_migration():
                 )
             )
 
-            print("Setting sequence to 1 for existing events...")
+            logger.info("Setting sequence to 1 for existing events...")
             conn.execute(
                 text(
                     """
@@ -34,7 +37,7 @@ def run_migration():
             )
 
             # Force an update for all the existing events to set the updated_at timestamp
-            print("Adding updated_at column to event table...")
+            logger.info("Adding updated_at column to event table...")
             conn.execute(
                 text(
                     """
@@ -43,7 +46,7 @@ def run_migration():
                 )
             )
 
-            print("Setting updated_at timestamp for existing events...")
+            logger.info("Setting updated_at timestamp for existing events...")
             conn.execute(
                 text(
                     """
@@ -52,9 +55,9 @@ def run_migration():
                 )
             )
 
-            print("Migration 017 completed successfully.")
+            logger.info("Migration 017 completed successfully.")
     except Exception as e:
-        print(f"Migration failed: {e}")
+        logger.error(f"Migration failed: {e}")
         raise e
 
 

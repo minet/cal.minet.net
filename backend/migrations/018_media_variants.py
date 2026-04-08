@@ -160,7 +160,7 @@ def run_migration():
                         0,
                         '00000000-0000-4000-8000-000000000001',
                         NOW(),
-                        TRUE,
+                        FALSE,
                         CASE WHEN v_content_type LIKE 'video/%' THEN 'video' ELSE 'image' END,
                         '[]',
                         0
