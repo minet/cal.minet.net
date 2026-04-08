@@ -27,7 +27,7 @@
           :style="{ backgroundColor: info.color_secondary || null }"
         >
            <!-- Logo if available -->
-           <img v-if="info.logo_url" :src="info.logo_url" :alt="info.title" class="h-full w-full object-cover" />
+           <img v-if="info.logo_file || info.logo_url" :src="resolveMediaUrl(info.logo_file, 64) ?? info.logo_url" :alt="info.title" class="h-full w-full object-cover" />
            <!-- Icon fallback based on type -->
            <CalendarIcon 
              v-else-if="info.item_type === 'event'" 
@@ -127,6 +127,7 @@ import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuth } from '../composables/useAuth';
 import api from '../utils/api';
+import { resolveMediaUrl } from '../utils/media.js';
 import { 
     ExclamationTriangleIcon, 
     CalendarIcon, 

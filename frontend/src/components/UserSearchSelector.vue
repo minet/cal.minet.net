@@ -33,7 +33,7 @@
         class="w-full text-left px-4 py-3 hover:bg-gray-50 cursor-pointer flex items-center space-x-3"
       >
         <div class="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-          <img v-if="user.profile_picture_url" :src="user.profile_picture_url" :alt="getFullName(user)" class="h-full w-full object-cover" />
+          <img v-if="user.profile_picture_file || user.profile_picture_url" :src="resolveMediaUrl(user.profile_picture_file, 64) ?? user.profile_picture_url" :alt="getFullName(user)" class="h-full w-full object-cover" />
           <span v-else class="text-gray-600 font-medium text-sm">{{ getInitials(user) }}</span>
         </div>
         <div class="flex-1 min-w-0">
@@ -49,6 +49,7 @@
 import { ref, computed, watch } from 'vue'
 import TextInput from './TextInput.vue'
 import api from '../utils/api'
+import { resolveMediaUrl } from '../utils/media.js'
 
 const props = defineProps({
   placeholder: {

@@ -11,7 +11,7 @@
     <!-- Left: Organization Logo -->
     <div class="flex-shrink-0 mr-2">
       <div class="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200">
-        <img v-if="organization?.logo_url" :src="organization.logo_url" :alt="organization.name" class="h-full w-full object-cover" />
+        <img v-if="organization?.logo_file || organization?.logo_url" :src="resolveMediaUrl(organization.logo_file, 64) ?? organization.logo_url" :alt="organization.name" class="h-full w-full object-cover" />
         <span v-else class="text-xs font-bold text-gray-600">{{ organization?.name?.charAt(0) || '?' }}</span>
       </div>
     </div>
@@ -51,6 +51,7 @@
 <script setup>
 import { computed } from 'vue'
 import { BellIcon, BellSlashIcon, ShareIcon } from '@heroicons/vue/24/outline'
+import { resolveMediaUrl } from '../utils/media.js'
 
 const props = defineProps({
   tag: {

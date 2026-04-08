@@ -50,7 +50,7 @@
                 @click="openUser(user.id)">
                 <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-0">
                   <div class="flex items-center">
-                    <UserAvatar :src="user.profile_picture_url" :name="user.full_name || user.email" size="sm"
+                    <UserAvatar :src="resolveMediaUrl(user.profile_picture_file, 64) ?? user.profile_picture_url" :name="user.full_name || user.email" size="sm"
                       class="mr-3" />
                     {{ user.full_name || 'Jamais connecté' }}
                   </div>
@@ -340,6 +340,7 @@ import { useRouter } from 'vue-router'
 import api from '../utils/api'
 import UserAvatar from '../components/UserAvatar.vue'
 import TextInput from '../components/TextInput.vue'
+import { resolveMediaUrl } from '../utils/media.js'
 import {
   Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot,
   Combobox, ComboboxInput, ComboboxButton, ComboboxOptions, ComboboxOption, ComboboxLabel

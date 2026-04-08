@@ -33,7 +33,7 @@
           <div v-if="filteredMembers.length === 0" class="px-3 py-2 text-xs text-gray-400">Aucun membre</div>
           <button v-for="m in filteredMembers" :key="m.user_id" type="button" @click="insertMember(m)"
             class="w-full text-left flex items-center gap-2 px-3 py-2 hover:bg-gray-50 transition-colors">
-            <UserAvatar :src="m.profile_picture_url" :name="m.full_name || m.email" size="sm" />
+            <UserAvatar :src="resolveMediaUrl(m.profile_picture_file, 64) ?? m.profile_picture_url" :name="m.full_name || m.email" size="sm" />
             <div>
               <p class="text-sm font-medium text-gray-800">{{ m.full_name || m.email }}</p>
               <p v-if="m.title" class="text-xs text-indigo-600">{{ m.title }}</p>
@@ -103,6 +103,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { UserCircleIcon, PhotoIcon, ArrowUpTrayIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import UserAvatar from './UserAvatar.vue'
 import api from '../utils/api'
+import { resolveMediaUrl } from '../utils/media.js'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },

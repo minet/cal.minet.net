@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 
 from app.api.auth import get_current_user
 from app.database import get_session
-from app.models import Organization, Subscription, Tag, User
+from app.models import Organization, StoredFile, Subscription, Tag, User
 
 router = APIRouter()
 
@@ -42,12 +42,16 @@ async def get_my_subscriptions(
         if sub.organization_id:
             org = session.get(Organization, sub.organization_id)
             if org:
+                logo_url = None
+                if org.logo_file_id:
+                    lf = session.get(StoredFile, org.logo_file_id)
+                    logo_url = lf.url if lf else None
                 result["organizations"].append({
                     "id": str(sub.id),
                     "organization": {
                         "id": str(org.id),
                         "name": org.name,
-                        "logo_url": org.logo_url
+                        "logo_url": logo_url,
                     }
                 })
         elif sub.tag_id:
@@ -57,10 +61,14 @@ async def get_my_subscriptions(
                 org = session.get(Organization, tag.organization_id)
                 org_data = None
                 if org:
+                    org_logo_url = None
+                    if org.logo_file_id:
+                        lf = session.get(StoredFile, org.logo_file_id)
+                        org_logo_url = lf.url if lf else None
                     org_data = {
                         "id": str(org.id),
                         "name": org.name,
-                        "logo_url": org.logo_url
+                        "logo_url": org_logo_url,
                     }
 
                 result["tags"].append({

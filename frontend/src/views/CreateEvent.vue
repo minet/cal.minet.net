@@ -169,11 +169,11 @@
               </div>
 
               <div class="col-span-full">
-                <ImageUpload v-model="form.poster_url" label="Affiche de l'événement (optionnel)" />
+                <ImageUpload v-model="form.poster_url" @update:stored-file-id="id => form.poster_file_id = id" label="Affiche de l'événement (optionnel)" />
               </div>
 
               <div class="col-span-full">
-                <VideoUpload v-model="form.video_url" label="Vidéo d'affiche (optionnel — affiché en autoplay dans le feed)" />
+                <VideoUpload v-model="form.video_url" @update:stored-file-id="id => form.video_file_id = id" label="Vidéo d'affiche (optionnel — affiché en autoplay dans le feed)" />
               </div>
 
               <!-- Visibility Selector -->
@@ -276,7 +276,7 @@
               class="h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-white font-bold text-xs"
               :style="{ backgroundColor: evt.organization?.color_secondary || '#f3f4f6' }"
             >
-              <img v-if="evt.organization?.logo_url" :src="evt.organization.logo_url" class="h-full w-full object-cover rounded-full" />
+              <img v-if="evt.organization?.logo_file || evt.organization?.logo_url" :src="resolveMediaUrl(evt.organization.logo_file, 64) ?? evt.organization.logo_url" class="h-full w-full object-cover rounded-full" />
               <span v-else :style="{ color: evt.organization?.color_primary || '#4f46e5' }">{{ evt.organization?.name?.charAt(0) }}</span>
             </div>
             <div>
@@ -308,6 +308,7 @@ import CollapsibleCard from '../components/CollapsibleCard.vue'
 import VisibilitySelector from '../components/VisibilitySelector.vue'
 import TagSelector from '../components/TagSelector.vue'
 import { PlusIcon, XMarkIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
+import { resolveMediaUrl } from '../utils/media.js'
 import DateTimeDurationPicker from '../components/DateTimeDurationPicker.vue'
 
 const router = useRouter()
@@ -322,6 +323,8 @@ const form = ref({
   location_url: '',
   poster_url: '',
   video_url: '',
+  poster_file_id: null,
+  video_file_id: null,
   visibility: 'public_pending',
 
   hide_details: false,
@@ -487,8 +490,8 @@ const createEvent = async () => {
       end_time: localToUtc(form.value.end_time),
       location: form.value.location,
       location_url: form.value.location_url,
-      poster_url: form.value.poster_url,
-      video_url: form.value.video_url,
+      poster_file_id: form.value.poster_file_id || undefined,
+      video_file_id: form.value.video_file_id || undefined,
       organization_id: form.value.organization_id,
       visibility: form.value.visibility,
       group_id: form.value.group_id,
@@ -527,8 +530,10 @@ onMounted(() => {
           organization_id: duplicateData.organization_id,
           group_id: duplicateData.group_id ? duplicateData.group_id : '', // Ensure empty string if null
           visibility: 'draft', // Reset to draft
-          poster_url: duplicateData.poster_url,
-          video_url: duplicateData.video_url,
+          poster_url: duplicateData.poster_url || duplicateData.poster_file?.url || '',
+          video_url: duplicateData.video_url || duplicateData.video_file?.url || '',
+          poster_file_id: duplicateData.poster_file?.id || null,
+          video_file_id: duplicateData.video_file?.id || null,
           tag_ids: duplicateData.tags?.map(t => t.id) || [],
           guest_organization_ids: duplicateData.guest_organizations?.map(g => g.id) || [],
           hide_details: duplicateData.hide_details,

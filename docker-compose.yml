@@ -34,6 +34,7 @@ services:
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
       - APP_TIMEZONE=${APP_TIMEZONE:-UTC}
+      - MEDIA_SIZES=${MEDIA_SIZES:-320,640,960,1280}
     depends_on:
       db:
         condition: service_healthy
@@ -69,6 +70,7 @@ services:
       - /app/node_modules
     environment:
       - VITE_API_URL=/api
+      - VITE_MEDIA_SIZES=${MEDIA_SIZES:-320,640,960,1280}
     develop:
       watch:
         - action: sync
@@ -97,6 +99,27 @@ services:
       - frontend
     environment:
       - VITE_API_URL=http://localhost:8000
+
+  media-processor:
+    build:
+      context: ./media-processor
+    container_name: calendint-media-processor
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/calendint
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_BUCKET=calendint
+      - MINIO_SECURE=false
+      - MEDIA_SIZES=${MEDIA_SIZES:-320,640,960,1280}
+      - POLL_INTERVAL=${POLL_INTERVAL:-10}
+      - RESET_RETRIES_ON_START=${RESET_RETRIES_ON_START:-false}
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    restart: unless-stopped
 
   minio:
     image: minio/minio:latest

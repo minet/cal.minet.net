@@ -11,13 +11,13 @@
     }"
   >
     <!-- Poster / Video (Optional) -->
-    <div v-if="event.video_url || event.poster_url" class="relative sm:h-96 w-full overflow-hidden rounded-t-xl">
+    <div v-if="event.video_file || event.poster_file" class="relative sm:h-96 w-full overflow-hidden rounded-t-xl">
       <!-- Video poster: autoplay on hover, muted, loop, no controls -->
-      <div v-if="event.video_url" class="w-full h-full" @mouseenter="playVideo" @mouseleave="pauseVideo">
+      <div v-if="event.video_file" class="w-full h-full" @mouseenter="playVideo" @mouseleave="pauseVideo">
         <video
           ref="videoEl"
-          :src="event.video_url"
-          :poster="event.poster_url || undefined"
+          :src="event.video_file.url"
+          :poster="resolveMediaUrl(event.poster_file, 640) || undefined"
           muted
           loop
           playsinline
@@ -25,23 +25,25 @@
           class="w-full h-full object-cover"
         />
       </div>
-      <img
+      <MediaImage
         v-else
-        :src="event.poster_url"
+        :stored-file="event.poster_file"
+        :display-width="480"
+        sizes="(max-width: 640px) 100vw, 480px"
         :alt="event.title"
-        class="w-full h-full object-cover transform hover:scale-105 transition-transform duration-500"
+        img-class="w-full h-full object-cover transform hover:scale-105 transition-transform duration-500"
       />
       <!-- Organization Logo Overlay -->
       <div class="absolute bottom-3 right-3 flex items-center space-x-2 overflow-hidden p-1 bg-white/90 rounded-full shadow-md backdrop-blur-sm">
         <template v-for="guest in event.guest_organizations" :key="guest.id">
-            <img 
-                v-if="guest.logo_url"
-                :src="guest.logo_url" 
+            <img
+                v-if="guest.logo_file || guest.logo_url"
+                :src="resolveMediaUrl(guest.logo_file, 64) ?? guest.logo_url"
                 :alt="guest.name"
                 class="inline-block h-10 w-10 rounded-full ring-2 ring-white object-cover"
                 :title="guest.name"
             />
-            <div 
+            <div
                 v-else
                 class="inline-block h-10 w-10 rounded-full ring-2 ring-white flex items-center justify-center font-bold"
                 :style="{ backgroundColor: guest.color_secondary || '#f0f9ff', color: guest.color_primary || '#0369a1' }"
@@ -50,15 +52,15 @@
                 {{ guest.name.charAt(0) }}
             </div>
         </template>
-        
-        <img 
-          v-if="event.organization?.logo_url"
-          :src="event.organization.logo_url" 
-          :alt="event.organization.name" 
+
+        <img
+          v-if="event.organization?.logo_file || event.organization?.logo_url"
+          :src="resolveMediaUrl(event.organization.logo_file, 64) ?? event.organization.logo_url"
+          :alt="event.organization.name"
           class="inline-block h-10 w-10 rounded-full ring-2 ring-white object-cover z-10"
           :title="event.organization.name"
         />
-        <div 
+        <div
           v-else-if="event.organization"
           class="inline-block h-10 w-10 rounded-full ring-2 ring-white z-10 flex items-center justify-center font-bold"
           :style="{ backgroundColor: event.organization.color_secondary || '#f0f9ff', color: event.organization.color_primary || '#0369a1' }"
@@ -68,21 +70,21 @@
         </div>
       </div>
     </div>
-    
+
     <!-- No Poster Fallback - Just Org Logo -->
-    <div 
-      v-else 
+    <div
+      v-else
       class="relative h-24 flex items-center justify-center p-4 transition-colors rounded-t-xl"
       :style="{ background: getEventGradient(event.organization, event.guest_organizations) }"
     >
       <div class="absolute -bottom-6 left-6 flex items-center -space-x-2">
-        <img 
-          v-if="event.organization?.logo_url"
-          :src="event.organization.logo_url" 
-          :alt="event.organization.name" 
+        <img
+          v-if="event.organization?.logo_file || event.organization?.logo_url"
+          :src="resolveMediaUrl(event.organization.logo_file, 64) ?? event.organization.logo_url"
+          :alt="event.organization.name"
           class="h-12 w-12 rounded-full border-4 border-white object-cover z-20 bg-white"
         />
-        <div 
+        <div
           v-else-if="event.organization"
           class="h-12 w-12 rounded-full border-4 border-white z-20 bg-white flex items-center justify-center font-bold"
           :style="{ color: event.organization.color_primary || '#0369a1' }"
@@ -91,14 +93,14 @@
         </div>
 
         <template v-for="guest in event.guest_organizations" :key="guest.id">
-            <img 
-                v-if="guest.logo_url"
-                :src="guest.logo_url" 
+            <img
+                v-if="guest.logo_file || guest.logo_url"
+                :src="resolveMediaUrl(guest.logo_file, 64) ?? guest.logo_url"
                 :alt="guest.name"
                 class="h-12 w-12 rounded-full border-4 border-white object-cover bg-white"
                 :title="guest.name"
             />
-            <div 
+            <div
                 v-else
                 class="h-12 w-12 rounded-full border-4 border-white bg-white flex items-center justify-center text-xs font-bold"
                 :style="{ color: guest.color_primary || '#0369a1' }"
@@ -175,8 +177,10 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { formatLocalDate } from '../utils/dateUtils'
+import { resolveMediaUrl } from '../utils/media.js'
 
 import ReactionList from './ReactionList.vue'
+import MediaImage from './MediaImage.vue'
 import api from '../utils/api'
 import { getEventGradient } from '../utils/colorUtils'
 

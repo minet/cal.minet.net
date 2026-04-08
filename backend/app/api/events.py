@@ -217,8 +217,8 @@ def create_event(
         group_id=UUID(event_data.group_id) if event_data.group_id else None,
         created_by_id=current_user.id,
         hide_details=event_data.hide_details,
-        poster_url=event_data.poster_url,
-        video_url=event_data.video_url,
+        poster_file_id=event_data.poster_file_id,
+        video_file_id=event_data.video_file_id,
         submitted_at=(
             datetime.now(timezone.utc)
             if visibility == EventVisibility.PUBLIC_PENDING
@@ -713,10 +713,10 @@ def update_event(
             raise HTTPException(status_code=400, detail="Invalid visibility value")
     if event_data.group_id is not None:
         event.group_id = UUID(event_data.group_id) if event_data.group_id else None
-    if event_data.poster_url is not None:
-        event.poster_url = event_data.poster_url
-    if event_data.video_url is not None:
-        event.video_url = event_data.video_url
+    if "poster_file_id" in event_data.model_fields_set:
+        event.poster_file_id = event_data.poster_file_id
+    if "video_file_id" in event_data.model_fields_set:
+        event.video_file_id = event_data.video_file_id
     if event_data.hide_details is not None:
         event.hide_details = event_data.hide_details
 

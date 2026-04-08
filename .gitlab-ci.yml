@@ -15,6 +15,9 @@ before_script:
 build_backend:
   stage: build
   image: docker:latest
+  rules:
+    - changes:
+        - backend/**/*
   script:
     - cd backend
     - docker pull $IMAGE_REGISTRY_BASE/backend:stable || true
@@ -24,10 +27,26 @@ build_backend:
 build_nginx:
   stage: build
   image: docker:latest
+  rules:
+    - changes:
+        - frontend/**/*
+        - nginx/**/*
   script:
     - docker pull $IMAGE_REGISTRY_BASE/nginx:stable || true
     - docker build --cache-from $IMAGE_REGISTRY_BASE/nginx:stable --build-arg BUILDKIT_INLINE_CACHE=1 -f nginx/Dockerfile -t $IMAGE_REGISTRY_BASE/nginx:stable .
     - docker push $IMAGE_REGISTRY_BASE/nginx:stable
+
+build_media_processor:
+  stage: build
+  image: docker:latest
+  rules:
+    - changes:
+        - media-processor/**/*
+  script:
+    - cd media-processor
+    - docker pull $IMAGE_REGISTRY_BASE/media-processor:stable || true
+    - docker build --cache-from $IMAGE_REGISTRY_BASE/media-processor:stable --build-arg BUILDKIT_INLINE_CACHE=1 -f Dockerfile -t $IMAGE_REGISTRY_BASE/media-processor:stable .
+    - docker push $IMAGE_REGISTRY_BASE/media-processor:stable
 
 deploy:
   stage: deploy
@@ -39,5 +58,9 @@ deploy:
       folder_name: cal.minet.net
       image_registry: $CI_REGISTRY_IMAGE
   needs:
-    - build_backend
-    - build_nginx
+    - job: build_backend
+      optional: true
+    - job: build_nginx
+      optional: true
+    - job: build_media_processor
+      optional: true

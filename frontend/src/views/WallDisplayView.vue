@@ -61,8 +61,8 @@
         <!-- Poster Side (Left) -->
         <div class="w-full lg:w-1/2 h-1/2 lg:h-full flex items-center justify-center p-8 lg:p-12 relative">
            <img
-             v-if="currentEvent.poster_url || currentEvent.video_url"
-             :src="currentEvent.poster_url || undefined"
+             v-if="currentEvent.poster_file || currentEvent.poster_url || currentEvent.video_file || currentEvent.video_url"
+             :src="resolveMediaUrl(currentEvent.poster_file, 960) ?? currentEvent.poster_url ?? undefined"
              class="max-w-full max-h-full w-auto h-auto object-contain shadow-2xl rounded-3xl ring-4 ring-white/50"
              alt="Event Poster"
            >
@@ -78,11 +78,11 @@
            <!-- Organization Pill -->
           <div class="mb-8 flex flex-wrap gap-4 items-center">
              <div class="inline-flex items-center bg-white shadow-xl rounded-full px-6 py-3 border border-gray-100 transform transition-transform duration-500 hover:scale-105">
-                <img 
-                  v-if="currentEvent.organization?.logo_url" 
-                  :src="currentEvent.organization.logo_url" 
-                  class="w-12 h-12 rounded-full mr-2 object-cover" 
-                  alt="Org Logo" 
+                <img
+                  v-if="currentEvent.organization?.logo_file || currentEvent.organization?.logo_url"
+                  :src="resolveMediaUrl(currentEvent.organization?.logo_file, 64) ?? currentEvent.organization?.logo_url"
+                  class="w-12 h-12 rounded-full mr-2 object-cover"
+                  alt="Org Logo"
                 />
                 <span class="text-2xl font-bold tracking-wide text-gray-900">{{ currentEvent.organization?.name }}</span>
              </div>
@@ -90,11 +90,11 @@
              <div v-for="guest in currentEvent.guest_organizations" :key="guest.id"
                   class="inline-flex items-center bg-white/90 shadow-lg rounded-full px-4 py-2 border border-gray-100/50 transform transition-transform duration-500 hover:scale-105"
              >
-                <img 
-                  v-if="guest.logo_url" 
-                  :src="guest.logo_url" 
-                  class="w-8 h-8 rounded-full mr-2 object-cover" 
-                  alt="Guest Logo" 
+                <img
+                  v-if="guest.logo_file || guest.logo_url"
+                  :src="resolveMediaUrl(guest.logo_file, 64) ?? guest.logo_url"
+                  class="w-8 h-8 rounded-full mr-2 object-cover"
+                  alt="Guest Logo"
                 />
                 <span class="text-lg font-bold tracking-wide text-gray-700">{{ guest.name }}</span>
              </div>
@@ -159,6 +159,7 @@ import { getEventGradient } from '../utils/colorUtils'
 import { formatLocalDate } from '../utils/dateUtils'
 import { ClockIcon, MapPinIcon } from '@heroicons/vue/24/outline'
 import QRCodeVue3 from 'qrcode-vue3'
+import { resolveMediaUrl } from '../utils/media.js'
 
 const loading = ref(true)
 const events = ref([])

@@ -15,7 +15,7 @@
             <div class="h-16 w-16 rounded-xl flex items-center justify-center overflow-hidden transition-colors"
               :style="{ backgroundColor: organization.color_secondary || '#f3f4f6' }"
               :class="{ 'bg-indigo-100': !organization.color_secondary }">
-              <img v-if="organization.logo_url" :src="organization.logo_url" :alt="organization.name"
+              <img v-if="organization.logo_file || organization.logo_url" :src="resolveMediaUrl(organization.logo_file, 96) ?? organization.logo_url" :alt="organization.name"
                 class="h-full w-full object-cover" />
               <span v-else class="text-2xl font-semibold" :style="{ color: organization.color_primary || '#4f46e5' }"
                 :class="{ 'text-indigo-600': !organization.color_primary }">{{ organization.name.charAt(0) }}</span>
@@ -80,7 +80,7 @@
         class="flex items-center space-x-3 hover:bg-gray-50 p-3 rounded-lg transition-colors">
         <div class="h-10 w-10 rounded-full flex items-center justify-center transition-colors"
           :style="{ backgroundColor: parent.color_secondary || '#f3f4f6' }">
-          <img v-if="parent.logo_url" :src="parent.logo_url" :alt="parent.name"
+          <img v-if="parent.logo_file || parent.logo_url" :src="resolveMediaUrl(parent.logo_file, 64) ?? parent.logo_url" :alt="parent.name"
             class="h-full w-full object-cover rounded-full" />
           <span v-else class="font-semibold" :style="{ color: parent.color_primary || '#4f46e5' }">{{
             parent.name.charAt(0)
@@ -175,6 +175,7 @@ import OrgDescriptionRenderer from '../components/OrgDescriptionRenderer.vue'
 import TagBadge from '../components/TagBadge.vue'
 import api from '../utils/api'
 import { getSocialIcon } from '../utils/social'
+import { resolveMediaUrl } from '../utils/media.js'
 import {
   PencilIcon,
   ChevronRightIcon,

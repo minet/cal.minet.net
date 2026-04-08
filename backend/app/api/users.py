@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -28,7 +28,7 @@ config = Config('.env')
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
-    profile_picture_url: Optional[str] = None
+    profile_picture_file_id: Optional[str] = None  # UUID string
     phone_number: Optional[str] = None
 
 class UserInvite(BaseModel):
@@ -38,7 +38,6 @@ class UserSearchResult(BaseModel):
     id: str
     email: str
     full_name: Optional[str] = None
-    profile_picture_url: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -49,41 +48,40 @@ class MembershipWithOrganization(BaseModel):
     organization_id: str
     role: str
     title: Optional[str] = None
-    organization: Organization | None = None
+    organization: Optional[Any] = None  # OrganizationRead at runtime
 
-    class Config:
-        from_attributes = True
-
-@router.get("/me/organizations", response_model=List[Organization])
+@router.get("/me/organizations")
 async def get_user_organizations(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
     """Get all organizations where the current user is a member (any role)"""
+    from app.schemas import OrganizationRead
     memberships = session.exec(
         select(Membership).where(Membership.user_id == current_user.id)
     ).all()
-    
+
     org_ids = [m.organization_id for m in memberships]
     if not org_ids:
         return []
-    
+
     organizations = session.exec(
         select(Organization).where(Organization.id.in_(org_ids)) #pyright: ignore
     ).all()
-    
-    return organizations
 
-@router.get("/me/memberships", response_model=List[MembershipWithOrganization])
+    return [OrganizationRead.from_model(org, session) for org in organizations]
+
+@router.get("/me/memberships")
 async def get_user_memberships(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
     """Get all memberships for the current user with organization details"""
+    from app.schemas import OrganizationRead
     memberships = session.exec(
         select(Membership).where(Membership.user_id == current_user.id)
     ).all()
-    
+
     result = []
     for membership in memberships:
         org = session.get(Organization, membership.organization_id)
@@ -93,9 +91,9 @@ async def get_user_memberships(
             organization_id=str(membership.organization_id),
             role=membership.role.value,
             title=membership.title,
-            organization=org
+            organization=OrganizationRead.from_model(org, session) if org else None
         ))
-    
+
     return result
 
 @router.get("/me/groups")
@@ -122,7 +120,6 @@ async def get_user_groups(
                     "organization": {
                         "id": str(organization.id),
                         "name": organization.name,
-                        "logo_url": organization.logo_url
                     },
                     "membership_id": str(membership.id),
                     "joined_at": membership.joined_at.isoformat()
@@ -145,6 +142,7 @@ async def get_other_user_memberships(
         select(Membership).where(Membership.user_id == UUID(user_id))
     ).all()
     
+    from app.schemas import OrganizationRead
     result = []
     for membership in memberships:
         org = session.get(Organization, membership.organization_id)
@@ -154,9 +152,9 @@ async def get_other_user_memberships(
             organization_id=str(membership.organization_id),
             role=membership.role.value,
             title=membership.title,
-            organization=org
+            organization=OrganizationRead.from_model(org, session) if org else None
         ))
-    
+
     return result
 
 
@@ -177,8 +175,9 @@ async def update_user_profile(
     # Update fields if provided
     if user_data.full_name is not None:
         user.full_name = user_data.full_name
-    if user_data.profile_picture_url is not None:
-        user.profile_picture_url = user_data.profile_picture_url
+    if user_data.profile_picture_file_id is not None:
+        from uuid import UUID as _UUID
+        user.profile_picture_file_id = _UUID(user_data.profile_picture_file_id)
     if user_data.phone_number is not None:
         user.phone_number = user_data.phone_number
 
@@ -191,21 +190,29 @@ async def update_user_profile(
 # --- User Links and helpers ---
 
 def _user_read(user: User, session: Session) -> UserRead:
-    """Build a UserRead response with eagerly-loaded links."""
+    """Build a UserRead response with eagerly-loaded links and profile picture."""
+    from app.models import StoredFile
+    from app.schemas import StoredFileRead
     links = session.exec(
         select(UserLink).where(UserLink.user_id == user.id).order_by(col(UserLink.order))
     ).all()
+    profile_picture_file = None
+    if user.profile_picture_file_id:
+        sf = session.get(StoredFile, user.profile_picture_file_id)
+        if sf:
+            profile_picture_file = StoredFileRead.from_model(sf)
     return UserRead(
         id=user.id,
         email=user.email,
         full_name=user.full_name,
-        profile_picture_url=user.profile_picture_url,
+        profile_picture_url=profile_picture_file.url if profile_picture_file else None,
         phone_number=user.phone_number,
         is_superadmin=user.is_superadmin,
         exempt_from_rgpd_delete=user.exempt_from_rgpd_delete,
         is_active=user.is_active,
         notification_delay=user.notification_delay,
         links=[UserLinkRead(id=l.id, name=l.name, url=l.url, order=l.order) for l in links],
+        profile_picture_file=profile_picture_file,
     )
 
 @router.get("/me/links", response_model=List[UserLinkRead])
@@ -303,7 +310,6 @@ async def search_users(
             id=str(user.id),
             email=user.email,
             full_name=user.full_name,
-            profile_picture_url=user.profile_picture_url
         )
         for user in users
     ]
@@ -363,7 +369,7 @@ async def list_users(
     pages = (total + size - 1) // size if size > 0 else 0
     
     return PaginatedResponse(
-        items=list(users),
+        items=[_user_read(u, session) for u in users],
         total=total,
         page=page,
         size=size,

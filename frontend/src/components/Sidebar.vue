@@ -10,7 +10,7 @@
       </div>
       <router-link @click="closeSidebar" v-if="user" to="/profile" class="flex items-center space-x-3 hover:bg-gray-50 p-2 -m-2 rounded-lg transition-colors group">
         <UserAvatar 
-          :src="user.profile_picture_url" 
+          :src="resolveMediaUrl(user.profile_picture_file, 80) ?? user.profile_picture_url"
           :name="user.full_name || user.email" 
           size="md" 
         />
@@ -135,7 +135,7 @@
                 :style="{ backgroundColor: org.color_secondary || '#f3f4f6' }"
                 :class="{ 'bg-gray-200': !org.color_secondary }"
               >
-                <img v-if="org.logo_url" :src="org.logo_url" :alt="org.name" class="h-full w-full object-cover" />
+                <img v-if="org.logo_file || org.logo_url" :src="resolveMediaUrl(org.logo_file, 64) ?? org.logo_url" :alt="org.name" class="h-full w-full object-cover" />
                 <span v-else class="text-xs font-medium" :style="{ color: org.color_primary || '#4f46e5' }">{{ org.name.charAt(0) }}</span>
               </div>
               <div class="flex-1 min-w-0">
@@ -183,6 +183,7 @@ import { useAuth } from '../composables/useAuth'
 import api from '../utils/api'
 import UserAvatar from './UserAvatar.vue'
 import MinetIcon from './MinetIcon.vue'
+import { resolveMediaUrl } from '../utils/media.js'
 import { 
   XMarkIcon, 
   PlusIcon, 

@@ -200,12 +200,20 @@ def get_group_members(
     for membership in memberships:
         user = session.get(User, membership.user_id)
         if user:
+            profile_picture_file = None
+            if user.profile_picture_file_id:
+                from app.models import StoredFile
+                from app.schemas import StoredFileRead
+                sf = session.get(StoredFile, user.profile_picture_file_id)
+                if sf:
+                    profile_picture_file = StoredFileRead.from_model(sf).model_dump()
             result.append({
                 "membership_id": str(membership.id),
                 "user_id": str(user.id),
                 "email": user.email,
                 "full_name": user.full_name,
-                "profile_picture_url": user.profile_picture_url,
+                "profile_picture_url": profile_picture_file["url"] if profile_picture_file else None,
+                "profile_picture_file": profile_picture_file,
                 "joined_at": membership.joined_at.isoformat()
             })
     

@@ -8,20 +8,23 @@
     <!-- Background: video or image -->
     <div class="absolute inset-0">
       <video
-        v-if="event.video_url"
+        v-if="event.video_file || event.video_url"
         ref="videoEl"
-        :src="event.video_url"
-        :poster="event.poster_url || undefined"
+        :src="event.video_file?.url ?? event.video_url"
+        :poster="resolveMediaUrl(event.poster_file, 960) ?? event.poster_url ?? undefined"
         muted
         loop
         playsinline
         preload="metadata"
         class="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
       />
-      <img
-        v-else-if="event.poster_url"
-        :src="event.poster_url"
-        class="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+      <MediaImage
+        v-else-if="event.poster_file || event.poster_url"
+        :stored-file="event.poster_file"
+        :fallback-url="event.poster_url"
+        :display-width="960"
+        sizes="(max-width: 1024px) 100vw, 66vw"
+        img-class="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
         alt=""
       />
       <div v-else class="h-full w-full bg-gradient-to-br from-indigo-500 to-purple-600" />
@@ -57,6 +60,8 @@ import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { MapPinIcon } from '@heroicons/vue/24/outline'
 import { formatLocalDate } from '../utils/dateUtils'
+import { resolveMediaUrl } from '../utils/media.js'
+import MediaImage from './MediaImage.vue'
 
 const props = defineProps({
   event: { type: Object, required: true }
@@ -68,7 +73,7 @@ const videoEl = ref(null)
 // Evaluated once — these don't change during a session
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 const isSmallPhone = window.matchMedia('(max-width: 480px)').matches
-const canAutoplay = !!props.event.video_url && !prefersReducedMotion && !isSmallPhone
+const canAutoplay = !!(props.event.video_file || props.event.video_url) && !prefersReducedMotion && !isSmallPhone
 
 // Start autoplay as soon as the <video> element is mounted (it's always present when video_url is set)
 watch(videoEl, (el) => {

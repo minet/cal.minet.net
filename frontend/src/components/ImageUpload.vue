@@ -175,7 +175,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'update:storedFileId'])
 
 const fileInput = ref(null)
 const dragover = ref(false)
@@ -273,6 +273,7 @@ const uploadFile = async (file) => {
     })
 
     emit('update:modelValue', response.data.url)
+    emit('update:storedFileId', response.data.stored_file_id)
   } catch (err) {
     console.error('Upload failed:', err)
     error.value = err.response?.data?.detail || 'Échec de l\'upload'
@@ -283,6 +284,7 @@ const uploadFile = async (file) => {
 
 const removeImage = () => {
   emit('update:modelValue', null)
+  emit('update:storedFileId', null)
   if (fileInput.value) {
     fileInput.value.value = ''
   }

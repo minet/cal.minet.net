@@ -86,15 +86,23 @@
       <!-- Main Content -->
       <div class="lg:col-span-2 space-y-6">
         <!-- Poster / Video -->
-        <div v-if="event.video_url" class="bg-white shadow-sm rounded-lg overflow-hidden">
+        <div v-if="event.video_file || event.video_url" class="bg-white shadow-sm rounded-lg overflow-hidden">
           <video
-          :src="event.video_url"
-          :poster="event.poster_url || undefined"
+          :src="event.video_file?.url ?? event.video_url"
+          :poster="resolveMediaUrl(event.poster_file, 960) ?? event.poster_url ?? undefined"
           controls
           class="w-full object-cover"
           />
         </div>
-        <img v-else-if="event.poster_url" :src="event.poster_url" :alt="event.title" class="bg-white shadow-sm rounded-lg overflow-hidden" />
+        <MediaImage
+          v-else-if="event.poster_file || event.poster_url"
+          :stored-file="event.poster_file"
+          :fallback-url="event.poster_url"
+          :display-width="960"
+          sizes="(max-width: 1024px) 100vw, 66vw"
+          :alt="event.title"
+          img-class="bg-white shadow-sm rounded-lg overflow-hidden w-full"
+        />
         
         <!-- Description -->
         <div class="bg-white shadow-sm rounded-lg p-6">
@@ -302,6 +310,8 @@ import { getEventGradient, getEventGradientLight } from '../utils/colorUtils'
 import ShareButton from '../components/ShareButton.vue'
 import ActionPanel from '../components/ActionPanel.vue'
 import ActionPanelButton from '../components/ActionPanelButton.vue'
+import MediaImage from '../components/MediaImage.vue'
+import { resolveMediaUrl } from '../utils/media.js'
 
 const route = useRoute()
 const router = useRouter()

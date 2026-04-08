@@ -114,7 +114,7 @@
         <div class="px-4 py-5 sm:p-6">
           <div class="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6 mb-6">
             <div class="relative">
-              <UserAvatar :src="editForm.profile_picture_url || profileUser.profile_picture_url"
+              <UserAvatar :src="resolveMediaUrl(profileUser.profile_picture_file, 192) ?? profileUser.profile_picture_url"
                 :name="profileUser.full_name || profileUser.email" size="2xl" />
               <div v-if="isEditing" class="absolute bottom-0 right-0">
                 <label for="avatar-upload"
@@ -292,6 +292,7 @@ import AddToCalendar from '../components/AddToCalendar.vue'
 import api from '../utils/api'
 import { getSocialIcon } from '../utils/social'
 import { Switch } from '@headlessui/vue'
+import { resolveMediaUrl } from '../utils/media.js'
 import {
   PencilIcon,
   PhoneIcon,
@@ -325,7 +326,7 @@ const newRoleForm = ref({
 })
 
 const editForm = ref({
-  profile_picture_url: '',
+  profile_picture_file_id: null,
   phone_number: '',
   notification_delay: 15
 })
@@ -352,7 +353,7 @@ const loadUser = async () => {
     // Initialize edit form
     if (isCurrentUser.value) {
       editForm.value = {
-        profile_picture_url: profileUser.value.profile_picture_url || '',
+        profile_picture_file_id: profileUser.value.profile_picture_file?.id || null,
         phone_number: profileUser.value.phone_number || '',
         notification_delay: profileUser.value.notification_delay || 15
       }
@@ -448,7 +449,7 @@ const cancelEditing = () => {
   // Reset form
   if (profileUser.value) {
     editForm.value = {
-      profile_picture_url: profileUser.value.profile_picture_url || '',
+      profile_picture_file_id: profileUser.value.profile_picture_file?.id || null,
       phone_number: profileUser.value.phone_number || '',
       notification_delay: profileUser.value.notification_delay || 15
     }
@@ -479,7 +480,7 @@ const handleFileUpload = async (event) => {
         'Content-Type': 'multipart/form-data'
       }
     })
-    editForm.value.profile_picture_url = response.data.url
+    editForm.value.profile_picture_file_id = response.data.stored_file_id
   } catch (error) {
     console.error('Failed to upload image:', error)
     alert('Failed to upload image')

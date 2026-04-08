@@ -102,6 +102,21 @@ async def read_users_me(
             
     user_dict["pending_approvals_count"] = pending_count
     user_dict["rejected_events_count"] = user_rejected
+
+    # Inject profile picture URL and file data
+    profile_picture_url = None
+    profile_picture_file = None
+    if current_user.profile_picture_file_id:
+        from app.models import StoredFile
+        from app.schemas import StoredFileRead
+        sf = session.get(StoredFile, current_user.profile_picture_file_id)
+        if sf:
+            pfr = StoredFileRead.from_model(sf)
+            profile_picture_file = pfr.model_dump()
+            profile_picture_url = sf.url
+    user_dict["profile_picture_url"] = profile_picture_url
+    user_dict["profile_picture_file"] = profile_picture_file
+
     return user_dict
 
 @router.put("/me")

@@ -27,7 +27,7 @@
                     <ul v-else class="divide-y divide-gray-100 max-h-96 overflow-y-auto mt-4">
                       <li v-for="reaction in reactions" :key="reaction.user.id + reaction.emoji" class="flex items-center justify-between py-3">
                         <div class="flex items-center gap-3">
-                          <UserAvatar :src="reaction.user.profile_picture_url" :name="reaction.user.full_name || reaction.user.email" size="sm" />
+                          <UserAvatar :src="resolveMediaUrl(reaction.user.profile_picture_file, 64) ?? reaction.user.profile_picture_url" :name="reaction.user.full_name || reaction.user.email" size="sm" />
                           <div>
                             <p class="text-sm font-medium text-gray-900">{{ reaction.user.full_name }}</p>
                             <p class="text-xs text-gray-500">{{ formatDate(reaction.created_at) }}</p>
@@ -62,6 +62,7 @@ import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } fro
 import { FaceSmileIcon, XMarkIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import UserAvatar from './UserAvatar.vue'
 import api from '../utils/api'
+import { resolveMediaUrl } from '../utils/media.js'
 
 const props = defineProps({
   modelValue: Boolean,

@@ -9,8 +9,8 @@
     :style="{ background: backgroundGradient }"
   >
     <!-- Background Poster (Blurred) -->
-    <div v-if="event.poster_url" class="absolute inset-0 z-0 pointer-events-none">
-        <img :src="event.poster_url" class="w-full object-cover blur-2xl opacity-50 scale-110" />
+    <div v-if="event.poster_file || event.poster_url" class="absolute inset-0 z-0 pointer-events-none">
+        <img :src="resolveMediaUrl(event.poster_file, 960) ?? event.poster_url" class="w-full object-cover blur-2xl opacity-50 scale-110" />
     </div>
 
     <!-- Background Bubbles -->
@@ -34,14 +34,14 @@
     </div>
 
     <!-- Left Side: Poster (Desktop) -->
-    <div v-if="event.poster_url" class="hidden md:flex md:w-1/2 h-screen items-center justify-center p-8 relative z-10">
-        <img :src="event.poster_url" :alt="event.title" class="max-h-full max-w-full rounded-3xl shadow-2xl ring-8 ring-white/30 object-contain hover:scale-[1.02] transition-transform duration-500" />
+    <div v-if="event.poster_file || event.poster_url" class="hidden md:flex md:w-1/2 h-screen items-center justify-center p-8 relative z-10">
+        <img :src="resolveMediaUrl(event.poster_file, 960) ?? event.poster_url" :alt="event.title" class="max-h-full max-w-full rounded-3xl shadow-2xl ring-8 ring-white/30 object-contain hover:scale-[1.02] transition-transform duration-500" />
     </div>
 
     <!-- Right Side: Content -->
     <div 
         class="relative z-10 flex flex-col h-full overflow-y-auto w-full"
-        :class="[event.poster_url ? 'md:w-1/2' : 'max-w-5xl mx-auto']"
+        :class="[(event.poster_file || event.poster_url) ? 'md:w-1/2' : 'max-w-5xl mx-auto']"
     >
       <div class="flex flex-col items-center justify-center min-h-screen p-6 text-center">
         <!-- Organization Pill -->
@@ -50,11 +50,11 @@
                 :to="`/organizations/${event.organization.id}`"
                 class="inline-flex items-center bg-white/80 backdrop-blur-md shadow-md rounded-full px-4 py-2 border border-white/20 transform transition-transform hover:scale-105 hover:bg-white/90 cursor-pointer"
             >
-                <img 
-                    v-if="event.organization.logo_url" 
-                    :src="event.organization.logo_url" 
-                    class="w-10 h-10 rounded-full mr-3 object-cover shadow-sm" 
-                    alt="Org Logo" 
+                <img
+                    v-if="event.organization.logo_file || event.organization.logo_url"
+                    :src="resolveMediaUrl(event.organization.logo_file, 64) ?? event.organization.logo_url"
+                    class="w-10 h-10 rounded-full mr-3 object-cover shadow-sm"
+                    alt="Org Logo"
                 />
                 <span class="text-xl font-bold tracking-tight text-gray-900">{{ event.organization.name }}</span>
             </router-link>
@@ -63,11 +63,11 @@
                 :to="`/organizations/${guest.id}`"
                 class="inline-flex items-center bg-white/80 backdrop-blur-md shadow-md rounded-full px-4 py-2 border border-white/20 transform transition-transform hover:scale-105 hover:bg-white/90 cursor-pointer"
             >
-                <img 
-                    v-if="guest.logo_url" 
-                    :src="guest.logo_url" 
-                    class="w-8 h-8 rounded-full mr-2 object-cover shadow-sm" 
-                    alt="Guest Logo" 
+                <img
+                    v-if="guest.logo_file || guest.logo_url"
+                    :src="resolveMediaUrl(guest.logo_file, 64) ?? guest.logo_url"
+                    class="w-8 h-8 rounded-full mr-2 object-cover shadow-sm"
+                    alt="Guest Logo"
                 />
                 <span class="text-lg font-semibold tracking-tight text-gray-800">{{ guest.name }}</span>
             </router-link>
@@ -79,8 +79,8 @@
         </h1>
 
         <!-- Mobile Poster -->
-        <div v-if="event.poster_url" class="mb-8 md:hidden">
-            <img :src="event.poster_url" :alt="event.title" class="max-h-64 mx-auto rounded-3xl shadow-2xl ring-8 ring-white/30" />
+        <div v-if="event.poster_file || event.poster_url" class="mb-8 md:hidden">
+            <img :src="resolveMediaUrl(event.poster_file, 640) ?? event.poster_url" :alt="event.title" class="max-h-64 mx-auto rounded-3xl shadow-2xl ring-8 ring-white/30" />
         </div>
 
         <!-- Countdown -->
@@ -163,6 +163,7 @@ import ReactionList from '../components/ReactionList.vue'
 import { MapPinIcon, CalendarIcon, LinkIcon, ArrowRightIcon } from '@heroicons/vue/24/outline'
 import LoginModal from '../components/LoginModal.vue'
 import { getEventGradient, hexToRgb, rgbToHsl } from '../utils/colorUtils'
+import { resolveMediaUrl } from '../utils/media.js'
 
 const showLoginModal = ref(false)
 const loginDescription = ref("Connectez-vous pour réagir, ajouter cet événement à votre calendrier et profiter de toutes les fonctionnalités !")

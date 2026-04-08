@@ -44,6 +44,7 @@ def check_can_upload(user: User, session: Session) -> None:
 def record_upload(session: Session, url: str, original_filename: str, content_type: str, size: int, user: User) -> StoredFile:
     """Save a StoredFile record and return it."""
     stored_filename = url.removeprefix("/uploads/")
+    file_type = "video" if content_type.startswith("video/") else "image"
     record = StoredFile(
         stored_filename=stored_filename,
         original_filename=original_filename,
@@ -51,6 +52,8 @@ def record_upload(session: Session, url: str, original_filename: str, content_ty
         content_type=content_type,
         size=size,
         uploaded_by_id=user.id,
+        file_type=file_type,
+        processed=False,
     )
     session.add(record)
     session.commit()
@@ -85,8 +88,8 @@ async def upload_image(
 
     try:
         url = upload_file(contents, file.filename, file.content_type)
-        record_upload(session, url, file.filename, file.content_type, len(contents), current_user)
-        return {"url": url, "filename": file.filename}
+        sf = record_upload(session, url, file.filename, file.content_type, len(contents), current_user)
+        return {"url": url, "filename": file.filename, "stored_file_id": str(sf.id)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
@@ -119,8 +122,8 @@ async def upload_video(
 
     try:
         url = upload_file(contents, file.filename, file.content_type)
-        record_upload(session, url, file.filename, file.content_type, len(contents), current_user)
-        return {"url": url, "filename": file.filename}
+        sf = record_upload(session, url, file.filename, file.content_type, len(contents), current_user)
+        return {"url": url, "filename": file.filename, "stored_file_id": str(sf.id)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 

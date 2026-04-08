@@ -29,20 +29,20 @@ def create_organization(
     session.add(org)
     session.commit()
     session.refresh(org)
-    
-    return org.to_read_model()
+
+    return org.to_read_model(session)
 
 @router.get("/", response_model=List[OrganizationRead])
 def list_organizations(session: Session = Depends(get_session)):
     orgs = session.exec(select(Organization).order_by(Organization.name.asc())).all() # pyright: ignore
-    return [o.to_read_model() for o in orgs]
+    return [o.to_read_model(session) for o in orgs]
 
 @router.get("/{org_id}", response_model=OrganizationRead)
 def get_organization(org_id: str, session: Session = Depends(get_session)):
     org = session.get(Organization, org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
-    return org.to_read_model()
+    return org.to_read_model(session)
 
 @router.get("/{org_id}/members")
 def get_organization_members(org_id: str, session: Session = Depends(get_session)):
@@ -60,12 +60,20 @@ def get_organization_members(org_id: str, session: Session = Depends(get_session
             user_links = session.exec(
                 select(UserLink).where(UserLink.user_id == user.id).order_by(col(UserLink.order))
             ).all()
+            profile_picture_file = None
+            if user.profile_picture_file_id:
+                from app.models import StoredFile
+                from app.schemas import StoredFileRead
+                sf = session.get(StoredFile, user.profile_picture_file_id)
+                if sf:
+                    profile_picture_file = StoredFileRead.from_model(sf).model_dump()
             result.append({
                 "id": str(membership.id),
                 "user_id": str(user.id),
                 "email": user.email,
                 "full_name": user.full_name,
-                "profile_picture_url": user.profile_picture_url,
+                "profile_picture_url": profile_picture_file["url"] if profile_picture_file else None,
+                "profile_picture_file": profile_picture_file,
                 "phone_number": user.phone_number,
                 "role": membership.role,
                 "title": membership.title,
@@ -332,7 +340,7 @@ def update_organization(
     org.name = org_update.name
     org.slug = org_update.slug
     org.description = org_update.description
-    org.logo_url = org_update.logo_url
+    org.logo_file_id = org_update.logo_file_id
     org.type = org_update.type
     org.parent_id = org_update.parent_id
     org.delete_after = org_update.delete_after
@@ -435,9 +443,11 @@ def delete_organization(
         session.add(child)
         
     # 9. Delete Organization and Logo
-    if org.logo_url and org.logo_url.startswith("/uploads/"):
-        filename = org.logo_url.replace("/uploads/", "")
-        delete_file(filename)
+    if org.logo_file_id:
+        from app.models import StoredFile as _SF
+        logo_sf = session.get(_SF, org.logo_file_id)
+        if logo_sf and logo_sf.url.startswith("/uploads/"):
+            delete_file(logo_sf.url.replace("/uploads/", ""))
         
     session.delete(org)
     

@@ -121,7 +121,7 @@
                  </button>
               </div>
               <div class="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                <img v-if="member.profile_picture_url" :src="member.profile_picture_url" :alt="getFullName(member)" class="h-full w-full object-cover" />
+                <img v-if="member.profile_picture_file || member.profile_picture_url" :src="resolveMediaUrl(member.profile_picture_file, 64) ?? member.profile_picture_url" :alt="getFullName(member)" class="h-full w-full object-cover" />
                 <span v-else class="text-gray-600 font-medium text-sm">
                   {{ getInitials(getFullName(member)) }}
                 </span>
@@ -175,6 +175,7 @@ import { TrashIcon, Bars3Icon, ChevronUpIcon, ChevronDownIcon } from '@heroicons
 import UserSearchSelector from '../components/UserSearchSelector.vue'
 import Dropdown from '../components/Dropdown.vue'
 import api from '../utils/api'
+import { resolveMediaUrl } from '../utils/media.js'
 
 const route = useRoute()
 const { user } = useAuth()

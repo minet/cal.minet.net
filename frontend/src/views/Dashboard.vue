@@ -116,10 +116,10 @@
                   }"
                 >
                   <div class="flex items-center gap-1.5 min-w-0">
-                    <div class="flex -space-x-1.5 shrink-0" v-if="(event.guest_organizations && event.guest_organizations.length > 0) || event.organization?.logo_url">
+                    <div class="flex -space-x-1.5 shrink-0" v-if="(event.guest_organizations && event.guest_organizations.length > 0) || event.organization?.logo_file || event.organization?.logo_url">
                          <img 
-                           v-if="event.organization?.logo_url"
-                           :src="event.organization?.logo_url" 
+                           v-if="event.organization?.logo_file || event.organization?.logo_url"
+                           :src="resolveMediaUrl(event.organization?.logo_file, 32) ?? event.organization?.logo_url"
                            class="h-4 w-4 rounded-full ring-1 ring-white object-cover bg-white"
                            :title="event.organization?.name"
                          />
@@ -128,8 +128,8 @@
                            :key="guest.id"
                          >
                            <img  
-                             v-if="guest.logo_url"
-                             :src="guest.logo_url" 
+                             v-if="guest.logo_file || guest.logo_url"
+                             :src="resolveMediaUrl(guest.logo_file, 32) ?? guest.logo_url"
                              class="h-4 w-4 rounded-full ring-1 ring-white object-cover bg-white"
                              :title="guest.name"
                            />
@@ -210,10 +210,10 @@
                           }"
                         >
                            <div class="flex items-center gap-1.5 min-w-0 w-full">
-                               <div class="flex -space-x-1.5 shrink-0" v-if="(event.guest_organizations && event.guest_organizations.length > 0) || event.organization?.logo_url">
+                               <div class="flex -space-x-1.5 shrink-0" v-if="(event.guest_organizations && event.guest_organizations.length > 0) || event.organization?.logo_file || event.organization?.logo_url">
                                     <img 
-                                      v-if="event.organization?.logo_url"
-                                      :src="event.organization?.logo_url" 
+                                      v-if="event.organization?.logo_file || event.organization?.logo_url"
+                                      :src="resolveMediaUrl(event.organization?.logo_file, 32) ?? event.organization?.logo_url"
                                       class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
                                       :title="event.organization?.name"
                                     />
@@ -222,8 +222,8 @@
                                       :key="guest.id"
                                     >
                                       <img  
-                                        v-if="guest.logo_url"
-                                        :src="guest.logo_url" 
+                                        v-if="guest.logo_file || guest.logo_url"
+                                        :src="resolveMediaUrl(guest.logo_file, 32) ?? guest.logo_url"
                                         class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
                                         :title="guest.name"
                                       />
@@ -261,8 +261,8 @@
                         <template v-if="event.guest_organizations && event.guest_organizations.length > 0">
                            <div class="flex -space-x-1.5">
                               <img 
-                                v-if="event.organization?.logo_url"
-                                :src="event.organization?.logo_url" 
+                                v-if="event.organization?.logo_file || event.organization?.logo_url"
+                                :src="resolveMediaUrl(event.organization?.logo_file, 32) ?? event.organization?.logo_url"
                                 class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
                                 :title="event.organization?.name"
                               />
@@ -271,8 +271,8 @@
                                 :key="guest.id"
                               >
                                 <img  
-                                  v-if="guest.logo_url"
-                                  :src="guest.logo_url" 
+                                  v-if="guest.logo_file || guest.logo_url"
+                                  :src="resolveMediaUrl(guest.logo_file, 32) ?? guest.logo_url"
                                   class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
                                   :title="guest.name"
                                 />
@@ -282,8 +282,8 @@
                         <template v-else>
                            <div class="inline-flex items-center rounded-full bg-white/60 px-1.5 py-0.5 backdrop-blur-sm">
                               <img 
-                                v-if="event.organization?.logo_url"
-                                :src="event.organization.logo_url" 
+                                v-if="event.organization?.logo_file || event.organization?.logo_url"
+                                :src="resolveMediaUrl(event.organization?.logo_file, 32) ?? event.organization?.logo_url" 
                                 class="mr-1 h-3 w-3 rounded-full object-cover"
                               />
                               <span class="text-[10px] font-medium leading-none truncate max-w-[100px]" 
@@ -336,6 +336,7 @@ import { useAuth } from '../composables/useAuth'
 import { formatLocalDate } from '../utils/dateUtils'
 import { PlusIcon, CalendarIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, MapPinIcon } from '@heroicons/vue/24/outline'
 import api from '../utils/api'
+import { resolveMediaUrl } from '../utils/media.js'
 
 const viewType = ref('week') // 'month' or 'week'
 const { user, initialize, setToken, isSuperAdmin, isAuthenticated } = useAuth()

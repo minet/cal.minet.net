@@ -80,7 +80,7 @@ def load_fixtures(target_email: str, fixtures_dir: str = "fixtures"):
                     slug=org_data["slug"],
                     type=OrganizationType(org_data["type"]),
                     description=org_data["description"],
-                    logo_url=org_data.get("logo_url"),
+                    # logo_url removed — use logo_file_id if you need a logo
                     color_primary=org_data.get("color_primary"),
                     color_secondary=org_data.get("color_secondary"),
                     color_dark=org_data.get("color_dark")

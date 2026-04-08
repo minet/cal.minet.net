@@ -172,11 +172,11 @@
               </div>
               
               <div class="col-span-full">
-                 <ImageUpload v-model="form.poster_url" label="Affiche de l'événement (optionnel)" />
+                 <ImageUpload v-model="form.poster_url" @update:stored-file-id="id => form.poster_file_id = id" label="Affiche de l'événement (optionnel)" />
               </div>
 
               <div class="col-span-full">
-                <VideoUpload v-model="form.video_url" label="Vidéo d'affiche (optionnel — affiché en autoplay dans le feed)" />
+                <VideoUpload v-model="form.video_url" @update:stored-file-id="id => form.video_file_id = id" label="Vidéo d'affiche (optionnel — affiché en autoplay dans le feed)" />
               </div>
 
               <div class="col-span-full">
@@ -285,7 +285,7 @@
               class="h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-white font-bold text-xs"
               :style="{ backgroundColor: evt.organization?.color_secondary || '#f3f4f6' }"
             >
-              <img v-if="evt.organization?.logo_url" :src="evt.organization.logo_url" class="h-full w-full object-cover rounded-full" />
+              <img v-if="evt.organization?.logo_file || evt.organization?.logo_url" :src="resolveMediaUrl(evt.organization.logo_file, 64) ?? evt.organization.logo_url" class="h-full w-full object-cover rounded-full" />
               <span v-else :style="{ color: evt.organization?.color_primary || '#4f46e5' }">{{ evt.organization?.name?.charAt(0) }}</span>
             </div>
             <div>
@@ -317,6 +317,7 @@ import TagSelector from '../components/TagSelector.vue'
 import DateTimeDurationPicker from '../components/DateTimeDurationPicker.vue'
 import { PlusIcon, XMarkIcon, PaperAirplaneIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 import api from '../utils/api'
+import { resolveMediaUrl } from '../utils/media.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -332,6 +333,8 @@ const form = ref({
   location_url: '',
   poster_url: null,
   video_url: null,
+  poster_file_id: null,
+  video_file_id: null,
   organization_id: '',
   visibility: 'public_pending',
 
@@ -466,8 +469,10 @@ const loadEvent = async () => {
       end_time: formatDateTimeLocal(endLocal),
       location: event.location || '',
       location_url: event.location_url || '',
-      poster_url: event.poster_url || '',
-      video_url: event.video_url || '',
+      poster_url: event.poster_url || event.poster_file?.url || '',
+      video_url: event.video_url || event.video_file?.url || '',
+      poster_file_id: event.poster_file?.id || null,
+      video_file_id: event.video_file?.id || null,
       visibility: event.visibility || 'public_pending',
 
       hide_details: event.hide_details || false,
@@ -572,8 +577,8 @@ const updateEvent = async (shouldRedirect = true) => {
       end_time: localToUtc(form.value.end_time),
       location: form.value.location,
       location_url: form.value.location_url,
-      poster_url: form.value.poster_url,
-      video_url: form.value.video_url,
+      poster_file_id: form.value.poster_file_id ?? null,
+      video_file_id: form.value.video_file_id ?? null,
       visibility: form.value.visibility,
       hide_details: form.value.hide_details,
       group_id: form.value.group_id,

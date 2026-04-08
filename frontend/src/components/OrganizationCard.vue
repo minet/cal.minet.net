@@ -7,19 +7,19 @@
     <div :class="cardClasses">
       <div class="flex items-center space-x-3">
         <!-- Logo -->
-        <div 
-          v-if="organization.logo_url" 
+        <div
+          v-if="organization.logo_file || organization.logo_url"
           :class="logoContainerClasses"
         >
-          <img :src="organization.logo_url" :alt="organization.name" class="w-full h-full object-cover rounded" />
+          <img :src="resolveMediaUrl(organization.logo_file, 64) ?? organization.logo_url" :alt="organization.name" class="w-full h-full object-cover rounded" />
         </div>
-        <div 
-          v-else 
+        <div
+          v-else
           :class="logoContainerClasses"
           :style="{ backgroundColor: organization.color_secondary || '#f3f4f6' }"
         >
-          <BuildingOfficeIcon 
-            :class="logoIconClasses" 
+          <BuildingOfficeIcon
+            :class="logoIconClasses"
             class="text-gray-400"
             :style="{ color: organization.color_primary || '#9ca3af' }"
           />
@@ -33,13 +33,13 @@
               {{ typeLabel }}
             </span>
           </div>
-          
+
           <!-- Parent Organization -->
           <div v-if="showParent && organization.parent" class="flex items-center space-x-1 mt-1">            <div class="flex items-center space-x-1" :class="parentTextClasses">
               <div class="h-3 w-3 flex-shrink-0">
-                <img 
-                  v-if="organization.parent.logo_url" 
-                  :src="organization.parent.logo_url" 
+                <img
+                  v-if="organization.parent.logo_file || organization.parent.logo_url"
+                  :src="resolveMediaUrl(organization.parent.logo_file, 32) ?? organization.parent.logo_url"
                   :alt="organization.parent.name"
                   class="w-full h-full object-cover rounded-sm"
                 />
@@ -57,19 +57,19 @@
   <div v-else :class="cardClasses">
     <div class="flex items-center space-x-3">
       <!-- Logo -->
-      <div 
-        v-if="organization.logo_url" 
+      <div
+        v-if="organization.logo_file || organization.logo_url"
         :class="logoContainerClasses"
       >
-        <img :src="organization.logo_url" :alt="organization.name" class="w-full h-full object-cover rounded" />
+        <img :src="resolveMediaUrl(organization.logo_file, 64) ?? organization.logo_url" :alt="organization.name" class="w-full h-full object-cover rounded" />
       </div>
-      <div 
-        v-else 
+      <div
+        v-else
         :class="logoContainerClasses"
         :style="{ backgroundColor: organization.color_secondary || '#f3f4f6' }"
       >
-        <BuildingOfficeIcon 
-          :class="logoIconClasses" 
+        <BuildingOfficeIcon
+          :class="logoIconClasses"
           class="text-gray-400"
           :style="{ color: organization.color_primary || '#9ca3af' }"
         />
@@ -83,14 +83,14 @@
             {{ typeLabel }}
           </span>
         </div>
-        
+
         <!-- Parent Organization -->
         <div v-if="showParent && organization.parent" class="flex items-center space-x-1 mt-1">
           <div class="flex items-center space-x-1" :class="parentTextClasses">
             <div class="h-3 w-3 flex-shrink-0">
-              <img 
-                v-if="organization.parent.logo_url" 
-                :src="organization.parent.logo_url" 
+              <img
+                v-if="organization.parent.logo_file || organization.parent.logo_url"
+                :src="resolveMediaUrl(organization.parent.logo_file, 32) ?? organization.parent.logo_url"
                 :alt="organization.parent.name"
                 class="w-full h-full object-cover rounded-sm"
               />
@@ -108,6 +108,7 @@
 <script setup>
 import { computed } from 'vue'
 import { BuildingOfficeIcon } from '@heroicons/vue/24/outline'
+import { resolveMediaUrl } from '../utils/media.js'
 
 const props = defineProps({
   organization: {

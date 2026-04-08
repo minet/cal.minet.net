@@ -79,12 +79,12 @@
             <div class="flex-1 w-full">
               <div class="flex items-center gap-3 mb-2">
                 <div 
-                  v-if="event.organization?.logo_url"
+                  v-if="event.organization?.logo_file || event.organization?.logo_url"
                   class="h-10 w-10 rounded-full flex items-center justify-center overflow-hidden"
                   :style="{ backgroundColor: event.organization.color_secondary || '#f3f4f6' }"
                 >
-                  <img 
-                    :src="event.organization.logo_url"
+                  <img
+                    :src="resolveMediaUrl(event.organization.logo_file, 64) ?? event.organization.logo_url"
                     :alt="event.organization.name"
                     class="h-full w-full object-cover"
                   />
@@ -150,6 +150,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { resolveMediaUrl } from '../utils/media.js'
 import { 
   CalendarIcon, 
   MapPinIcon, 

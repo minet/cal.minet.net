@@ -15,7 +15,7 @@
           <div class="border-b border-gray-900/10 pb-12">
             <div class="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
               <div class="col-span-full">
-                <ImageUpload v-model="form.logo_url" label="Logo de l'organisation (optionnel)" crop />
+                <ImageUpload v-model="form.logo_url" @update:stored-file-id="id => form.logo_file_id = id" label="Logo de l'organisation (optionnel)" crop />
               </div>
               <div class="sm:col-span-4">
                 <label for="name" class="block text-sm font-medium leading-6 text-gray-900">Nom de
@@ -257,6 +257,7 @@ const form = reactive({
   description: '',
   type: 'association',
   logo_url: null,
+  logo_file_id: null,
   parent_id: null,
   delete_after: null,
   color_primary: '#000000',
@@ -331,6 +332,7 @@ const loadOrganization = async () => {
     form.description = organization.value.description || ''
     form.type = organization.value.type || 'association'
     form.logo_url = organization.value.logo_url
+    form.logo_file_id = organization.value.logo_file?.id || null
     form.parent_id = organization.value.parent_id
     form.delete_after = organization.value.delete_after ? organization.value.delete_after.substring(0, 16) : null
     enableDeleteAfter.value = !!form.delete_after
@@ -372,8 +374,9 @@ const updateOrg = async () => {
       form.slug = form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
     }
 
+    const { logo_url, ...formWithoutUrl } = form
     const payload = {
-      ...form
+      ...formWithoutUrl
     }
 
     if (!enableDeleteAfter.value) {

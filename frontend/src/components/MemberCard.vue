@@ -7,7 +7,7 @@
           ? 'border-gray-100 shadow-md shadow-green-500/40 hover:shadow-lg hover:shadow-green-500/60'
           : 'border-gray-100 hover:border-indigo-100 hover:shadow-md'
     ]">
-    <UserAvatar :src="member.profile_picture_url" :name="member.full_name || member.email" size="xl"
+    <UserAvatar :src="resolveMediaUrl(member.profile_picture_file, 128) ?? member.profile_picture_url" :name="member.full_name || member.email" size="xl"
       class="mb-3 shadow-sm group-hover:scale-105 transition-transform duration-300" />
     <p class="text-sm font-medium text-gray-900 line-clamp-2 w-full">{{ member.full_name || member.email }}</p>
     <p v-if="member.title" class="text-xs text-indigo-600 mt-1 line-clamp-2 w-full">{{ member.title }}</p>
@@ -37,6 +37,7 @@
 import UserAvatar from './UserAvatar.vue'
 import { LinkIcon, PhoneIcon } from '@heroicons/vue/24/outline'
 import { getSocialIcon } from '../utils/social'
+import { resolveMediaUrl } from '../utils/media.js'
 
 defineProps({
   member: {

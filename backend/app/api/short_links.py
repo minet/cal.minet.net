@@ -21,6 +21,7 @@ from app.models import (
     ShortLink,
     ShortLinkActionType,
     ShortLinkType,
+    StoredFile,
     User,
 )
 from app.schemas import Message, ShortLinkCreate, ShortLinkInfo, ShortLinkRead
@@ -163,20 +164,26 @@ def visit_short_link(
              else:
                  og_description = f"Event on {event.start_time.strftime('%d/%m/%Y %H:%M')}"
              
-             if event.poster_url:
-                 og_image = event.poster_url
-             elif event.organization and event.organization.logo_url:
-                 og_image = event.organization.logo_url
-             
+             if event.poster_file_id:
+                 pf = session.get(StoredFile, event.poster_file_id)
+                 if pf:
+                     og_image = pf.url
+             if not og_image and event.organization and event.organization.logo_file_id:
+                 lf = session.get(StoredFile, event.organization.logo_file_id)
+                 if lf:
+                     og_image = lf.url
+
     elif link.item_type == ShortLinkType.ORGANIZATION:
         org = session.get(Organization, link.item_id)
         if org:
             og_title = org.name
             if org.description:
                 og_description = org.description[:200]
-            if org.logo_url:
-                 og_image = org.logo_url
-            
+            if org.logo_file_id:
+                lf = session.get(StoredFile, org.logo_file_id)
+                if lf:
+                    og_image = lf.url
+
     elif link.item_type == ShortLinkType.TAG:
         from app.models import Tag
         tag = session.get(Tag, link.item_id)
@@ -185,9 +192,11 @@ def visit_short_link(
             # Tags might be part of an org
             org = session.get(Organization, tag.organization_id)
             if org:
-                 og_description = f"Subscribe to {tag.name} events from {org.name}"
-                 if org.logo_url:
-                    og_image = org.logo_url
+                og_description = f"Subscribe to {tag.name} events from {org.name}"
+                if org.logo_file_id:
+                    lf = session.get(StoredFile, org.logo_file_id)
+                    if lf:
+                        og_image = lf.url
 
 
     html_content = f"""
@@ -227,8 +236,10 @@ def get_link_info(
     if not link:
         raise HTTPException(status_code=404, detail="Link not found")
         
+    from app.schemas import StoredFileRead
     title = "Unknown"
     logo_url = None
+    logo_file = None
     description = None
     color_primary = None
     color_secondary = None
@@ -246,21 +257,29 @@ def get_link_info(
             # Maybe show date in description?
             description = f"Date: {event.start_time.strftime('%d/%m/%Y %H:%M')}"
             if event.organization:
-                 logo_url = event.organization.logo_url
+                 if event.organization.logo_file_id:
+                     lf = session.get(StoredFile, event.organization.logo_file_id)
+                     if lf:
+                         logo_file = StoredFileRead.from_model(lf)
+                         logo_url = lf.url
                  color_primary = event.organization.color_primary
                  color_secondary = event.organization.color_secondary
                  color_dark = event.organization.color_dark
-             
+
     elif link.item_type == ShortLinkType.ORGANIZATION:
         org = session.get(Organization, link.item_id)
         if org:
             title = org.name
             description = org.description
-            logo_url = org.logo_url
+            if org.logo_file_id:
+                lf = session.get(StoredFile, org.logo_file_id)
+                if lf:
+                    logo_file = StoredFileRead.from_model(lf)
+                    logo_url = lf.url
             color_primary = org.color_primary
             color_secondary = org.color_secondary
             color_dark = org.color_dark
-            
+
     if link.item_type == ShortLinkType.TAG:
         from app.models import Tag
         tag = session.get(Tag, link.item_id)
@@ -270,11 +289,15 @@ def get_link_info(
             # Tags might be part of an org
             org = session.get(Organization, tag.organization_id)
             if org:
-                logo_url = org.logo_url
+                if org.logo_file_id:
+                    lf = session.get(StoredFile, org.logo_file_id)
+                    if lf:
+                        logo_file = StoredFileRead.from_model(lf)
+                        logo_url = lf.url
                 color_primary = org.color_primary
                 color_secondary = org.color_secondary
                 color_dark = org.color_dark
-            
+
     return ShortLinkInfo(
         id=link.id,
         title=title,
@@ -282,6 +305,7 @@ def get_link_info(
         item_type=link.item_type,
         item_id=link.item_id,
         logo_url=logo_url,
+        logo_file=logo_file,
         color_primary=color_primary,
         color_secondary=color_secondary,
         color_dark=color_dark,

@@ -66,8 +66,8 @@
               <div class="flex-1">
                 <div class="flex items-center gap-3 mb-2">
                   <img 
-                    v-if="event.organization?.logo_url"
-                    :src="event.organization.logo_url"
+                    v-if="event.organization?.logo_file || event.organization?.logo_url"
+                    :src="resolveMediaUrl(event.organization.logo_file, 64) ?? event.organization.logo_url"
                     :alt="event.organization.name"
                     class="h-10 w-10 rounded-full object-cover"
                   />
@@ -165,8 +165,8 @@
               <div class="flex-1">
                 <div class="flex items-center gap-3 mb-2">
                   <img 
-                    v-if="event.organization?.logo_url"
-                    :src="event.organization.logo_url"
+                    v-if="event.organization?.logo_file || event.organization?.logo_url"
+                    :src="resolveMediaUrl(event.organization.logo_file, 64) ?? event.organization.logo_url"
                     :alt="event.organization.name"
                     class="h-10 w-10 rounded-full object-cover"
                   />
@@ -280,8 +280,8 @@
                   :style="{ backgroundColor: evt.organization.color_secondary || '#f3f4f6' }"
                 >
                    <img 
-                      v-if="evt.organization?.logo_url" 
-                      :src="evt.organization.logo_url" 
+                      v-if="evt.organization?.logo_file || evt.organization?.logo_url"
+                      :src="resolveMediaUrl(evt.organization.logo_file, 64) ?? evt.organization.logo_url"
                       class="h-full w-full object-cover rounded-full"
                     />
                    <span v-else :style="{ color: evt.organization.color_primary || '#4f46e5' }">
@@ -318,6 +318,7 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue'
+import { resolveMediaUrl } from '../utils/media.js'
 import { 
   CalendarIcon, 
   MapPinIcon, 

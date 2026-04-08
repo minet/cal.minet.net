@@ -111,7 +111,7 @@
             >
               <div class="flex items-center space-x-3">
                 <div class="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                  <img v-if="member.profile_picture_url" :src="member.profile_picture_url" :alt="getFullName(member)" class="h-full w-full object-cover" />
+                  <img v-if="member.profile_picture_file || member.profile_picture_url" :src="resolveMediaUrl(member.profile_picture_file, 64) ?? member.profile_picture_url" :alt="getFullName(member)" class="h-full w-full object-cover" />
                   <span v-else class="text-gray-600 font-medium text-xs">
                     {{ getInitials(getFullName(member)) }}
                   </span>
@@ -182,6 +182,7 @@ import { useRoute } from 'vue-router'
 import { PlusIcon } from '@heroicons/vue/24/outline'
 import UserSearchSelector from '../components/UserSearchSelector.vue'
 import api from '../utils/api'
+import { resolveMediaUrl } from '../utils/media.js'
 
 const route = useRoute()
 const orgId = route.params.id

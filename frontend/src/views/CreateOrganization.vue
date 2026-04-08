@@ -87,7 +87,7 @@
               </div>
 
               <div class="col-span-full">
-                <ImageUpload v-model="form.logo_url" label="Logo de l'organisation (optionnel)" crop />
+                <ImageUpload v-model="form.logo_url" @update:stored-file-id="id => form.logo_file_id = id" label="Logo de l'organisation (optionnel)" crop />
               </div>
             </div>
           </div>
@@ -121,6 +121,7 @@ const form = reactive({
   description: '',
   type: 'association',
   logo_url: null,
+  logo_file_id: null,
   parent_id: null,
   delete_after: null
 })
@@ -154,7 +155,8 @@ const createOrg = async () => {
     form.slug = form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
     
     // Check if delete_after is disabled
-    const payload = { ...form }
+    const { logo_url, ...formWithoutUrl } = form
+    const payload = { ...formWithoutUrl }
     if (!enableDeleteAfter.value) {
       payload.delete_after = null
     } else {

@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 from app.api.auth import get_current_user, get_current_user_optional
 from app.api.organizations import can_edit_organization
 from app.database import get_session
-from app.models import Membership, Organization, OrganizationImage, Role, User
+from app.models import Membership, Organization, OrganizationImage, Role, StoredFile, User
 from app.schemas import OrganizationImageRead
 from app.services.storage import delete_file, upload_file
 
@@ -52,7 +52,7 @@ def list_organization_images(
     images = session.exec(
         select(OrganizationImage).where(OrganizationImage.organization_id == org_id)
     ).all()
-    return images
+    return [OrganizationImageRead.from_model(img, session) for img in images]
 
 
 @router.post("/organizations/{org_id}/images", response_model=OrganizationImageRead)
@@ -89,19 +89,31 @@ async def upload_organization_image(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Échec de l'upload : {str(e)}")
 
-    # Extract the stored filename from the url path
+    # Create a StoredFile record
     stored_filename = url.replace("/uploads/", "")
+    sf = StoredFile(
+        stored_filename=stored_filename,
+        original_filename=file.filename,
+        url=url,
+        content_type=file.content_type,
+        size=len(contents),
+        uploaded_by_id=current_user.id,
+        file_type="image",
+        processed=False,
+    )
+    session.add(sf)
+    session.flush()  # get sf.id
 
     image = OrganizationImage(
         id=uuid4(),
         organization_id=org_id,  # type: ignore
-        url=url,
         filename=file.filename,
+        stored_file_id=sf.id,
     )
     session.add(image)
     session.commit()
     session.refresh(image)
-    return image
+    return OrganizationImageRead.from_model(image, session)
 
 
 @router.delete("/organizations/{org_id}/images/{image_id}")
@@ -118,9 +130,11 @@ def delete_organization_image(
     if not image or str(image.organization_id) != org_id:
         raise HTTPException(status_code=404, detail="Image introuvable")
 
-    # Remove from MinIO
-    minio_filename = image.url.replace("/uploads/", "")
-    delete_file(minio_filename)
+    # Remove from MinIO via StoredFile
+    if image.stored_file_id:
+        sf = session.get(StoredFile, image.stored_file_id)
+        if sf:
+            delete_file(sf.url.replace("/uploads/", ""))
 
     session.delete(image)
     session.commit()

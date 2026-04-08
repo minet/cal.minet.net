@@ -60,12 +60,12 @@ class User(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     email: str = Field(unique=True, index=True)
     full_name: Optional[str] = None
-    profile_picture_url: Optional[str] = None
     phone_number: Optional[str] = None
     is_active: bool = Field(default=True)
     is_superadmin: bool = Field(default=False)
     exempt_from_rgpd_delete: bool = Field(default=False)
     notification_delay: int = Field(default=45)  # Minutes before event
+    profile_picture_file_id: Optional[UUID] = Field(default=None, foreign_key="storedfile.id")
 
     memberships: List["Membership"] = Relationship(back_populates="user")
     subscriptions: List["Subscription"] = Relationship(back_populates="user")
@@ -85,9 +85,9 @@ class User(SQLModel, table=True):
 class OrganizationImage(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     organization_id: UUID = Field(foreign_key="organization.id")
-    url: str
     filename: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    stored_file_id: Optional[UUID] = Field(default=None, foreign_key="storedfile.id")
 
     organization: Optional["Organization"] = Relationship(back_populates="images")
 
@@ -97,7 +97,6 @@ class Organization(SQLModel, table=True):
     name: str = Field(unique=True, index=True)
     slug: str = Field(unique=True, index=True)
     description: Optional[str] = None
-    logo_url: Optional[str] = None
     color_primary: Optional[str] = Field(default=None)
     color_secondary: Optional[str] = Field(default=None)
     color_dark: Optional[str] = Field(default=None)
@@ -106,6 +105,7 @@ class Organization(SQLModel, table=True):
     delete_after: Optional[datetime] = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    logo_file_id: Optional[UUID] = Field(default=None, foreign_key="storedfile.id")
 
     parent: Optional["Organization"] = Relationship(
         back_populates="children",
@@ -129,10 +129,10 @@ class Organization(SQLModel, table=True):
         back_populates="guest_organizations", link_model=EventGuestOrganization
     )
 
-    def to_read_model(self):
+    def to_read_model(self, session=None):
         from app.schemas import OrganizationRead
 
-        return OrganizationRead.from_model(self)
+        return OrganizationRead.from_model(self, session)
 
 
 class Membership(SQLModel, table=True):
@@ -212,8 +212,8 @@ class Event(SQLModel, table=True):
     location_url: Optional[str] = None
     visibility: EventVisibility = Field(default=EventVisibility.PUBLIC_PENDING)
     group_id: Optional[UUID] = Field(default=None, foreign_key="group.id")
-    poster_url: Optional[str] = None
-    video_url: Optional[str] = None
+    poster_file_id: Optional[UUID] = Field(default=None, foreign_key="storedfile.id")
+    video_file_id: Optional[UUID] = Field(default=None, foreign_key="storedfile.id")
     organization_id: UUID = Field(foreign_key="organization.id")
     created_by_id: UUID = Field(foreign_key="user.id")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -336,5 +336,8 @@ class StoredFile(SQLModel, table=True):
     size: int  # bytes
     uploaded_by_id: UUID = Field(foreign_key="user.id")
     uploaded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    processed: bool = Field(default=False)
+    file_type: str = Field(default="image")  # "image" or "video"
+    variants: Optional[str] = Field(default=None)  # JSON list of variant dicts
+    retry_count: int = Field(default=0)
 
-    uploaded_by: Optional[User] = Relationship()

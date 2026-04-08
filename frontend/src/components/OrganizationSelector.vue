@@ -19,8 +19,8 @@
             <div class="flex items-center space-x-3">
               <div class="flex-shrink-0 h-10 w-10">
                 <img 
-                  v-if="org.logo_url" 
-                  :src="org.logo_url" 
+                  v-if="org.logo_file || org.logo_url"
+                  :src="resolveMediaUrl(org.logo_file, 64) ?? org.logo_url"
                   :alt="org.name" 
                   class="h-10 w-10 rounded-full object-cover bg-white"
                 />
@@ -65,6 +65,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { CheckIcon } from '@heroicons/vue/24/solid'
+import { resolveMediaUrl } from '../utils/media.js'
 
 const props = defineProps({
   organizations: {

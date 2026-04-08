@@ -199,7 +199,7 @@
                                      <!-- Toggles -->
                                     <div class="flex items-center justify-between gap-4">
                                         <SwitchGroup as="div" class="flex items-center">
-                                            <Switch v-model="includeLogo" :disabled="!organization?.logo_url" :class="[includeLogo ? 'bg-indigo-600' : 'bg-gray-200', !organization?.logo_url ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer', 'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2']">
+                                            <Switch v-model="includeLogo" :disabled="!(organization?.logo_file || organization?.logo_url)" :class="[includeLogo ? 'bg-indigo-600' : 'bg-gray-200', !(organization?.logo_file || organization?.logo_url) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer', 'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2']">
                                                 <span aria-hidden="true" :class="[includeLogo ? 'translate-x-5' : 'translate-x-0', 'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out']" />
                                             </Switch>
                                             <SwitchLabel as="span" class="ml-3 text-sm font-medium text-gray-900">Logo</SwitchLabel>
@@ -348,7 +348,8 @@
 
 <script setup>
 import { ref } from 'vue';
-import api from '../utils/api'; 
+import api from '../utils/api';
+import { resolveMediaUrl } from '../utils/media.js';
 import ActionPanelButton from './ActionPanelButton.vue';
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot, Listbox, ListboxButton, ListboxLabel, ListboxOption, ListboxOptions, Switch, SwitchGroup, SwitchLabel } from '@headlessui/vue'
 import { 
@@ -474,7 +475,7 @@ const qrOptions = computed(() => {
         width: qrResolution.value,
         height: qrResolution.value,
         value: qrLinkUrl.value,
-        image: (includeLogo.value && props.organization?.logo_url) ? props.organization.logo_url : undefined,
+        image: (includeLogo.value && (props.organization?.logo_file || props.organization?.logo_url)) ? (resolveMediaUrl(props.organization.logo_file, 256) ?? props.organization.logo_url) : undefined,
         qrOptions: { typeNumber: 0, mode: 'Byte', errorCorrectionLevel: 'H' },
         imageOptions: { hideBackgroundDots: true, imageSize: 0.4, margin: 5 },
         dotsOptions: {

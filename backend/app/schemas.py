@@ -17,8 +17,33 @@ class PaginatedResponse(BaseModel, Generic[T]):
     pages: int
 
 if TYPE_CHECKING:
-    from app.models import Tag, Organization, User, Event, Membership
+    from app.models import Tag, Organization, OrganizationImage, User, Event, Membership, StoredFile
     from sqlmodel import Session
+
+class StoredFileVariantRead(BaseModel):
+    width: int
+    url: str
+    format: str   # "webp" or "webm"
+    size: int     # bytes
+
+class StoredFileRead(BaseModel):
+    id: UUID
+    url: str
+    variants: List[StoredFileVariantRead] = []
+    processed: bool = False
+    file_type: str = "image"
+
+    @classmethod
+    def from_model(cls, sf: "StoredFile") -> "StoredFileRead":
+        import json as _json
+        variants: List[StoredFileVariantRead] = []
+        if sf.variants:
+            try:
+                for v in _json.loads(sf.variants):
+                    variants.append(StoredFileVariantRead(**v))
+            except Exception:
+                pass
+        return cls(id=sf.id, url=sf.url, variants=variants, processed=sf.processed, file_type=sf.file_type)
 
 class TagRead(BaseModel):
     id: UUID
@@ -46,9 +71,26 @@ class OrganizationLinkRead(BaseModel):
 
 class OrganizationImageRead(BaseModel):
     id: UUID
-    url: str
+    url: Optional[str] = None
     filename: str
     created_at: datetime
+    stored_file: Optional[StoredFileRead] = None
+
+    @classmethod
+    def from_model(cls, img: "OrganizationImage", session: Optional["Session"] = None) -> "OrganizationImageRead":
+        stored_file = None
+        if session and img.stored_file_id:
+            from app.models import StoredFile
+            sf = session.get(StoredFile, img.stored_file_id)
+            if sf:
+                stored_file = StoredFileRead.from_model(sf)
+        return cls(
+            id=img.id,
+            url=stored_file.url if stored_file else None,
+            filename=img.filename,
+            created_at=img.created_at,
+            stored_file=stored_file,
+        )
 
 class UserLinkRead(BaseModel):
     id: UUID
@@ -86,14 +128,21 @@ class OrganizationRead(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     organization_links: List[OrganizationLinkRead] = []
+    logo_file: Optional[StoredFileRead] = None
 
     @classmethod
-    def from_model(cls, org: "Organization") -> "OrganizationRead":
+    def from_model(cls, org: "Organization", session: Optional["Session"] = None) -> "OrganizationRead":
         links = [OrganizationLinkRead(id=l.id, name=l.name, url=l.url, order=l.order) for l in org.organization_links]
+        logo_file = None
+        if session and org.logo_file_id:
+            from app.models import StoredFile
+            sf = session.get(StoredFile, org.logo_file_id)
+            if sf:
+                logo_file = StoredFileRead.from_model(sf)
         return cls(
             id=org.id,
             name=org.name,
-            logo_url=org.logo_url,
+            logo_url=logo_file.url if logo_file else None,
             type=org.type,
             slug=org.slug,
             description=org.description,
@@ -104,7 +153,8 @@ class OrganizationRead(BaseModel):
             color_dark=org.color_dark,
             created_at=org.created_at,
             updated_at=org.updated_at,
-            organization_links=links
+            organization_links=links,
+            logo_file=logo_file,
         )
 
 class UserRead(BaseModel):
@@ -118,13 +168,14 @@ class UserRead(BaseModel):
     is_active: bool = True
     notification_delay: int = 15
     links: List["UserLinkRead"] = []
+    profile_picture_file: Optional[StoredFileRead] = None
 
     class Config:
         from_attributes = True
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
-    profile_picture_url: Optional[str] = None
+    profile_picture_file_id: Optional[str] = None  # UUID string
     phone_number: Optional[str] = None
     notification_delay: Optional[int] = None
 
@@ -138,19 +189,27 @@ class UserPublicRead(BaseModel):
     profile_picture_url: Optional[str] = None
     phone_number: Optional[str] = None
     links: List["UserLinkRead"] = []
+    profile_picture_file: Optional[StoredFileRead] = None
 
     class Config:
         from_attributes = True
 
     @classmethod
-    def from_model(cls, user: "User") -> "UserPublicRead":
+    def from_model(cls, user: "User", session: Optional["Session"] = None) -> "UserPublicRead":
         from app.models import UserLink
+        profile_picture_file = None
+        if session and user.profile_picture_file_id:
+            from app.models import StoredFile
+            sf = session.get(StoredFile, user.profile_picture_file_id)
+            if sf:
+                profile_picture_file = StoredFileRead.from_model(sf)
         return cls(
             id=user.id,
             full_name=user.full_name,
-            profile_picture_url=user.profile_picture_url,
+            profile_picture_url=profile_picture_file.url if profile_picture_file else None,
             phone_number=user.phone_number,
-            links=[UserLinkRead(id=l.id, name=l.name, url=l.url, order=l.order) for l in user.links]
+            links=[UserLinkRead(id=l.id, name=l.name, url=l.url, order=l.order) for l in user.links],
+            profile_picture_file=profile_picture_file,
         )
 
 class GroupRead(BaseModel):
@@ -170,8 +229,8 @@ class CreateEvent(BaseModel):
     tag_ids: List[str] = []
     guest_organization_ids: List[str] = []
     hide_details: bool = False
-    poster_url: Optional[str] = None
-    video_url: Optional[str] = None
+    poster_file_id: Optional[UUID] = None
+    video_file_id: Optional[UUID] = None
     links: List[EventLinkCreate] = []
 
 class UpdateEvent(BaseModel):
@@ -185,8 +244,8 @@ class UpdateEvent(BaseModel):
     group_id: Optional[str] = None
     tag_ids: Optional[List[str]] = None
     guest_organization_ids: Optional[List[str]] = None
-    poster_url: Optional[str] = None
-    video_url: Optional[str] = None
+    poster_file_id: Optional[UUID] = None
+    video_file_id: Optional[UUID] = None
     hide_details: Optional[bool] = None
     featured: Optional[int] = None
     links: Optional[List[EventLinkCreate]] = None
@@ -234,8 +293,11 @@ class EventRead(BaseModel):
     created_by_id: Optional[UUID] = None
     
     reactions: List[ReactionSummary] = []
-    
+
     is_draft: Optional[bool] = None
+
+    poster_file: Optional[StoredFileRead] = None
+    video_file: Optional[StoredFileRead] = None
 
     @classmethod
     def from_model(cls, event: "Event", current_user: Optional["User"] = None, session: Optional["Session"] = None) -> "EventRead":
@@ -272,7 +334,7 @@ class EventRead(BaseModel):
         
         # Guest Orgs
         guest_orgs_read = [
-            OrganizationRead.from_model(org) 
+            OrganizationRead.from_model(org, session)
             for org in event.guest_organizations
         ]
         
@@ -307,11 +369,25 @@ class EventRead(BaseModel):
         if session and event.created_by_id:
              creator_obj = session.get(User, event.created_by_id)
              if creator_obj:
-                 creator = UserPublicRead.from_model(creator_obj)
+                 creator = UserPublicRead.from_model(creator_obj, session)
 
         group_read = None
         if event.group:
              group_read = GroupRead(id=event.group.id, name=event.group.name)
+
+        poster_file = None
+        if session and event.poster_file_id:
+            from app.models import StoredFile
+            sf = session.get(StoredFile, event.poster_file_id)
+            if sf:
+                poster_file = StoredFileRead.from_model(sf)
+
+        video_file = None
+        if session and event.video_file_id:
+            from app.models import StoredFile
+            sf = session.get(StoredFile, event.video_file_id)
+            if sf:
+                video_file = StoredFileRead.from_model(sf)
 
 
         # Ensure timezone context is preserved/added
@@ -328,8 +404,8 @@ class EventRead(BaseModel):
             location_url=None if should_hide else event.location_url,
             visibility=event.visibility,
             hide_details=event.hide_details,
-            poster_url=None if should_hide else event.poster_url,
-            video_url=None if should_hide else event.video_url,
+            poster_url=None if should_hide else (poster_file.url if poster_file else None),
+            video_url=None if should_hide else (video_file.url if video_file else None),
             submitted_at=event.submitted_at,
             created_at=event.created_at,
             featured=event.featured,
@@ -341,7 +417,7 @@ class EventRead(BaseModel):
                 )
             ) else None,
             
-            organization=OrganizationRead.from_model(event.organization) if event.organization else None,
+            organization=OrganizationRead.from_model(event.organization, session) if event.organization else None,
             guest_organizations=guest_orgs_read,
             tags=tags_read,
             event_links=links_read,
@@ -349,9 +425,12 @@ class EventRead(BaseModel):
             
             created_by=creator,
             created_by_id=event.created_by_id,
-            
+
             reactions=reactions_summary,
-            is_draft=(event.visibility == EventVisibility.DRAFT)
+            is_draft=(event.visibility == EventVisibility.DRAFT),
+
+            poster_file=poster_file,
+            video_file=video_file,
         )
 
 class ShortLinkCreate(BaseModel):
@@ -370,6 +449,7 @@ class ShortLinkInfo(BaseModel):
     item_type: str
     item_id: UUID
     logo_url: Optional[str] = None
+    logo_file: Optional[StoredFileRead] = None
     color_primary: Optional[str] = None
     color_secondary: Optional[str] = None
     color_dark: Optional[str] = None

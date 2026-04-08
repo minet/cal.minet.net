@@ -24,11 +24,11 @@
           >
             <div class="flex min-w-0 gap-x-4">
               <div 
-                v-if="org.logo_url" 
+                v-if="org.logo_file || org.logo_url"
                 class="h-12 w-12 flex-none rounded-full flex items-center justify-center overflow-hidden"
                 :style="{ backgroundColor: org.color_secondary || '#f3f4f6' }"
               >
-                <img class="h-full w-full object-cover" :src="org.logo_url" :alt="org.name" />
+                <img class="h-full w-full object-cover" :src="resolveMediaUrl(org.logo_file, 64) ?? org.logo_url" :alt="org.name" />
               </div>
               <div 
                 v-else 
@@ -64,6 +64,7 @@ import { useAuth } from '../composables/useAuth'
 import api from '../utils/api'
 import { BuildingOfficeIcon } from '@heroicons/vue/24/outline'
 import SubscribeButton from '../components/SubscribeButton.vue'
+import { resolveMediaUrl } from '../utils/media.js'
 
 const { user } = useAuth()
 const organizations = ref([])
