@@ -419,15 +419,15 @@ def get_visibility_conditions(current_user: Optional[User], session: Session):
                     col(Event.organization_id).in_(admin_org_ids),
                 )
             )
-        else:
-            # If the group_id is null, then the event is private to the members/viewers/admins of the organization
-            conditions.append(
-                and_(  # pyright: ignore
-                    Event.visibility == EventVisibility.PRIVATE,
-                    Event.group_id == None,
-                    col(Event.organization_id).in_(org_ids),
-                )
+        # Access to Private events (mandat only)
+        # If the group_id is null, then the event is visible to the members/viewers/admins of the organization
+        conditions.append(
+            and_(  # pyright: ignore
+                Event.visibility == EventVisibility.PRIVATE,
+                Event.group_id == None,
+                col(Event.organization_id).in_(org_ids),
             )
+        )
 
     # 4. Group Memberships (Access to Private events in groups)
     group_memberships = session.exec(
