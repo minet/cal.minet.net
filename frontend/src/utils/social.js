@@ -30,3 +30,8 @@ export function getSocialIcon(url) {
 
   return null;
 }
+
+export function isHelloAsso(url) {
+  if (!url) return false;
+  return url.toLowerCase().includes('helloasso.com');
+}

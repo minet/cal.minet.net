@@ -85,6 +85,25 @@
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <!-- Main Content -->
       <div class="lg:col-span-2 space-y-6">
+        <!-- Links Cards -->
+        <div v-if="event.event_links && event.event_links.length > 0" class="flex flex-wrap gap-3">
+          <a
+            v-for="link in event.event_links"
+            :key="link.id"
+            :href="link.url"
+            target="_blank"
+            class="flex items-center gap-2 bg-white shadow-md rounded-full px-5 py-3 text-lg font-semibold text-gray-800 hover:shadow-lg hover:text-indigo-600 transition-all border border-gray-100"
+          >
+            <!-- HelloAsso payment icon -->
+            <CreditCardIcon v-if="isHelloAsso(link.url)" class="h-8 w-8 text-green-500 flex-shrink-0" />
+            <!-- Social icon -->
+            <img v-else-if="getSocialIcon(link.url)" :src="getSocialIcon(link.url)" class="h-8 w-8 object-contain flex-shrink-0" />
+            <!-- Generic link icon -->
+            <LinkIcon v-else class="h-8 w-8 text-gray-400 flex-shrink-0" />
+            {{ link.name }}
+          </a>
+        </div>
+
         <!-- Poster / Video -->
         <div v-if="event.video_file || event.video_url" class="bg-white shadow-sm rounded-lg overflow-hidden">
           <video
@@ -285,7 +304,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import api from '../utils/api'
-import { getSocialIcon } from '../utils/social'
+import { getSocialIcon, isHelloAsso } from '../utils/social'
 import { 
   ClockIcon, 
   MapPinIcon, 
@@ -298,7 +317,8 @@ import {
   GlobeAltIcon,
   InformationCircleIcon,
   DocumentDuplicateIcon,
-  LinkIcon
+  LinkIcon,
+  CreditCardIcon
 } from '@heroicons/vue/24/outline'
 import { formatLocalDate } from '../utils/dateUtils'
 import TagBadge from '../components/TagBadge.vue'

@@ -38,7 +38,9 @@ MEDIA_SIZES: list[int] = sorted(
 )
 POLL_INTERVAL: int = int(os.environ.get("POLL_INTERVAL", "10"))
 MAX_RETRIES: int = 3
-RESET_RETRIES_ON_START: bool = os.environ.get("RESET_RETRIES_ON_START", "false").lower() == "true"
+RESET_RETRIES_ON_START: bool = (
+    os.environ.get("RESET_RETRIES_ON_START", "false").lower() == "true"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -111,7 +113,11 @@ def _generate_webp_variants(
     for width in sizes:
         if width > orig_w:
             continue
-        height = round(orig_h * width / orig_w)
+        if width == -1:
+            width = orig_w
+            height = orig_h
+        else:
+            height = round(orig_h * width / orig_w)
         resized = img.resize((width, height), Image.LANCZOS)
         buf = io.BytesIO()
         resized.save(buf, format="WEBP", quality=85)
