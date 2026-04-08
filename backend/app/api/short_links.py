@@ -48,7 +48,9 @@ def _app_tz() -> ZoneInfo:
         return ZoneInfo("UTC")
 
 
-def get_og_image(stored_file: StoredFile) -> Tuple[str, Optional[int], Optional[str]]:
+def get_og_image(
+    stored_file: StoredFile, app_base_url: str
+) -> Tuple[str, Optional[int], Optional[str]]:
     """Return (url, width_or_None, mime_type_or_None) for the best OG image variant.
 
     Picks the smallest variant whose width is >= 1200px (the OG recommended minimum),
@@ -70,10 +72,10 @@ def get_og_image(stored_file: StoredFile) -> Tuple[str, Optional[int], Optional[
             )
             fmt = chosen.get("format", "")
             mime = _OG_IMAGE_MIME.get(fmt)
-            return chosen["url"], chosen.get("width"), mime
+            return app_base_url + chosen["url"], chosen.get("width"), mime
 
     # No usable variants — fall back to the original file URL
-    return stored_file.url, None, None
+    return app_base_url + stored_file.url, None, None
 
 
 def generate_short_id(length=3):
@@ -232,11 +234,15 @@ def visit_short_link(short_id: str, session: Session = Depends(get_session)):
             if event.poster_file_id:
                 pf = session.get(StoredFile, event.poster_file_id)
                 if pf:
-                    og_image, og_image_width, og_image_mime = get_og_image(pf)
+                    og_image, og_image_width, og_image_mime = get_og_image(
+                        pf, app_base_url
+                    )
             if not og_image and event.organization and event.organization.logo_file_id:
                 lf = session.get(StoredFile, event.organization.logo_file_id)
                 if lf:
-                    og_image, og_image_width, og_image_mime = get_og_image(lf)
+                    og_image, og_image_width, og_image_mime = get_og_image(
+                        lf, app_base_url
+                    )
 
     elif link.item_type == ShortLinkType.ORGANIZATION:
         org = session.get(Organization, link.item_id)
@@ -248,7 +254,9 @@ def visit_short_link(short_id: str, session: Session = Depends(get_session)):
             if org.logo_file_id:
                 lf = session.get(StoredFile, org.logo_file_id)
                 if lf:
-                    og_image, og_image_width, og_image_mime = get_og_image(lf)
+                    og_image, og_image_width, og_image_mime = get_og_image(
+                        lf, app_base_url
+                    )
 
     elif link.item_type == ShortLinkType.TAG:
         from app.models import Tag
@@ -262,7 +270,9 @@ def visit_short_link(short_id: str, session: Session = Depends(get_session)):
                 if org.logo_file_id:
                     lf = session.get(StoredFile, org.logo_file_id)
                     if lf:
-                        og_image, og_image_width, og_image_mime = get_og_image(lf)
+                        og_image, og_image_width, og_image_mime = get_og_image(
+                            lf, app_base_url
+                        )
 
     og_image_tags = (
         f'<meta property="og:image" content="{og_image}" />\n' if og_image else ""
