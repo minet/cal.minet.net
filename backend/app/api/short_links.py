@@ -1,9 +1,12 @@
 from datetime import datetime, timezone
+import json
 import os
 import random
 import string
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from uuid import UUID
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -12,6 +15,7 @@ from sqlmodel import Session, select
 from app.api.auth import get_current_user, get_current_user_optional
 from app.api.events import can_view_event, get_org_membership
 from app.database import get_session
+from app.schemas import StoredFileRead
 from app.models import (
     Event,
     EventReaction,
@@ -28,20 +32,65 @@ from app.schemas import Message, ShortLinkCreate, ShortLinkInfo, ShortLinkRead
 
 router = APIRouter()
 
+_OG_IMAGE_MIME = {
+    "webp": "image/webp",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "png": "image/png",
+}
+
+
+def _app_tz() -> ZoneInfo:
+    tz_name = os.getenv("APP_TIMEZONE", "UTC")
+    try:
+        return ZoneInfo(tz_name)
+    except ZoneInfoNotFoundError:
+        return ZoneInfo("UTC")
+
+
+def get_og_image(stored_file: StoredFile) -> Tuple[str, Optional[int], Optional[str]]:
+    """Return (url, width_or_None, mime_type_or_None) for the best OG image variant.
+
+    Picks the smallest variant whose width is >= 1200px (the OG recommended minimum),
+    falling back to the widest available variant.  WebP is preferred over video formats.
+    """
+    if stored_file.variants:
+        try:
+            variants = [
+                v for v in json.loads(stored_file.variants) if v.get("format") != "webm"
+            ]
+        except Exception:
+            variants = []
+        if variants:
+            # Sort ascending by width so we can pick the smallest qualifying one first
+            variants.sort(key=lambda v: v.get("width", 0))
+            # Prefer >= 1200px; fallback to the widest (last after sort)
+            chosen = next(
+                (v for v in variants if v.get("width", 0) >= 1200), variants[-1]
+            )
+            fmt = chosen.get("format", "")
+            mime = _OG_IMAGE_MIME.get(fmt)
+            return chosen["url"], chosen.get("width"), mime
+
+    # No usable variants — fall back to the original file URL
+    return stored_file.url, None, None
+
+
 def generate_short_id(length=3):
     chars = string.ascii_letters + string.digits
-    return ''.join(random.choice(chars) for _ in range(length))
+    return "".join(random.choice(chars) for _ in range(length))
+
 
 @router.post("/", response_model=ShortLinkRead)
 def create_short_link(
     link_data: ShortLinkCreate,
     current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
 ):
     """Create a new short link"""
     # 1. Validate Item and Permissions
     item_id = UUID(link_data.item_id)
-    
+
     if link_data.item_type == ShortLinkType.ORGANIZATION:
         org = session.get(Organization, item_id)
         if not org:
@@ -49,8 +98,10 @@ def create_short_link(
         # Only members can share organization links
         membership = get_org_membership(current_user, item_id, session)
         if not (membership or current_user.is_superadmin):
-             raise HTTPException(status_code=403, detail="Must be a member to share organization")
-             
+            raise HTTPException(
+                status_code=403, detail="Must be a member to share organization"
+            )
+
     elif link_data.item_type == ShortLinkType.EVENT:
         event = session.get(Event, item_id)
         if not event:
@@ -58,22 +109,25 @@ def create_short_link(
         # Check if user can see the event
         can_view, reason = can_view_event(event, current_user, session)
         if not (can_view or current_user.is_superadmin):
-             raise HTTPException(status_code=403, detail=reason)
-             
+            raise HTTPException(status_code=403, detail=reason)
+
     elif link_data.item_type == ShortLinkType.TAG:
         if link_data.action_type != ShortLinkActionType.SUBSCRIBE:
-             raise HTTPException(status_code=400, detail="Tags can only be shared for subscription")
-             
+            raise HTTPException(
+                status_code=400, detail="Tags can only be shared for subscription"
+            )
+
         # Assuming similar logic for tags, usually tied to Org
         # For now, let's say only Org members can share tags too if they belong to an org
         from app.models import Tag
+
         tag = session.get(Tag, item_id)
         if not tag:
-             raise HTTPException(status_code=404, detail="Tag not found")
+            raise HTTPException(status_code=404, detail="Tag not found")
         membership = get_org_membership(current_user, tag.organization_id, session)
         if not (membership or current_user.is_superadmin):
-             raise HTTPException(status_code=403, detail="Must be a member to share tag")
-             
+            raise HTTPException(status_code=403, detail="Must be a member to share tag")
+
     else:
         raise HTTPException(status_code=400, detail="Invalid item type")
 
@@ -82,23 +136,23 @@ def create_short_link(
         select(ShortLink).where(
             ShortLink.item_type == link_data.item_type,
             ShortLink.item_id == item_id,
-            ShortLink.action_type == link_data.action_type
+            ShortLink.action_type == link_data.action_type,
         )
     ).first()
-    
+
     app_base_url = os.getenv("APP_BASE_URL", "https://cal.minet.net")
-    
+
     if existing:
         return ShortLinkRead(id=existing.id, url=f"{app_base_url}/s/{existing.id}")
 
     # 3. Create new link
     # Try to generate unique ID
     for length in range(3, 8):
-        for _ in range(10): # Retry a few times
+        for _ in range(10):  # Retry a few times
             new_id = generate_short_id(length)
             if not session.get(ShortLink, new_id):
                 break
-        else: # google en passant
+        else:  # google en passant
             continue
         break
     else:
@@ -109,134 +163,151 @@ def create_short_link(
         item_type=ShortLinkType(link_data.item_type),
         action_type=ShortLinkActionType(link_data.action_type),
         item_id=item_id,
-        created_by_id=current_user.id
+        created_by_id=current_user.id,
     )
-    
+
     session.add(new_link)
     session.commit()
     session.refresh(new_link)
-    
+
     return ShortLinkRead(id=new_link.id, url=f"{app_base_url}/s/{new_link.id}")
 
+
 @router.get("/visit/{short_id}")
-def visit_short_link(
-    short_id: str,
-    session: Session = Depends(get_session)
-):
+def visit_short_link(short_id: str, session: Session = Depends(get_session)):
     """Resolve short link and return redirect URL or action"""
     link = session.get(ShortLink, short_id)
     if not link:
         raise HTTPException(status_code=404, detail="Link not found")
-    
+
     # Update last used
     link.last_used_at = datetime.now(timezone.utc)
     session.add(link)
     session.commit()
-    
+
     # Determine Redirect URL
     app_base_url = os.getenv("APP_BASE_URL", "https://cal.minet.net")
     redirect_url = f"{app_base_url}"
-    
+
     if link.action_type in [ShortLinkActionType.VIEW, ShortLinkActionType.COUNTDOWN]:
         if link.item_type == ShortLinkType.EVENT:
             if link.action_type == ShortLinkActionType.COUNTDOWN:
                 redirect_url = f"{app_base_url}/events/{link.item_id}/countdown"
             else:
                 redirect_url = f"{app_base_url}/events/{link.item_id}"
-            
+
         elif link.item_type == ShortLinkType.ORGANIZATION:
-             redirect_url = f"{app_base_url}/organizations/{link.item_id}"
-             
+            redirect_url = f"{app_base_url}/organizations/{link.item_id}"
+
     elif link.action_type == ShortLinkActionType.SUBSCRIBE:
         redirect_url = f"{app_base_url}/consent/{link.id}"
 
     # Fetch Metadata
     og_title = "CalendInt"
-    og_description = "Calendar Integration App"
-    og_image = "" # Default image?
+    og_description = "Découvrez cet événement sur Calend'INT !"
+    og_image = ""
+    og_image_width: Optional[int] = None
+    og_image_mime: Optional[str] = None
+    og_type = "website"
 
     if link.item_type == ShortLinkType.EVENT:
         event = session.get(Event, link.item_id)
         if event:
-             og_title = event.title
-             if event.description:
-                 og_description = event.description[:200]
-             else:
-                 og_description = f"Event on {event.start_time.strftime('%d/%m/%Y %H:%M')}"
-             
-             if event.poster_file_id:
-                 pf = session.get(StoredFile, event.poster_file_id)
-                 if pf:
-                     og_image = pf.url
-             if not og_image and event.organization and event.organization.logo_file_id:
-                 lf = session.get(StoredFile, event.organization.logo_file_id)
-                 if lf:
-                     og_image = lf.url
+            og_title = event.title
+            og_type = "article"
+            start_local = event.start_time.astimezone(_app_tz())
+            if event.description:
+                og_description = event.description[:200]
+            else:
+                og_description = (
+                    f"Évènement le {start_local.strftime('%d/%m/%Y à %H:%M')}"
+                )
+
+            if event.poster_file_id:
+                pf = session.get(StoredFile, event.poster_file_id)
+                if pf:
+                    og_image, og_image_width, og_image_mime = get_og_image(pf)
+            if not og_image and event.organization and event.organization.logo_file_id:
+                lf = session.get(StoredFile, event.organization.logo_file_id)
+                if lf:
+                    og_image, og_image_width, og_image_mime = get_og_image(lf)
 
     elif link.item_type == ShortLinkType.ORGANIZATION:
         org = session.get(Organization, link.item_id)
         if org:
             og_title = org.name
+            og_type = "profile"
             if org.description:
                 og_description = org.description[:200]
             if org.logo_file_id:
                 lf = session.get(StoredFile, org.logo_file_id)
                 if lf:
-                    og_image = lf.url
+                    og_image, og_image_width, og_image_mime = get_og_image(lf)
 
     elif link.item_type == ShortLinkType.TAG:
         from app.models import Tag
+
         tag = session.get(Tag, link.item_id)
         if tag:
             og_title = f"{tag.name} Subscription"
-            # Tags might be part of an org
             org = session.get(Organization, tag.organization_id)
             if org:
                 og_description = f"Subscribe to {tag.name} events from {org.name}"
                 if org.logo_file_id:
                     lf = session.get(StoredFile, org.logo_file_id)
                     if lf:
-                        og_image = lf.url
+                        og_image, og_image_width, og_image_mime = get_og_image(lf)
 
+    og_image_tags = (
+        f'<meta property="og:image" content="{og_image}" />\n' if og_image else ""
+    )
+    if og_image and og_image_width:
+        og_image_tags += (
+            f'        <meta property="og:image:width" content="{og_image_width}" />\n'
+        )
+    if og_image and og_image_mime:
+        og_image_tags += (
+            f'        <meta property="og:image:type" content="{og_image_mime}" />\n'
+        )
 
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <title>{og_title}</title>
-        <meta property="og:title" content="{og_title}" />
-        <meta property="og:description" content="{og_description}" />
-        <meta property="og:image" content="{og_image}" />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="{redirect_url}" />
-        
-        <!-- Redirect -->
-        <meta http-equiv="refresh" content="0;url={redirect_url}" />
-    </head>
-    <body>
-        <p>Redirecting to <a href="{redirect_url}">{redirect_url}</a>...</p>
-        <script>
-            window.location.href = "{redirect_url}";
-        </script>
-    </body>
-    </html>
-    """
-    
+    html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{og_title}</title>
+    <meta property="og:site_name" content="CalendInt" />
+    <meta property="og:type" content="{og_type}" />
+    <meta property="og:url" content="{redirect_url}" />
+    <meta property="og:title" content="{og_title}" />
+    <meta property="og:description" content="{og_description}" />
+    {og_image_tags}
+    <meta name="twitter:card" content="{'summary_large_image' if og_image else 'summary'}" />
+    <meta name="twitter:title" content="{og_title}" />
+    <meta name="twitter:description" content="{og_description}" />
+    {'<meta name="twitter:image" content="' + og_image + '" />' if og_image else ''}
+    <!-- Redirect -->
+    <meta http-equiv="refresh" content="0;url={redirect_url}" />
+</head>
+<body>
+    <p>Redirecting to <a href="{redirect_url}">{redirect_url}</a>...</p>
+    <script>window.location.href = "{redirect_url}";</script>
+</body>
+</html>"""
+
     return HTMLResponse(content=html_content, status_code=200)
+
 
 @router.get("/info/{short_id}", response_model=ShortLinkInfo)
 def get_link_info(
     short_id: str,
     current_user: Optional[User] = Depends(get_current_user_optional),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
 ):
     """Get info for confirmation page"""
     link = session.get(ShortLink, short_id)
     if not link:
         raise HTTPException(status_code=404, detail="Link not found")
-        
-    from app.schemas import StoredFileRead
+
     title = "Unknown"
     logo_url = None
     logo_file = None
@@ -252,19 +323,19 @@ def get_link_info(
             # Check visibility
             can_view, reason = can_view_event(event, current_user, session)
             if not can_view:
-                 raise HTTPException(status_code=403, detail=reason)
+                raise HTTPException(status_code=403, detail=reason)
             title = event.title
             # Maybe show date in description?
             description = f"Date: {event.start_time.strftime('%d/%m/%Y %H:%M')}"
             if event.organization:
-                 if event.organization.logo_file_id:
-                     lf = session.get(StoredFile, event.organization.logo_file_id)
-                     if lf:
-                         logo_file = StoredFileRead.from_model(lf)
-                         logo_url = lf.url
-                 color_primary = event.organization.color_primary
-                 color_secondary = event.organization.color_secondary
-                 color_dark = event.organization.color_dark
+                if event.organization.logo_file_id:
+                    lf = session.get(StoredFile, event.organization.logo_file_id)
+                    if lf:
+                        logo_file = StoredFileRead.from_model(lf)
+                        logo_url = lf.url
+                color_primary = event.organization.color_primary
+                color_secondary = event.organization.color_secondary
+                color_dark = event.organization.color_dark
 
     elif link.item_type == ShortLinkType.ORGANIZATION:
         org = session.get(Organization, link.item_id)
@@ -282,6 +353,7 @@ def get_link_info(
 
     if link.item_type == ShortLinkType.TAG:
         from app.models import Tag
+
         tag = session.get(Tag, link.item_id)
         if tag:
             title = tag.name
@@ -309,14 +381,15 @@ def get_link_info(
         color_primary=color_primary,
         color_secondary=color_secondary,
         color_dark=color_dark,
-        tag_color=tag_color
+        tag_color=tag_color,
     )
+
 
 @router.post("/confirm/{short_id}", response_model=Message)
 def confirm_subscription(
     short_id: str,
     current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
 ):
     """Execute the subscription action"""
     link = session.get(ShortLink, short_id)
@@ -325,53 +398,52 @@ def confirm_subscription(
 
     if link.action_type != ShortLinkActionType.SUBSCRIBE:
         raise HTTPException(status_code=400, detail="Not a subscription link")
-        
+
     if link.item_type == ShortLinkType.ORGANIZATION:
         # Subscribe to Organization
         from app.models import Subscription
+
         # Check if already subscribed
         existing = session.exec(
             select(Subscription).where(
-                Subscription.user_id == current_user.id, 
-                Subscription.organization_id == link.item_id
+                Subscription.user_id == current_user.id,
+                Subscription.organization_id == link.item_id,
             )
         ).first()
-        
+
         if not existing:
             sub = Subscription(
                 user_id=current_user.id,
                 organization_id=link.item_id,
-                subscribe_all=False # Default? Or maybe ask user? Prompt implied "subscribe to tag/org or add event"
+                subscribe_all=False,  # Default? Or maybe ask user? Prompt implied "subscribe to tag/org or add event"
             )
             session.add(sub)
-            
+
     elif link.item_type == ShortLinkType.TAG:
-         from app.models import Subscription
-         existing = session.exec(
+        from app.models import Subscription
+
+        existing = session.exec(
             select(Subscription).where(
-                Subscription.user_id == current_user.id, 
-                Subscription.tag_id == link.item_id
+                Subscription.user_id == current_user.id,
+                Subscription.tag_id == link.item_id,
             )
         ).first()
-         if not existing:
-             sub = Subscription(
-                 user_id=current_user.id,
-                 tag_id=link.item_id
-             )
-             session.add(sub)
-             
+        if not existing:
+            sub = Subscription(user_id=current_user.id, tag_id=link.item_id)
+            session.add(sub)
+
     elif link.item_type == ShortLinkType.EVENT:
         # "Add event to their calendar" -> This usually means reacting with Thumbs Up in this app context based on request?
         # Request: "If they add the event to their calendar then make them react with a thumbs up to the event."
-        
+
         # Check permissions
         event = session.get(Event, link.item_id)
         if not event:
             raise HTTPException(status_code=404, detail="Event not found")
         can_view, reason = can_view_event(event, current_user, session)
         if not can_view:
-             raise HTTPException(status_code=403, detail=reason)
-             
+            raise HTTPException(status_code=403, detail=reason)
+
         # Add reaction
         existing_reaction = session.exec(
             select(EventReaction).where(
@@ -379,14 +451,12 @@ def confirm_subscription(
                 EventReaction.user_id == current_user.id,
             )
         ).first()
-        
+
         if not existing_reaction:
             reaction = EventReaction(
-                event_id=link.item_id,
-                user_id=current_user.id,
-                emoji="👍"
+                event_id=link.item_id, user_id=current_user.id, emoji="👍"
             )
             session.add(reaction)
-            
+
     session.commit()
     return {"message": "Success"}
