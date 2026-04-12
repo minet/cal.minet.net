@@ -90,6 +90,11 @@
             <TagIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-gray-500 transition-colors" />
             Tags
           </router-link>
+
+          <router-link @click="closeSidebar" to="/admin/instance" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-gray-900">
+            <WrenchScrewdriverIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-gray-500 transition-colors" />
+            Instance
+          </router-link>
         </nav>
       </div>
 
@@ -198,6 +203,7 @@ import {
   ClipboardDocumentCheckIcon,
   UsersIcon,
   TagIcon,
+  WrenchScrewdriverIcon,
   ChatBubbleBottomCenterTextIcon
 } from '@heroicons/vue/24/outline'
 
