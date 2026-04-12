@@ -238,6 +238,175 @@
           </div>
         </div>
 
+        <!-- Payment Form (HelloAsso) -->
+        <div v-if="helloassoConnected || existingPaymentForm" class="border-t border-gray-900/10 pt-8 mt-8">
+          <div class="flex items-center gap-2 mb-1">
+            <h2 class="text-base font-semibold leading-7 text-gray-900">Formulaire de paiement HelloAsso</h2>
+          </div>
+
+          <!-- Existing form: show status + link to dashboard -->
+          <template v-if="existingPaymentForm">
+            <div class="flex items-center gap-3 p-3 rounded-lg mb-4"
+              :class="{
+                'bg-amber-50': existingPaymentForm.status === 'pending',
+                'bg-green-50': existingPaymentForm.status === 'approved',
+                'bg-red-50': existingPaymentForm.status === 'rejected',
+              }"
+            >
+              <div>
+                <p class="text-sm font-medium"
+                  :class="{
+                    'text-amber-800': existingPaymentForm.status === 'pending',
+                    'text-green-800': existingPaymentForm.status === 'approved',
+                    'text-red-800': existingPaymentForm.status === 'rejected',
+                  }"
+                >
+                  {{ existingPaymentForm.status === 'pending' ? 'En attente de validation'
+                    : existingPaymentForm.status === 'approved' ? 'Approuvé — paiements actifs'
+                    : 'Refusé' }}
+                </p>
+                <p class="text-xs text-gray-500 mt-0.5">
+                  {{ existingPaymentForm.item_name }} — {{ (existingPaymentForm.total_amount_cents / 100).toFixed(2) }}&nbsp;€
+                  <template v-if="existingPaymentForm.options?.length">
+                    + {{ existingPaymentForm.options.length }} option(s)
+                  </template>
+                </p>
+                <p v-if="existingPaymentForm.status === 'approved'" class="text-xs text-gray-500 mt-0.5">
+                  {{ existingPaymentForm.completed_count }} / {{ existingPaymentForm.entry_count }} paiement(s) complété(s)
+                </p>
+              </div>
+              <router-link to="/payments" class="ml-auto text-xs text-indigo-600 hover:underline whitespace-nowrap">
+                Gérer →
+              </router-link>
+            </div>
+
+            <!-- Edit options (available for non-rejected forms) -->
+            <div v-if="existingPaymentForm.status !== 'rejected'" class="space-y-3">
+              <p class="text-xs text-gray-500">Modifier les options payantes :</p>
+              <div class="space-y-4">
+                <div v-for="(opt, idx) in paymentFormEdit.options" :key="idx" class="flex flex-col gap-2 p-3 border border-gray-100 rounded-lg bg-gray-50">
+                  <div class="flex items-center gap-3">
+                    <input
+                      v-model="opt.name"
+                      type="text"
+                      placeholder="ex: Option alcool..."
+                      class="flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                    />
+                    <div class="flex items-center gap-1">
+                      <span class="text-sm text-gray-500">+/-</span>
+                      <input
+                        v-model.number="opt.amount_euros"
+                        type="number" step="0.01" placeholder="2.00"
+                        class="w-24 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                      />
+                      <span class="text-sm text-gray-500">€</span>
+                    </div>
+                    <button type="button" @click="paymentFormEdit.options.splice(idx, 1)" class="text-red-500 hover:text-red-700">
+                      <XMarkIcon class="h-4 w-4" />
+                    </button>
+                  </div>
+                  
+                  <!-- Private Option Config -->
+                  <div class="flex items-center gap-2">
+                    <input type="checkbox" v-model="opt.is_private" :id="'edit-priv-' + idx" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" />
+                    <label :for="'edit-priv-' + idx" class="text-sm text-gray-600">Option privée (réservée à certaines personnes)</label>
+                  </div>
+                  
+                  <div v-if="opt.is_private" class="mt-2">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Personnes autorisées (Collez une liste de noms ou emails, un par ligne)</label>
+                    <textarea 
+                      v-model="opt.allowed_user_names" 
+                      rows="3" 
+                      placeholder="Jean Dupont&#10;jean.dupont@telecom-sudparis.eu"
+                      class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                    ></textarea>
+                    <p class="text-xs text-gray-500 mt-1">Actuellement {{ opt.allowed_user_ids?.length || 0 }} personne(s) autorisée(s). Ajoutez-en de nouvelles ci-dessus.</p>
+                  </div>
+                </div>
+                <button type="button" @click="paymentFormEdit.options.push({ name: '', amount_euros: '', is_private: false, allowed_user_names: '', allowed_user_ids: [] })"
+                  class="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700">
+                  <PlusIcon class="h-4 w-4" />
+                  Ajouter une option
+                </button>
+              </div>
+              <button
+                type="button"
+                @click="savePaymentFormOptions"
+                :disabled="savingPaymentForm"
+                class="mt-2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+              >
+                {{ savingPaymentForm ? 'Enregistrement…' : 'Enregistrer les options' }}
+              </button>
+            </div>
+          </template>
+
+          <!-- No form yet: propose one -->
+          <template v-else-if="helloassoConnected">
+            <p class="text-sm text-gray-500 mb-4">
+              Proposez un formulaire de paiement. Un administrateur de l'organisation parente devra l'approuver.
+            </p>
+            <div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-6">
+              <div class="sm:col-span-4">
+                <label class="block text-sm font-medium leading-6 text-gray-900">Nom de l'article</label>
+                <input v-model="newPaymentForm.item_name" type="text" placeholder="ex: Billet d'entrée..."
+                  class="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" />
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block text-sm font-medium leading-6 text-gray-900">Prix de base (€)</label>
+                <input v-model.number="newPaymentForm.amount_euros" type="number" min="0.01" step="0.01" placeholder="5.00"
+                  class="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" />
+              </div>
+              <div class="sm:col-span-6">
+                <label class="block text-sm font-medium leading-6 text-gray-900 mb-2">Options payantes <span class="text-xs font-normal text-gray-500">(optionnel)</span></label>
+                <div class="space-y-4">
+                  <div v-for="(opt, idx) in newPaymentForm.options" :key="idx" class="flex flex-col gap-2 p-3 border border-gray-100 rounded-lg bg-gray-50">
+                    <div class="flex items-center gap-3">
+                      <input v-model="opt.name" type="text" placeholder="ex: Option alcool..."
+                        class="flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" />
+                      <div class="flex items-center gap-1">
+                        <span class="text-sm text-gray-500">+/-</span>
+                        <input v-model.number="opt.amount_euros" type="number" step="0.01" placeholder="2.00"
+                          class="w-24 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" />
+                        <span class="text-sm text-gray-500">€</span>
+                      </div>
+                      <button type="button" @click="newPaymentForm.options.splice(idx, 1)" class="text-red-500 hover:text-red-700">
+                        <XMarkIcon class="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <!-- Private Option Config -->
+                    <div class="flex items-center gap-2">
+                      <input type="checkbox" v-model="opt.is_private" :id="'new-priv-' + idx" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" />
+                      <label :for="'new-priv-' + idx" class="text-sm text-gray-600">Option privée (réservée à certaines personnes)</label>
+                    </div>
+                    
+                    <div v-if="opt.is_private" class="mt-2">
+                      <label class="block text-xs font-medium text-gray-700 mb-1">Personnes autorisées (Collez une liste de noms ou emails, un par ligne)</label>
+                      <textarea 
+                        v-model="opt.allowed_user_names" 
+                        rows="3" 
+                        placeholder="Jean Dupont&#10;jean.dupont@telecom-sudparis.eu"
+                        class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                      ></textarea>
+                    </div>
+                  </div>
+                  <button type="button" @click="newPaymentForm.options.push({ name: '', amount_euros: '', is_private: false, allowed_user_names: '', allowed_user_ids: [] })"
+                    class="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700">
+                    <PlusIcon class="h-4 w-4" />
+                    Ajouter une option
+                  </button>
+                </div>
+              </div>
+              <div class="sm:col-span-6">
+                <button type="button" @click="submitNewPaymentForm" :disabled="!newPaymentForm.item_name || !newPaymentForm.amount_euros || savingPaymentForm"
+                  class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">
+                  {{ savingPaymentForm ? 'Envoi…' : 'Proposer ce formulaire' }}
+                </button>
+              </div>
+            </div>
+          </template>
+        </div>
+
         <div class="mt-6 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-y-6 sm:gap-y-0">
           <button 
             type="button" 
@@ -356,6 +525,13 @@ const showAllOrgs = ref(false)
 const eventLoaded = ref(false)
 const error = ref('')
 const loading = ref(false)
+const helloassoConnected = ref(false)
+const existingPaymentForm = ref(null)
+const savingPaymentForm = ref(false)
+// For editing options on an existing form
+const paymentFormEdit = ref({ options: [] })
+// For creating a new payment form
+const newPaymentForm = ref({ item_name: '', amount_euros: '', options: [] })
 const originalOrgId = ref(null) 
 const originalVisibility = ref(null)
 const originalStartTime = ref(null)
@@ -643,9 +819,127 @@ watch([() => form.value.start_time, () => form.value.end_time], () => {
   overlapCheckTimeout = setTimeout(checkOverlaps, 600)
 })
 
-onMounted(() => {
+const loadPaymentForm = async () => {
+  try {
+    const res = await api.get(`/helloasso/events/${eventId}/payment-form`)
+    existingPaymentForm.value = res.data
+    // Seed edit state from existing options
+    paymentFormEdit.value.options = (res.data.options || []).map(o => ({
+      name: o.name,
+      amount_euros: o.price_cents / 100,
+      is_private: o.is_private || false,
+      allowed_user_ids: o.allowed_user_ids || [],
+      allowed_user_names: '', // We don't have the names back, so this starts empty. It's only for appending.
+    }))
+  } catch (err) {
+    if (err.response?.status !== 404) {
+      console.error('Failed to load payment form:', err)
+    }
+    existingPaymentForm.value = null
+  }
+}
+
+const loadHelloAssoStatus = async (orgId) => {
+  if (!orgId) { helloassoConnected.value = false; return }
+  try {
+    const res = await api.get(`/helloasso/status/${orgId}`)
+    helloassoConnected.value = res.data.connected
+  } catch {
+    helloassoConnected.value = false
+  }
+}
+
+const resolveUserNames = async (namesStr) => {
+  if (!namesStr || !namesStr.trim()) return []
+  const queries = namesStr.split('\n').map(n => n.trim()).filter(Boolean)
+  if (!queries.length) return []
+  
+  try {
+    const res = await api.post(`/helloasso/events/${eventId}/attendee-bulk-resolve`, { queries })
+    return res.data.filter(r => r.user_id).map(r => r.user_id)
+  } catch (err) {
+    console.error('Bulk resolve failed:', err)
+    return []
+  }
+}
+
+const savePaymentFormOptions = async () => {
+  savingPaymentForm.value = true
+  try {
+    const optionsToSave = []
+    for (const o of paymentFormEdit.value.options) {
+      if (!o.name || o.amount_euros === '' || o.amount_euros === null) continue
+      
+      let finalUserIds = [...(o.allowed_user_ids || [])]
+      if (o.is_private && o.allowed_user_names) {
+        const resolvedIds = await resolveUserNames(o.allowed_user_names)
+        finalUserIds = [...new Set([...finalUserIds, ...resolvedIds])]
+      }
+      
+      optionsToSave.push({
+        name: o.name,
+        price_cents: Math.round(o.amount_euros * 100),
+        is_private: o.is_private || false,
+        allowed_user_ids: finalUserIds
+      })
+    }
+
+    const res = await api.put(`/helloasso/events/${eventId}/payment-form`, { options: optionsToSave })
+    existingPaymentForm.value = res.data
+    paymentFormEdit.value.options = (res.data.options || []).map(o => ({
+      name: o.name,
+      amount_euros: o.price_cents / 100,
+      is_private: o.is_private || false,
+      allowed_user_ids: o.allowed_user_ids || [],
+      allowed_user_names: '',
+    }))
+  } catch (err) {
+    error.value = err.response?.data?.detail || 'Impossible de mettre à jour les options'
+  } finally {
+    savingPaymentForm.value = false
+  }
+}
+
+const submitNewPaymentForm = async () => {
+  if (!newPaymentForm.value.item_name || !newPaymentForm.value.amount_euros) return
+  savingPaymentForm.value = true
+  try {
+    const optionsToSave = []
+    for (const o of newPaymentForm.value.options) {
+      if (!o.name || o.amount_euros === '' || o.amount_euros === null) continue
+      
+      let finalUserIds = []
+      if (o.is_private && o.allowed_user_names) {
+        finalUserIds = await resolveUserNames(o.allowed_user_names)
+      }
+      
+      optionsToSave.push({
+        name: o.name,
+        price_cents: Math.round(o.amount_euros * 100),
+        is_private: o.is_private || false,
+        allowed_user_ids: finalUserIds
+      })
+    }
+
+    const res = await api.post(`/helloasso/events/${eventId}/payment-form`, {
+      item_name: newPaymentForm.value.item_name,
+      total_amount_cents: Math.round(newPaymentForm.value.amount_euros * 100),
+      options: optionsToSave,
+    })
+    existingPaymentForm.value = res.data
+    newPaymentForm.value = { item_name: '', amount_euros: '', options: [] }
+  } catch (err) {
+    error.value = err.response?.data?.detail || 'Impossible de proposer le formulaire'
+  } finally {
+    savingPaymentForm.value = false
+  }
+}
+
+onMounted(async () => {
   loadUserOrganizations()
   loadAllOrganizations()
-  loadEvent()
+  await loadEvent()
+  loadPaymentForm()
+  loadHelloAssoStatus(form.value.organization_id)
 })
 </script>

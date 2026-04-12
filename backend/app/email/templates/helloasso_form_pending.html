@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Formulaire de paiement en attente de validation</h2>
+
+<p>Bonjour {{ admin_name }},</p>
+
+<p>Un formulaire de paiement HelloAsso a été proposé pour un événement de <strong>{{ requesting_org_name }}</strong> et attend votre validation.</p>
+
+<div class="event-details">
+    <div class="event-title">{{ event_title }}</div>
+    <div>Article : {{ item_name }}</div>
+    <div>Montant : {{ "%.2f"|format(amount_euros) }}&nbsp;€</div>
+</div>
+
+<p>En tant qu'administrateur de l'organisation parente, vous devez approuver ou refuser ce formulaire avant qu'il soit rendu public.</p>
+
+<div style="text-align: center;">
+    <a href="{{ review_url }}" class="button">Voir les formulaires en attente</a>
+</div>
+{% endblock %}

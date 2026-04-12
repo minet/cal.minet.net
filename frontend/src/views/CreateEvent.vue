@@ -240,10 +240,109 @@
           </div>
         </div>
 
+        <!-- Payment Form (HelloAsso) — shown if org has HelloAsso connected and user can propose forms -->
+        <div v-if="helloassoConnected" class="border-t border-gray-900/10 pt-8 mt-2">
+          <div class="flex items-center gap-2 mb-1">
+            <h2 class="text-base font-semibold leading-7 text-gray-900">Formulaire de paiement HelloAsso</h2>
+            <span class="text-xs text-gray-500 font-normal">(optionnel)</span>
+          </div>
+          <p class="text-sm text-gray-500 mb-4">
+            Proposez un formulaire de paiement. Un administrateur de l'organisation parente devra l'approuver avant qu'il soit visible.
+          </p>
+          <div class="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-6">
+            <div class="sm:col-span-4">
+              <label class="block text-sm font-medium leading-6 text-gray-900">Nom de l'article</label>
+              <input
+                v-model="paymentForm.item_name"
+                type="text"
+                placeholder="ex: Billet d'entrée, Adhésion..."
+                class="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+              />
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-sm font-medium leading-6 text-gray-900">Prix de base (€)</label>
+              <input
+                v-model.number="paymentForm.amount_euros"
+                type="number"
+                min="0.01"
+                step="0.01"
+                placeholder="ex: 5.00"
+                class="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+              />
+            </div>
+
+            <!-- Options -->
+            <div class="sm:col-span-6">
+              <label class="block text-sm font-medium leading-6 text-gray-900 mb-2">
+                Options payantes
+                <span class="text-xs font-normal text-gray-500 ml-1">(s'ajoutent au prix de base)</span>
+              </label>
+              <div class="space-y-4">
+                <div
+                  v-for="(opt, idx) in paymentForm.options"
+                  :key="idx"
+                  class="flex flex-col gap-2 p-3 border border-gray-100 rounded-lg bg-gray-50"
+                >
+                  <div class="flex items-center gap-3">
+                    <input
+                      v-model="opt.name"
+                      type="text"
+                      placeholder="ex: Option alcool, Repas végétarien..."
+                      class="flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                    />
+                    <div class="flex items-center gap-1">
+                      <span class="text-sm text-gray-500">+/-</span>
+                      <input
+                        v-model.number="opt.amount_euros"
+                        type="number"
+                        step="0.01"
+                        placeholder="2.00"
+                        class="w-24 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                      />
+                      <span class="text-sm text-gray-500">€</span>
+                    </div>
+                    <button
+                      type="button"
+                      @click="removePaymentOption(idx)"
+                      class="text-red-500 hover:text-red-700"
+                    >
+                      <XMarkIcon class="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  <!-- Private Option Config -->
+                  <div class="flex items-center gap-2">
+                    <input type="checkbox" v-model="opt.is_private" :id="'create-priv-' + idx" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" />
+                    <label :for="'create-priv-' + idx" class="text-sm text-gray-600">Option privée (réservée à certaines personnes)</label>
+                  </div>
+
+                  <div v-if="opt.is_private" class="mt-2">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Personnes autorisées (Collez une liste de noms ou emails, un par ligne)</label>
+                    <textarea 
+                      v-model="opt.allowed_user_names" 
+                      rows="3" 
+                      placeholder="Jean Dupont&#10;jean.dupont@telecom-sudparis.eu"
+                      class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                    ></textarea>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  @click="addPaymentOption"
+                  class="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700"
+                >
+                  <PlusIcon class="h-4 w-4" />
+                  Ajouter une option
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="mt-6 flex flex-col-reverse sm:flex-row items-center justify-end gap-x-6 gap-y-3 sm:gap-y-0">
           <router-link to="/" class="w-full text-center sm:w-auto text-sm font-semibold leading-6 text-gray-900">Annuler</router-link>
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             :disabled="loading || !form.organization_id"
             class="w-full sm:w-auto rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50"
           >
@@ -337,6 +436,8 @@ const form = ref({
 const userOrganizations = ref([])
 const error = ref('')
 const loading = ref(false)
+const helloassoConnected = ref(false)
+const paymentForm = ref({ item_name: '', amount_euros: '', options: [] })
 const allOrganizations = ref([])
 const isGuestOrgsOpen = ref(false)
 const { user, isSuperAdmin } = useAuth()
@@ -432,10 +533,19 @@ watch([() => form.value.start_time, () => form.value.end_time], () => {
 })
 
 // Watch for changes in organization_id to reset group_id and tag_ids
-watch(() => form.value.organization_id, (newOrgId) => {
+watch(() => form.value.organization_id, async (newOrgId) => {
   if (!newOrgId) {
     form.value.group_id = null
     form.value.tag_ids = []
+    helloassoConnected.value = false
+    return
+  }
+  // Check if the selected org (or its parent) has HelloAsso connected
+  try {
+    const res = await api.get(`/helloasso/status/${newOrgId}`)
+    helloassoConnected.value = res.data.connected
+  } catch {
+    helloassoConnected.value = false
   }
 })
 
@@ -466,6 +576,14 @@ const loadAllOrganizations = async () => {
     }
 }
 
+const addPaymentOption = () => {
+  paymentForm.value.options.push({ name: '', amount_euros: '' })
+}
+
+const removePaymentOption = (idx) => {
+  paymentForm.value.options.splice(idx, 1)
+}
+
 const addLink = () => {
   form.value.links.push({ name: '', url: '', order: form.value.links.length + 1 })
 }
@@ -476,6 +594,20 @@ const removeLink = (index) => {
   form.value.links.forEach((link, idx) => {
     link.order = idx + 1
   })
+}
+
+const resolveUserNames = async (namesStr, eventId) => {
+  if (!namesStr || !namesStr.trim()) return []
+  const queries = namesStr.split('\n').map(n => n.trim()).filter(Boolean)
+  if (!queries.length) return []
+  
+  try {
+    const res = await api.post(`/helloasso/events/${eventId}/attendee-bulk-resolve`, { queries })
+    return res.data.filter(r => r.user_id).map(r => r.user_id)
+  } catch (err) {
+    console.error('Bulk resolve failed:', err)
+    return []
+  }
 }
 
 const createEvent = async () => {
@@ -502,7 +634,46 @@ const createEvent = async () => {
     }
 
     const response = await api.post('/events/', eventData)
-    router.push(`/events/${response.data.id}`)
+    const eventId = response.data.id
+
+    // Submit payment form proposal if filled in
+    if (
+      helloassoConnected.value &&
+      paymentForm.value.item_name &&
+      paymentForm.value.amount_euros > 0
+    ) {
+      try {
+        const optionsToSave = []
+        for (const o of paymentForm.value.options) {
+          if (!o.name || o.amount_euros === '' || o.amount_euros === null) continue
+          
+          let finalUserIds = []
+          if (o.is_private && o.allowed_user_names) {
+            finalUserIds = await resolveUserNames(o.allowed_user_names, eventId)
+          }
+          
+          optionsToSave.push({
+            name: o.name,
+            price_cents: Math.round(o.amount_euros * 100),
+            is_private: o.is_private || false,
+            allowed_user_ids: finalUserIds
+          })
+        }
+
+        await api.post(`/helloasso/events/${eventId}/payment-form`, {
+          item_name: paymentForm.value.item_name,
+          total_amount_cents: Math.round(paymentForm.value.amount_euros * 100),
+          options: optionsToSave,
+        })
+      } catch (payErr) {
+        console.error('Payment form submission failed:', payErr)
+        error.value = 'Événement créé mais la proposition de formulaire de paiement a échoué.'
+        router.push(`/events/${eventId}`)
+        return
+      }
+    }
+
+    router.push(`/events/${eventId}`)
   } catch (err) {
     console.error('Failed to create event:', err)
     error.value = err.response?.data?.detail || 'Échec de la création de l\'événement'

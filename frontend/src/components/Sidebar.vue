@@ -41,9 +41,17 @@
             Nouvel événement
           </router-link>
 
-          <router-link @click="closeSidebar" 
-            v-if="isSuperAdmin || organizations.length > 0" 
-            to="/my-events" 
+          <router-link @click="closeSidebar"
+            to="/my-payments"
+            class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700"
+          >
+            <TicketIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-green-500 transition-colors" />
+            Paiements
+          </router-link>
+
+          <router-link @click="closeSidebar"
+            v-if="isSuperAdmin || organizations.length > 0"
+            to="/my-events"
             class="group flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-slate-50 hover:text-slate-700"
           >
             <div class="flex items-center">
@@ -62,33 +70,43 @@
       </div>
 
       <!-- Administration -->
-      <div v-if="isSuperAdmin">
+      <div v-if="isSuperAdmin || organizations.length > 0">
         <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Administration</h4>
         <nav class="space-y-1">
-          <router-link @click="closeSidebar" 
-            to="/approval-requests" 
-            class="group flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-amber-50 hover:text-amber-700"
-          >
-            <div class="flex items-center">
-              <ClipboardDocumentCheckIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-amber-500 transition-colors" />
-              Approbations
-            </div>
-            <span 
-              v-if="user?.pending_approvals_count > 0" 
-              class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"
+          <template v-if="isSuperAdmin">
+            <router-link @click="closeSidebar"
+              to="/approval-requests"
+              class="group flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-amber-50 hover:text-amber-700"
             >
-              {{ user.pending_approvals_count }}
-            </span>
-          </router-link>
+              <div class="flex items-center">
+                <ClipboardDocumentCheckIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-amber-500 transition-colors" />
+                Approbations
+              </div>
+              <span
+                v-if="user?.pending_approvals_count > 0"
+                class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"
+              >
+                {{ user.pending_approvals_count }}
+              </span>
+            </router-link>
 
-          <router-link @click="closeSidebar" to="/admin/users" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-gray-900">
-            <UsersIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-gray-500 transition-colors" />
-            Utilisateurs
-          </router-link>
+            <router-link @click="closeSidebar" to="/admin/users" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-gray-900">
+              <UsersIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-gray-500 transition-colors" />
+              Utilisateurs
+            </router-link>
 
-          <router-link @click="closeSidebar" to="/admin/tags" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-gray-900">
-            <TagIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-gray-500 transition-colors" />
-            Tags
+            <router-link @click="closeSidebar" to="/admin/tags" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-gray-900">
+              <TagIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-gray-500 transition-colors" />
+              Tags
+            </router-link>
+          </template>
+
+          <router-link @click="closeSidebar"
+            to="/payments"
+            class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700"
+          >
+            <CreditCardIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-green-500 transition-colors" />
+            Trésorerie
           </router-link>
         </nav>
       </div>
@@ -184,10 +202,10 @@ import api from '../utils/api'
 import UserAvatar from './UserAvatar.vue'
 import MinetIcon from './MinetIcon.vue'
 import { resolveMediaUrl } from '../utils/media.js'
-import { 
-  XMarkIcon, 
-  PlusIcon, 
-  CalendarIcon, 
+import {
+  XMarkIcon,
+  PlusIcon,
+  CalendarIcon,
   Cog6ToothIcon,
   BuildingOfficeIcon,
   CalendarDaysIcon,
@@ -198,7 +216,8 @@ import {
   ClipboardDocumentCheckIcon,
   UsersIcon,
   TagIcon,
-  ChatBubbleBottomCenterTextIcon
+  ChatBubbleBottomCenterTextIcon,
+  CreditCardIcon,
 } from '@heroicons/vue/24/outline'
 
 const props = defineProps({

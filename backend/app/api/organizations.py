@@ -78,6 +78,7 @@ def get_organization_members(org_id: str, session: Session = Depends(get_session
                 "role": membership.role,
                 "title": membership.title,
                 "order": membership.order,
+                "can_manage_payment_forms": membership.can_manage_payment_forms,
                 "links": [{"id": str(l.id), "name": l.name, "url": l.url, "order": l.order} for l in user_links],
             })
 
@@ -182,6 +183,7 @@ def update_member_role(
     membership_id: str,
     role: Optional[Role] = None, # Make role optional so we can update title only
     title: Optional[str] = None,
+    can_manage_payment_forms: Optional[bool] = None,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
@@ -204,15 +206,17 @@ def update_member_role(
     if not membership or str(membership.organization_id) != org_id:
         raise HTTPException(status_code=404, detail="Membership not found")
     
-    # Update role and title
+    # Update role, title, and payment form permission
     if role is not None:
         membership.role = role
     if title is not None:
         membership.title = title
-    
+    if can_manage_payment_forms is not None:
+        membership.can_manage_payment_forms = can_manage_payment_forms
+
     session.add(membership)
     session.commit()
-    
+
     return {"message": "Role updated successfully"}
 
 @router.delete("/{org_id}/members/{membership_id}")

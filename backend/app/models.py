@@ -23,6 +23,22 @@ class Role(str, Enum):
     ORG_VIEWER = "org_viewer"
 
 
+class PaymentFormStatus(str, Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class PaymentType(str, Enum):
+    HELLOASSO = "helloasso"
+    CREDIT_CARD = "credit_card"
+    CASH = "cash"
+    CHEQUE = "cheque"
+    EXCHANGE = "exchange"
+    NONE = "none"
+    OTHER = "other"
+
+
 class EventGuestOrganization(SQLModel, table=True):
     event_id: UUID = Field(foreign_key="event.id", primary_key=True)
     organization_id: UUID = Field(foreign_key="organization.id", primary_key=True)
@@ -144,6 +160,8 @@ class Membership(SQLModel, table=True):
     role: Role = Field(default=Role.ORG_VIEWER)
     title: Optional[str] = Field(default=None)
     order: int = Field(default=0)
+
+    can_manage_payment_forms: bool = Field(default=False)
 
     user: User = Relationship(back_populates="memberships")
     organization: Organization = Relationship(back_populates="members")
@@ -302,15 +320,16 @@ class LDAPUser(SQLModel, table=True):
 
 
 class ShortLinkType(str, Enum):
-    EVENT = "event"
-    ORGANIZATION = "organization"
-    TAG = "tag"
+    EVENT = "EVENT"
+    ORGANIZATION = "ORGANIZATION"
+    TAG = "TAG"
 
 
 class ShortLinkActionType(str, Enum):
-    VIEW = "view"
-    SUBSCRIBE = "subscribe"
-    COUNTDOWN = "countdown"
+    VIEW = "VIEW"
+    SUBSCRIBE = "SUBSCRIBE"
+    COUNTDOWN = "COUNTDOWN"
+    PAYMENT = "PAYMENT"
 
 
 class ShortLink(SQLModel, table=True):
@@ -323,6 +342,81 @@ class ShortLink(SQLModel, table=True):
     last_used_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     user: Optional[User] = Relationship()
+
+
+class OrganizationHelloAsso(SQLModel, table=True):
+    """Stores per-organization HelloAsso API credentials (encrypted at rest).
+
+    The api_client_secret is Fernet-encrypted and is NEVER returned by the API.
+    Cached access tokens (also encrypted) avoid hitting HelloAsso on every request.
+    """
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(foreign_key="organization.id", unique=True)
+    helloasso_slug: str  # The org's slug on HelloAsso
+    api_client_id: str  # HelloAsso client_id (can be shown to admins)
+    api_client_secret: str  # Fernet-encrypted client_secret — never returned via API
+    # Cached OAuth2 token from client_credentials grant:
+    cached_access_token: Optional[str] = None  # Fernet-encrypted
+    token_expires_at: Optional[datetime] = None
+    connected_by_id: UUID = Field(foreign_key="user.id")
+    connected_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class EventPaymentForm(SQLModel, table=True):
+    """A payment form proposal attached to an event.
+
+    Created by a member with can_manage_payment_forms; must be approved by
+    the parent org admin before HelloAsso is called and the URL is published.
+    """
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    event_id: UUID = Field(foreign_key="event.id", unique=True)
+    requesting_org_id: UUID = Field(foreign_key="organization.id")  # Child org
+    approving_org_id: Optional[UUID] = Field(default=None, foreign_key="organization.id")  # Parent org
+    total_amount_cents: int
+    item_name: str
+    status: PaymentFormStatus = Field(default=PaymentFormStatus.PENDING)
+    # Optional add-ons: JSON list of {"name": str, "price_cents": int}
+    options: Optional[str] = None
+    # Whether new payments can be initiated (admins can close/reopen)
+    is_open: bool = Field(default=True)
+    # No HelloAsso URL stored here — checkout intents are created on demand
+    # when each user initiates payment. last_checkout_intent_id is kept for
+    # webhook matching only (the most recently generated intent).
+    last_checkout_intent_id: Optional[str] = None
+    rejection_message: Optional[str] = None
+    payment_completed: bool = Field(default=False)  # Set to True on first completed payment
+    created_by_id: UUID = Field(foreign_key="user.id")
+    reviewed_by_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    reviewed_at: Optional[datetime] = None
+
+
+class EventPaymentEntry(SQLModel, table=True):
+    """Tracks individual per-user payment initiations and completions.
+
+    Created when a user clicks 'Pay' (helloasso type) or added manually by org admins.
+    For manual entries, user_id and checkout_intent_id may be None.
+    """
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    payment_form_id: UUID = Field(foreign_key="eventpaymentform.id", index=True)
+    user_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
+    checkout_intent_id: Optional[str] = Field(default=None, index=True, unique=True)
+    completed: bool = Field(default=False)
+    completed_at: Optional[datetime] = None
+    # JSON array of int indices into the form's options list
+    selected_option_indices: Optional[str] = None
+    amount_cents: int  # base + selected options
+    payment_type: str = Field(default="helloasso")  # PaymentType enum value
+    # For manual entries: name of the attendee (not a registered user)
+    attendee_name: Optional[str] = None
+    # Ticket validation (checked at entrance)
+    validated: bool = Field(default=False)
+    validated_at: Optional[datetime] = None
+    validated_by_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class StoredFile(SQLModel, table=True):

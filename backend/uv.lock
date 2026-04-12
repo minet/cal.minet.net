@@ -231,6 +231,7 @@ version = "1.0.0"
 source = { virtual = "." }
 dependencies = [
     { name = "authlib" },
+    { name = "cryptography" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "icalendar" },
@@ -254,6 +255,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "authlib" },
+    { name = "cryptography" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "icalendar" },

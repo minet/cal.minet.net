@@ -90,6 +90,12 @@ const routes = [
         meta: { requiresAuth: true }
     },
     {
+        path: '/organizations/:id/helloasso',
+        name: 'OrganizationHelloAsso',
+        component: () => import('../views/OrganizationHelloAsso.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
         path: '/organizations/:id/tags',
         name: 'OrganizationTags',
         component: () => import('../views/OrganizationTags.vue'),
@@ -154,6 +160,24 @@ const routes = [
         name: 'ShortLinkConsent',
         component: () => import('../views/ShortLinkConsent.vue'),
         meta: { layout: 'normal' }
+    },
+    {
+        path: '/payments',
+        name: 'HelloAssoDashboard',
+        component: () => import('../views/HelloAssoDashboard.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/my-payments',
+        name: 'MyPayments',
+        component: () => import('../views/MyPaymentsView.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/events/:id/validation',
+        name: 'EventValidation',
+        component: () => import('../views/EventValidationView.vue'),
+        meta: { requiresAuth: true }
     }
 ]
 

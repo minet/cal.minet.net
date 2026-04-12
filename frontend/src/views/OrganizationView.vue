@@ -53,6 +53,11 @@
         Membres
       </ActionPanelButton>
 
+      <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/helloasso`" :icon="CreditCardIcon"
+        variant="green" class="w-full lg:w-auto">
+        HelloAsso
+      </ActionPanelButton>
+
       <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/edit`" :icon="PencilIcon" variant="sky"
         class="w-full lg:w-auto">
         Modifier
@@ -182,7 +187,8 @@ import {
   UserGroupIcon,
   TagIcon,
   UsersIcon,
-  LinkIcon
+  LinkIcon,
+  CreditCardIcon
 } from '@heroicons/vue/24/outline'
 
 const route = useRoute()

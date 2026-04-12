@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from app.models import EventVisibility, OrganizationType, Role
+from app.models import EventVisibility, OrganizationType, PaymentFormStatus, PaymentType, Role
 
 T = TypeVar("T")
 
@@ -457,3 +457,165 @@ class ShortLinkInfo(BaseModel):
 
 class Message(BaseModel):
     message: str
+
+
+# ---------------------------------------------------------------------------
+# HelloAsso schemas
+# ---------------------------------------------------------------------------
+
+class HelloAssoStatus(BaseModel):
+    connected: bool
+    helloasso_slug: Optional[str] = None
+    api_client_id: Optional[str] = None  # Shown to admins; secret is never returned
+    webhook_url: Optional[str] = None    # Full URL to configure on HelloAsso
+
+
+class HelloAssoCredentials(BaseModel):
+    """Write-only: set/update API credentials for an organization."""
+    helloasso_slug: str
+    api_client_id: str
+    api_client_secret: str  # Accepted but never returned after storage
+
+
+class PaymentFormOption(BaseModel):
+    name: str
+    price_cents: int
+    is_private: bool = False
+    allowed_user_ids: List[str] = []
+
+
+class PaymentFormCreate(BaseModel):
+    total_amount_cents: int
+    item_name: str
+    options: List[PaymentFormOption] = []
+
+
+class PaymentFormUpdate(BaseModel):
+    """Partial update for an existing payment form."""
+    item_name: Optional[str] = None
+    total_amount_cents: Optional[int] = None
+    options: Optional[List[PaymentFormOption]] = None
+    is_open: Optional[bool] = None
+
+
+class PaymentFormRead(BaseModel):
+    id: UUID
+    event_id: UUID
+    requesting_org_id: UUID
+    approving_org_id: Optional[UUID] = None
+    total_amount_cents: int
+    item_name: str
+    status: PaymentFormStatus
+    options: List[PaymentFormOption] = []
+    is_open: bool = True
+    rejection_message: Optional[str] = None
+    payment_completed: bool
+    entry_count: int = 0
+    completed_count: int = 0
+    created_by_id: UUID
+    reviewed_by_id: Optional[UUID] = None
+    created_at: datetime
+    reviewed_at: Optional[datetime] = None
+
+
+class PaymentInitiateRequest(BaseModel):
+    """Optional add-on options selected by the user before paying."""
+    selected_option_indices: List[int] = []
+
+
+class PaymentInitiateResponse(BaseModel):
+    """Returned when a user initiates payment — contains the HelloAsso redirect URL."""
+    redirect_url: str
+    checkout_intent_id: str
+
+
+class PaymentEntryRead(BaseModel):
+    id: UUID
+    user_id: Optional[UUID] = None
+    user_name: Optional[str] = None
+    checkout_intent_id: Optional[str] = None
+    amount_cents: int
+    selected_option_indices: List[int] = []
+    completed: bool
+    completed_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class PaymentDashboardItem(BaseModel):
+    """Aggregated view of a payment form for the dashboard."""
+    id: UUID
+    event_id: UUID
+    event_title: str
+    event_start_time: datetime
+    org_id: UUID
+    org_name: str
+    item_name: str
+    total_amount_cents: int
+    options: List[PaymentFormOption] = []
+    status: PaymentFormStatus
+    is_open: bool
+    entry_count: int
+    completed_count: int
+    created_at: datetime
+
+
+class PaymentFormReject(BaseModel):
+    rejection_message: str
+
+
+class MyPaymentEntryRead(BaseModel):
+    """A user's own payment entry, enriched with event and form details."""
+    id: UUID
+    event_id: UUID
+    event_title: str
+    event_start_time: datetime
+    org_name: str
+    item_name: str
+    amount_cents: int
+    payment_type: str = "helloasso"
+    selected_options: List[PaymentFormOption] = []
+    completed: bool
+    created_at: datetime
+
+
+class ValidationEntryRead(BaseModel):
+    """Entry as shown on the ticket-validation page."""
+    id: UUID
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None
+    attendee_name: Optional[str] = None
+    display_name: str  # user_name or attendee_name fallback
+    item_name: str
+    amount_cents: int
+    payment_type: str
+    selected_options: List[PaymentFormOption] = []
+    completed: bool
+    validated: bool
+    validated_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class ManualEntryCreate(BaseModel):
+    attendee_name: str
+    payment_type: PaymentType = PaymentType.CASH
+    amount_cents: Optional[int] = None  # defaults to form base price
+    selected_option_indices: List[int] = []
+    note: Optional[str] = None
+
+
+class AttendeeSearchResult(BaseModel):
+    """A candidate person for manual entry autocomplete."""
+    id: Optional[UUID] = None           # None for LDAP-only users
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    uid: Optional[str] = None           # LDAP uid / login
+    source: str                          # "user" | "ldap"
+
+
+class BulkResolveRequest(BaseModel):
+    queries: List[str]
+
+class BulkResolveResult(BaseModel):
+    query: str
+    user_id: Optional[str] = None # UUID as string
+    full_name: Optional[str] = None

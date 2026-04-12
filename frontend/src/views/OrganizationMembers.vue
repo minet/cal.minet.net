@@ -153,6 +153,19 @@
               />
 
               <button
+                v-if="hasHelloAsso"
+                @click="togglePaymentPermission(member)"
+                :title="member.can_manage_payment_forms ? 'Retirer la permission de gestion des paiements' : 'Accorder la permission de gestion des paiements'"
+                class="flex items-center gap-1 text-xs px-2 py-1 rounded-md border transition-colors"
+                :class="member.can_manage_payment_forms
+                  ? 'border-green-400 text-green-700 bg-green-50 hover:bg-green-100'
+                  : 'border-gray-300 text-gray-400 bg-white hover:bg-gray-50'"
+              >
+                <CreditCardIcon class="h-4 w-4" />
+                <span class="hidden lg:inline">Paiements</span>
+              </button>
+
+              <button
                 @click="removeMember(member)"
                 class="text-red-600 hover:text-red-700"
                 title="Retirer ce membre"
@@ -171,7 +184,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
-import { TrashIcon, Bars3Icon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/vue/24/outline'
+import { TrashIcon, Bars3Icon, ChevronUpIcon, ChevronDownIcon, CreditCardIcon } from '@heroicons/vue/24/outline'
 import UserSearchSelector from '../components/UserSearchSelector.vue'
 import Dropdown from '../components/Dropdown.vue'
 import api from '../utils/api'
@@ -189,6 +202,7 @@ const loadingMembers = ref(false)
 const error = ref('')
 
 const currentUserId = computed(() => user.value?.id)
+const hasHelloAsso = ref(false)
 
 const dragIndex = ref(null)
 
@@ -258,9 +272,22 @@ const loadOrganization = async () => {
   try {
     const response = await api.get(`/organizations/${route.params.id}`)
     organization.value = response.data
+    await checkHelloAsso(response.data)
   } catch (err) {
     console.error('Failed to load organization:', err)
     error.value = 'Impossible de charger l\'organisation'
+  }
+}
+
+const checkHelloAsso = async (org) => {
+  try {
+    // Check the org itself, and its parent if it has one
+    const ids = [org.id]
+    if (org.parent_id) ids.push(org.parent_id)
+    const results = await Promise.all(ids.map(id => api.get(`/helloasso/status/${id}`).catch(() => ({ data: { connected: false } }))))
+    hasHelloAsso.value = results.some(r => r.data.connected)
+  } catch {
+    hasHelloAsso.value = false
   }
 }
 
@@ -332,6 +359,20 @@ const updateMemberTitle = async (member, newTitle) => {
   } catch (err) {
     console.error('Failed to update title:', err)
     error.value = err.response?.data?.detail || 'Impossible de modifier le poste'
+  }
+}
+
+const togglePaymentPermission = async (member) => {
+  try {
+    await api.put(
+      `/organizations/${route.params.id}/members/${member.id}`,
+      null,
+      { params: { can_manage_payment_forms: !member.can_manage_payment_forms } }
+    )
+    await loadMembers()
+  } catch (err) {
+    console.error('Failed to update payment permission:', err)
+    error.value = err.response?.data?.detail || 'Impossible de modifier la permission de paiement'
   }
 }
 

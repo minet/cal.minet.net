@@ -150,6 +150,47 @@
                             </button>
                       </div>
 
+                      <!-- Payment Link -->
+                       <div v-if="itemType === 'event'" class="bg-gray-50 rounded-lg p-3 text-left border border-gray-100">
+                           <div class="flex items-center justify-between mb-2">
+                               <div class="flex items-center">
+                                    <CreditCardIcon class="h-4 w-4 text-green-500 mr-2" />
+                                    <span class="text-sm font-medium text-gray-900">Lien de paiement</span>
+                               </div>
+                           </div>
+                           
+                           <div v-if="paymentLink" class="relative flex items-center">
+                              <input 
+                                type="text" 
+                                :value="paymentLink" 
+                                class="block w-full rounded-md border-0 py-1.5 pr-32 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-green-600 sm:text-xs sm:leading-6 bg-white"
+                                readonly 
+                                @click="copy(paymentLink)" 
+                              />
+                               <div class="absolute right-1 top-1 bottom-1 flex gap-1">
+                                <button 
+                                    class="px-2.5 bg-green-50 text-green-700 hover:bg-green-100 rounded text-xs font-semibold transition-colors flex items-center"
+                                    @click="openQrPreview('payment')"
+                                    title="QR Code"
+                                >
+                                    <QrCodeIcon class="h-4 w-4" />
+                                </button>
+                                <button 
+                                    class="px-2.5 bg-green-50 text-green-700 hover:bg-green-100 rounded text-xs font-semibold transition-colors flex items-center" 
+                                    @click="copy(paymentLink)"
+                                >
+                                 <span v-if="copied === paymentLink" class="flex items-center">
+                                    <CheckIcon class="h-3 w-3 mr-1" /> Copié
+                                 </span>
+                                 <span v-else>Copier</span>
+                               </button>
+                               </div>
+                           </div>
+                            <button v-else @click="generateLink('payment')" class="mt-1 w-full flex items-center justify-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500" :disabled="loading">
+                                Générer
+                            </button>
+                      </div>
+
 
                     </div>
                   </div>
@@ -398,10 +439,11 @@ const loading = ref(false);
 const viewLink = ref(null);
 const subscribeLink = ref(null);
 const countdownLink = ref(null);
+const paymentLink = ref(null);
 const copied = ref(null);
 
 const qrPreviewOpen = ref(false);
-const qrLinkType = ref(null); // 'view', 'subscribe', 'countdown'
+const qrLinkType = ref(null); // 'view', 'subscribe', 'countdown', 'payment'
 const qrLinkUrl = ref(null);
 const qrcodeComponent = ref(null);
 
@@ -427,12 +469,14 @@ const openQrPreview = async (type) => {
     if (type === 'view') url = viewLink.value;
     else if (type === 'subscribe') url = subscribeLink.value;
     else if (type === 'countdown') url = countdownLink.value;
+    else if (type === 'payment') url = paymentLink.value;
 
     if (!url) {
         await generateLink(type);
         if (type === 'view') url = viewLink.value;
         else if (type === 'subscribe') url = subscribeLink.value;
         else if (type === 'countdown') url = countdownLink.value;
+        else if (type === 'payment') url = paymentLink.value;
     }
     
     qrLinkUrl.value = url;
@@ -501,14 +545,15 @@ const generateLink = async (actionType) => {
     loading.value = true;
     try {
         const response = await api.post('/short-links/', {
-            item_type: props.itemType,
+            item_type: props.itemType.toUpperCase(),
             item_id: props.itemId,
-            action_type: actionType
+            action_type: actionType.toUpperCase()
         });
         
         if (actionType === 'view') viewLink.value = response.data.url;
         else if (actionType === 'subscribe') subscribeLink.value = response.data.url;
         else if (actionType === 'countdown') countdownLink.value = response.data.url;
+        else if (actionType === 'payment') paymentLink.value = response.data.url;
         
     } catch (err) {
         console.error(err);

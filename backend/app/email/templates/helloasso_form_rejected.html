@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Formulaire de paiement refusé</h2>
+
+<p>Bonjour {{ user_name }},</p>
+
+<p>Votre formulaire de paiement HelloAsso pour l'événement suivant a été <strong>refusé</strong>.</p>
+
+<div class="event-details">
+    <div class="event-title">{{ event_title }}</div>
+    <div>Article : {{ item_name }}</div>
+</div>
+
+{% if rejection_message %}
+<p><strong>Motif du refus :</strong> {{ rejection_message }}</p>
+{% endif %}
+
+<p>Vous pouvez modifier votre proposition et la soumettre à nouveau depuis la page de l'événement.</p>
+
+<div style="text-align: center;">
+    <a href="{{ event_url }}" class="button">Voir l'événement</a>
+</div>
+{% endblock %}
