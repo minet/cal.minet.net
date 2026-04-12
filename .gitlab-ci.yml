@@ -64,3 +64,5 @@ deploy:
       optional: true
     - job: build_media_processor
       optional: true
+  only:
+    - main
