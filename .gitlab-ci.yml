@@ -11,6 +11,12 @@ variables:
 
 before_script:
   - docker login -u $CI_REGISTRY_USER -p $CI_JOB_TOKEN $CI_REGISTRY
+  - |
+    if [ "$CI_COMMIT_REF_NAME" = "$CI_DEFAULT_BRANCH" ]; then
+      export IMAGE_TAG=stable
+    else
+      export IMAGE_TAG=$CI_COMMIT_SHORT_SHA
+    fi
 
 build_backend:
   stage: build
@@ -20,9 +26,9 @@ build_backend:
         - backend/**/*
   script:
     - cd backend
-    - docker pull $IMAGE_REGISTRY_BASE/backend:stable || true
-    - docker build --cache-from $IMAGE_REGISTRY_BASE/backend:stable --build-arg BUILDKIT_INLINE_CACHE=1 -f Dockerfile.prod -t $IMAGE_REGISTRY_BASE/backend:stable .
-    - docker push $IMAGE_REGISTRY_BASE/backend:stable
+    - docker pull $IMAGE_REGISTRY_BASE/backend:$IMAGE_TAG || true
+    - docker build --cache-from $IMAGE_REGISTRY_BASE/backend:$IMAGE_TAG --build-arg BUILDKIT_INLINE_CACHE=1 -f Dockerfile.prod -t $IMAGE_REGISTRY_BASE/backend:$IMAGE_TAG .
+    - docker push $IMAGE_REGISTRY_BASE/backend:$IMAGE_TAG
 
 build_nginx:
   stage: build
@@ -32,9 +38,9 @@ build_nginx:
         - frontend/**/*
         - nginx/**/*
   script:
-    - docker pull $IMAGE_REGISTRY_BASE/nginx:stable || true
-    - docker build --cache-from $IMAGE_REGISTRY_BASE/nginx:stable --build-arg BUILDKIT_INLINE_CACHE=1 -f nginx/Dockerfile -t $IMAGE_REGISTRY_BASE/nginx:stable .
-    - docker push $IMAGE_REGISTRY_BASE/nginx:stable
+    - docker pull $IMAGE_REGISTRY_BASE/nginx:$IMAGE_TAG || true
+    - docker build --cache-from $IMAGE_REGISTRY_BASE/nginx:$IMAGE_TAG --build-arg BUILDKIT_INLINE_CACHE=1 -f nginx/Dockerfile -t $IMAGE_REGISTRY_BASE/nginx:$IMAGE_TAG .
+    - docker push $IMAGE_REGISTRY_BASE/nginx:$IMAGE_TAG
 
 build_media_processor:
   stage: build
@@ -44,9 +50,9 @@ build_media_processor:
         - media-processor/**/*
   script:
     - cd media-processor
-    - docker pull $IMAGE_REGISTRY_BASE/media-processor:stable || true
-    - docker build --cache-from $IMAGE_REGISTRY_BASE/media-processor:stable --build-arg BUILDKIT_INLINE_CACHE=1 -f Dockerfile -t $IMAGE_REGISTRY_BASE/media-processor:stable .
-    - docker push $IMAGE_REGISTRY_BASE/media-processor:stable
+    - docker pull $IMAGE_REGISTRY_BASE/media-processor:$IMAGE_TAG || true
+    - docker build --cache-from $IMAGE_REGISTRY_BASE/media-processor:$IMAGE_TAG --build-arg BUILDKIT_INLINE_CACHE=1 -f Dockerfile -t $IMAGE_REGISTRY_BASE/media-processor:$IMAGE_TAG .
+    - docker push $IMAGE_REGISTRY_BASE/media-processor:$IMAGE_TAG
 
 deploy:
   stage: deploy
