@@ -19,6 +19,7 @@ import unicodedata
 from sqlmodel import Session, col, or_, select
 
 from app.api.auth import get_current_user
+from app.api.events import can_edit_event, can_view_event
 from app.database import engine, get_session
 from app.models import (
     Event,
@@ -157,6 +158,34 @@ def _get_form_or_404(event_id: str, session: Session) -> EventPaymentForm:
     return form
 
 
+def require_event_view(
+    event_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> Event:
+    event = session.get(Event, UUID(event_id))
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    can_view, reason = can_view_event(event, current_user, session)
+    if not can_view:
+        raise HTTPException(status_code=403, detail=reason)
+    return event
+
+
+def require_event_edit(
+    event_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> Event:
+    event = session.get(Event, UUID(event_id))
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    can_edit, reason = can_edit_event(event, current_user, session)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=reason)
+    return event
+
+
 def _parse_options(raw: Optional[str]) -> List[PaymentFormOption]:
     if not raw:
         return []
@@ -240,26 +269,17 @@ def _notify_parent_admins_of_pending_form(form_id: UUID, event_id: UUID) -> None
                 requesting_org.name if requesting_org else "une organisation"
             )
 
-            try:
-                tmpl = env.get_template("helloasso_form_pending.html")
-                html = tmpl.render(
-                    project_name="Calend'INT",
-                    year=datetime.now().year,
-                    admin_name=admin_name,
-                    event_title=event.title,
-                    requesting_org_name=requesting_org_name,
-                    item_name=form.item_name,
-                    amount_euros=form.total_amount_cents / 100,
-                    review_url=review_url,
-                )
-            except Exception:
-                html = (
-                    f"<p>Bonjour {admin_name},</p>"
-                    f"<p>Un formulaire de paiement pour l'événement <strong>{event.title}</strong> "
-                    f"({form.item_name}, {form.total_amount_cents / 100:.2f}\u00a0\u20ac) "
-                    f"est en attente de votre validation.</p>"
-                    f'<p><a href="{review_url}">Voir les formulaires en attente</a></p>'
-                )
+            tmpl = env.get_template("helloasso_form_pending.html")
+            html = tmpl.render(
+                project_name="Calend'INT",
+                year=datetime.now().year,
+                admin_name=admin_name,
+                event_title=event.title,
+                requesting_org_name=requesting_org_name,
+                item_name=form.item_name,
+                amount_euros=form.total_amount_cents / 100,
+                review_url=review_url,
+            )
 
             send_email(
                 email_to=admin.email,
@@ -288,30 +308,16 @@ def _notify_creator(form_id: UUID, event_id: UUID, approved: bool) -> None:
             else "helloasso_form_rejected.html"
         )
 
-        try:
-            tmpl = env.get_template(template_name)
-            html = tmpl.render(
-                project_name="Calend'INT",
-                year=datetime.now().year,
-                user_name=creator_name,
-                event_title=event.title,
-                item_name=form.item_name,
-                rejection_message=form.rejection_message,
-                event_url=event_url,
-            )
-        except Exception:
-            if approved:
-                html = (
-                    f"<p>Bonjour {creator_name},</p>"
-                    f"<p>Votre formulaire de paiement pour <strong>{event.title}</strong> a \u00e9t\u00e9 approuv\u00e9.</p>"
-                    f'<p>Les participants peuvent maintenant payer depuis <a href="{event_url}">la page de l\'événement</a>.</p>'
-                )
-            else:
-                html = (
-                    f"<p>Bonjour {creator_name},</p>"
-                    f"<p>Votre formulaire de paiement pour <strong>{event.title}</strong> a \u00e9t\u00e9 refus\u00e9.</p>"
-                    f"<p>Motif\u00a0: {form.rejection_message}</p>"
-                )
+        tmpl = env.get_template(template_name)
+        html = tmpl.render(
+            project_name="Calend'INT",
+            year=datetime.now().year,
+            user_name=creator_name,
+            event_title=event.title,
+            item_name=form.item_name,
+            rejection_message=form.rejection_message,
+            event_url=event_url,
+        )
 
         subject = (
             f"Calend'INT \u2014 Formulaire de paiement approuv\u00e9\u00a0: {event.title}"
@@ -328,7 +334,9 @@ def _notify_creator(form_id: UUID, event_id: UUID, approved: bool) -> None:
 
 def _webhook_secret(org_id: str) -> str:
     """Compute the per-org webhook secret as HMAC-SHA256(SECRET_KEY, org_id)."""
-    key = os.getenv("SECRET_KEY", "CHANGE_THIS_SECRET_KEY")
+    key = os.getenv("SECRET_KEY")
+    if not key:
+        raise ValueError("Environment variable 'SECRET_KEY' is not set")
     return hmac.new(key.encode(), org_id.encode(), hashlib.sha256).hexdigest()
 
 
@@ -349,7 +357,7 @@ def helloasso_status(
             OrganizationHelloAsso.organization_id == UUID(org_id)
         )
     ).first()
-    
+
     is_admin = current_user.is_superadmin
     if not is_admin:
         membership = session.exec(
@@ -362,13 +370,12 @@ def helloasso_status(
             membership.role == Role.ORG_ADMIN or membership.can_manage_payment_forms
         ):
             is_admin = True
-            
+
     if not org_ha:
         return HelloAssoStatus(
-            connected=False, 
-            webhook_url=_webhook_url(org_id) if is_admin else None
+            connected=False, webhook_url=_webhook_url(org_id) if is_admin else None
         )
-        
+
     return HelloAssoStatus(
         connected=True,
         helloasso_slug=org_ha.helloasso_slug if is_admin else None,
@@ -462,12 +469,9 @@ def create_payment_form(
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
+    event: Event = Depends(require_event_edit),
 ):
     """Propose a payment form for an event. No HelloAsso API call until approved."""
-    event = session.get(Event, UUID(event_id))
-    if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
-
     if not _can_propose_payment_form(event, current_user, session):
         raise HTTPException(
             status_code=403, detail="Not authorized to propose a payment form"
@@ -513,8 +517,8 @@ def create_payment_form(
 @router.get("/events/{event_id}/payment-form", response_model=PaymentFormRead)
 def get_payment_form(
     event_id: str,
-    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
+    event: Event = Depends(require_event_view),
 ):
     form = _get_form_or_404(event_id, session)
     return _to_read(form, session)
@@ -526,6 +530,7 @@ def update_payment_form(
     update_data: PaymentFormUpdate,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
+    event: Event = Depends(require_event_edit),
 ):
     """Edit a payment form. Rejected forms cannot be edited.
     item_name / total_amount_cents can only be changed while PENDING.
@@ -567,6 +572,7 @@ def cancel_payment_form(
     event_id: str,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
+    event: Event = Depends(require_event_edit),
 ):
     """Cancel (delete) a PENDING payment form."""
     form = _get_form_or_404(event_id, session)
@@ -682,6 +688,7 @@ def initiate_payment(
     request_data: PaymentInitiateRequest,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
+    event: Event = Depends(require_event_view),
 ):
     """Create a HelloAsso checkout intent for the current user with chosen options."""
     form = _get_form_or_404(event_id, session)
@@ -724,10 +731,6 @@ def initiate_payment(
         raise HTTPException(
             status_code=503, detail="HelloAsso is not configured for this organization"
         )
-
-    event = session.get(Event, form.event_id)
-    if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
 
     requesting_org = session.get(Organization, form.requesting_org_id)
     org_name = requesting_org.name if requesting_org else ""
@@ -1026,6 +1029,7 @@ def my_event_entry(
     event_id: str,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
+    event: Event = Depends(require_event_view),
 ):
     """Return the current user's most recent payment entry for this event, or null."""
     form = session.exec(
@@ -1282,7 +1286,7 @@ def attendee_bulk_resolve(
         q_clean = q.strip()
         if not q_clean:
             continue
-            
+
         # Try finding a direct user match first
         users = session.exec(select(User)).all()
         best_user = None
@@ -1290,19 +1294,26 @@ def attendee_bulk_resolve(
             if _fuzzy_match(q_clean, (u.full_name or "") + " " + (u.email or "")):
                 best_user = u
                 break
-                
+
         if best_user:
-            results.append(BulkResolveResult(query=q, user_id=str(best_user.id), full_name=best_user.full_name))
+            results.append(
+                BulkResolveResult(
+                    query=q, user_id=str(best_user.id), full_name=best_user.full_name
+                )
+            )
             continue
-            
+
         # If not found, try LDAP
         ldap_users = session.exec(select(LDAPUser)).all()
         best_ldap = None
         for lu in ldap_users:
-            if _fuzzy_match(q_clean, (lu.full_name or "") + " " + (lu.email or "") + " " + (lu.uid or "")):
+            if _fuzzy_match(
+                q_clean,
+                (lu.full_name or "") + " " + (lu.email or "") + " " + (lu.uid or ""),
+            ):
                 best_ldap = lu
                 break
-                
+
         if best_ldap and best_ldap.email:
             # Create user from LDAP
             new_user = User(
@@ -1313,11 +1324,16 @@ def attendee_bulk_resolve(
             session.add(new_user)
             session.commit()
             session.refresh(new_user)
-            results.append(BulkResolveResult(query=q, user_id=str(new_user.id), full_name=new_user.full_name))
+            results.append(
+                BulkResolveResult(
+                    query=q, user_id=str(new_user.id), full_name=new_user.full_name
+                )
+            )
         else:
             results.append(BulkResolveResult(query=q, user_id=None, full_name=None))
 
     return results
+
 
 @router.post("/events/{event_id}/manual-entry", response_model=ValidationEntryRead)
 def create_manual_entry(
@@ -1489,6 +1505,7 @@ def confirm_payment(
     event_id: str,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
+    event: Event = Depends(require_event_view),
 ):
     """Called by the frontend when the user returns from HelloAsso (returnUrl).
 
