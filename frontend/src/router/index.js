@@ -138,6 +138,12 @@ const routes = [
         meta: { layout: 'normal', requiresAuth: true }
     },
     {
+        path: '/admin/instance',
+        name: 'AdminInstance',
+        component: () => import('../views/AdminInstance.vue'),
+        meta: { layout: 'normal', requiresAuth: true }
+    },
+    {
         path: '/my-events',
         name: 'MyEvents',
         component: () => import('../views/MyEvents.vue'),

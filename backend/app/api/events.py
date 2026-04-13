@@ -1,10 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, Body, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from sqlmodel import Session, select, and_, or_, col, func, text
 from sqlalchemy.dialects.postgresql import INTERVAL
 from typing import List, Optional, Sequence, cast
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import os
+import io
+from odf.opendocument import OpenDocumentSpreadsheet
+from odf.table import Table, TableRow, TableCell, TableColumn
+from odf.text import P, A
+from odf.number import DateStyle, Year, Month, Day, Hours, Minutes, Text as NumberText
+from odf.style import Style, TableCellProperties, TextProperties, TableColumnProperties
 
 
 def _app_tz() -> ZoneInfo:
@@ -274,6 +281,181 @@ def create_event(
     return new_event.to_read_model(current_user, session)
 
 
+@router.get("/export")
+def export_events(
+    start_date: datetime,
+    end_date: datetime,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Export public approved events between two dates as CSV (Superadmin only)"""
+    if not current_user.is_superadmin:
+        raise HTTPException(status_code=403, detail="Superadmin access required")
+
+    # Ensure dates are UTC
+    start_date = start_date.astimezone(timezone.utc)
+    end_date = end_date.astimezone(timezone.utc)
+
+    query = select(Event).where(
+        Event.visibility == EventVisibility.PUBLIC_APPROVED,
+        Event.start_time >= start_date,
+        Event.start_time <= end_date
+    ).order_by(Event.start_time.asc())
+
+    events = session.exec(query).all()
+
+    doc = OpenDocumentSpreadsheet()
+    table = Table(name="Events")
+    doc.spreadsheet.addElement(table)
+
+    # Date Style
+    ds = DateStyle(name="MyDateStyle")
+    ds.addElement(Day(style="long")); ds.addElement(NumberText(text="/"))
+    ds.addElement(Month(style="long")); ds.addElement(NumberText(text="/"))
+    ds.addElement(Year(style="long")); ds.addElement(NumberText(text=" "))
+    ds.addElement(Hours(style="long")); ds.addElement(NumberText(text=":"))
+    ds.addElement(Minutes(style="long"))
+    doc.styles.addElement(ds)
+
+    # Link Style (Black text)
+    link_style = Style(name="LinkStyle", family="text")
+    link_style.addElement(TextProperties(color="#000000", textunderlinestyle="solid"))
+    doc.styles.addElement(link_style)
+
+    # Header Style
+    header_style = Style(name="HeaderStyle", family="table-cell")
+    header_style.addElement(TableCellProperties(backgroundcolor="#e2e8f0"))
+    header_style.addElement(TextProperties(fontweight="bold"))
+    doc.styles.addElement(header_style)
+
+    color_styles = {}
+    headers = ["Nom de l'événement", "Organisation", "Organisation parente", "Créateur", "Lieu", "Début", "Fin", "Durée"]
+    
+    # Pre-calculate column widths (max characters)
+    # Initialize with header lengths
+    col_max_len = [len(h) for h in headers]
+    
+    app_base_url = os.getenv("APP_BASE_URL", "https://cal.minet.net")
+    tz = _app_tz()
+    
+    # Build data list first to calculate widths
+    rows_data = []
+    for event in events:
+        org = event.organization
+        parent_org_name = org.parent.name if org and org.parent else ""
+        org_name = org.name if org else ""
+        creator = session.get(User, event.created_by_id)
+        creator_name = creator.full_name if creator else "Inconnu"
+        
+        start_local = event.start_time.astimezone(tz)
+        end_local = event.end_time.astimezone(tz)
+        
+        duration = event.end_time - event.start_time
+        h, rem = divmod(duration.total_seconds(), 3600)
+        m, _ = divmod(rem, 60)
+        duration_str = f"{int(h)}h{int(m):02d}"
+        
+        row = {
+            "title": event.title,
+            "org": org_name,
+            "parent_org": parent_org_name,
+            "creator": creator_name,
+            "location": event.location or "",
+            "start": start_local,
+            "end": end_local,
+            "duration": duration_str,
+            "bg_color": (org.color_secondary or "#ffffff") if org else "#ffffff",
+            "event_url": f"{app_base_url}/events/{event.id}",
+            "org_url": f"{app_base_url}/organizations/{event.organization_id}",
+            "creator_url": f"{app_base_url}/users/{event.created_by_id}"
+        }
+        rows_data.append(row)
+        
+        # Update max lengths
+        col_max_len[0] = max(col_max_len[0], len(row["title"]))
+        col_max_len[1] = max(col_max_len[1], len(row["org"]))
+        col_max_len[2] = max(col_max_len[2], len(row["parent_org"]))
+        col_max_len[3] = max(col_max_len[3], len(row["creator"]))
+        col_max_len[4] = max(col_max_len[4], len(row["location"]))
+        col_max_len[5] = 16 # DD/MM/YYYY HH:MM
+        col_max_len[6] = 16
+        col_max_len[7] = max(col_max_len[7], len(row["duration"]))
+
+    # Apply column widths (approx 0.18cm per char)
+    for i, max_len in enumerate(col_max_len):
+        width_cm = max(2.5, max_len * 0.18) # Min width 2.5cm
+        c_style = Style(name=f"ColStyle{i}", family="table-column")
+        c_style.addElement(TableColumnProperties(columnwidth=f"{width_cm:.2f}cm"))
+        doc.automaticstyles.addElement(c_style)
+        table.addElement(TableColumn(stylename=c_style))
+
+    # Header Row
+    tr = TableRow()
+    table.addElement(tr)
+    for h in headers:
+        tc = TableCell(stylename=header_style)
+        tc.addElement(P(text=h))
+        tr.addElement(tc)
+
+    # Data Rows
+    for row in rows_data:
+        bg = row["bg_color"] if row["bg_color"].startswith("#") else f"#{row['bg_color']}"
+        b_name = f"Style_{bg.replace('#', '')}"
+        d_name = f"DateStyle_{bg.replace('#', '')}"
+
+        if b_name not in color_styles:
+            style = Style(name=b_name, family="table-cell")
+            style.addElement(TableCellProperties(backgroundcolor=bg))
+            doc.styles.addElement(style)
+            dstyle = Style(name=d_name, family="table-cell", datastylename=ds)
+            dstyle.addElement(TableCellProperties(backgroundcolor=bg))
+            doc.styles.addElement(dstyle)
+            color_styles[b_name] = style
+
+        tr = TableRow()
+        table.addElement(tr)
+
+        # 1. Title (Hyperlink black)
+        tc = TableCell(stylename=b_name); p = P(); p.addElement(A(href=row["event_url"], text=row["title"], stylename=link_style))
+        tc.addElement(p); tr.addElement(tc)
+
+        # 2. Org (Hyperlink black)
+        tc = TableCell(stylename=b_name); p = P(); p.addElement(A(href=row["org_url"], text=row["org"], stylename=link_style))
+        tc.addElement(p); tr.addElement(tc)
+
+        # 3. Parent Org
+        tc = TableCell(stylename=b_name); tc.addElement(P(text=row["parent_org"])); tr.addElement(tc)
+
+        # 4. Creator (Hyperlink black)
+        tc = TableCell(stylename=b_name); p = P(); p.addElement(A(href=row["creator_url"], text=row["creator"], stylename=link_style))
+        tc.addElement(p); tr.addElement(tc)
+
+        # 5. Location
+        tc = TableCell(stylename=b_name); tc.addElement(P(text=row["location"])); tr.addElement(tc)
+
+        # 6. Start
+        tc = TableCell(stylename=d_name, valuetype="date", datevalue=row["start"].isoformat())
+        tc.addElement(P(text=row["start"].strftime("%d/%m/%Y %H:%M"))); tr.addElement(tc)
+
+        # 7. End
+        tc = TableCell(stylename=d_name, valuetype="date", datevalue=row["end"].isoformat())
+        tc.addElement(P(text=row["end"].strftime("%d/%m/%Y %H:%M"))); tr.addElement(tc)
+
+        # 8. Duration
+        tc = TableCell(stylename=b_name); tc.addElement(P(text=row["duration"])); tr.addElement(tc)
+
+    output = io.BytesIO()
+    doc.save(output)
+    output.seek(0)
+
+    response = StreamingResponse(
+        output,
+        media_type="application/vnd.oasis.opendocument.spreadsheet",
+    )
+    response.headers["Content-Disposition"] = f"attachment; filename=events_export_{start_date.date()}_{end_date.date()}.ods"
+    return response
+
+
 @router.get("/drafts", response_model=List[EventRead])
 def list_drafts(
     current_user: User = Depends(get_current_user),
@@ -537,7 +719,7 @@ def check_overlapping_events(
     query = select(Event).where(
         Event.start_time < end_time,
         Event.end_time > start_time,
-        Event.visibility == EventVisibility.PUBLIC_APPROVED,
+        Event.visibility.in_([EventVisibility.PUBLIC_APPROVED, EventVisibility.PUBLIC_PENDING]),
     )
 
     if exclude_event_id:
