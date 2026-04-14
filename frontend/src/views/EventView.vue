@@ -252,8 +252,8 @@
                 >
                   <input
                     type="checkbox"
-                    :value="idx"
-                    v-model="selectedOptionIndices"
+                    :value="String(opt.id)"
+                    v-model="selectedOptionIds"
                     class="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                   />
                   <span class="text-sm text-gray-700">{{ opt.name }}</span>
@@ -472,7 +472,7 @@ const paymentForm = ref(null)
 const myEntry = ref(null)
 const initiatingPayment = ref(false)
 const paymentError = ref('')
-const selectedOptionIndices = ref([])
+const selectedOptionIds = ref([])
 const userMemberships = ref([])
 const subscriptions = ref([])
 const loading = ref(true)
@@ -526,8 +526,9 @@ const loadEvent = async () => {
 const paymentTotal = computed(() => {
   if (!paymentForm.value) return 0
   const base = paymentForm.value.total_amount_cents / 100
-  const extra = selectedOptionIndices.value.reduce((sum, idx) => {
-    const opt = paymentForm.value.options?.[idx]
+  const optionById = Object.fromEntries((paymentForm.value.options || []).map(o => [String(o.id), o]))
+  const extra = selectedOptionIds.value.reduce((sum, optId) => {
+    const opt = optionById[String(optId)]
     return sum + (opt ? opt.price_cents / 100 : 0)
   }, 0)
   return base + extra
@@ -538,7 +539,7 @@ const initiatePayment = async () => {
   paymentError.value = ''
   try {
     const res = await api.post(`/helloasso/events/${route.params.id}/initiate-payment`, {
-      selected_option_indices: selectedOptionIndices.value,
+      selected_option_ids: selectedOptionIds.value,
     })
     window.location.href = res.data.redirect_url
   } catch (err) {
@@ -554,10 +555,11 @@ const loadPaymentForm = async () => {
     
     // Auto-select private options the user is allowed to see
     if (paymentForm.value?.options && user.value) {
-      paymentForm.value.options.forEach((opt, idx) => {
+      paymentForm.value.options.forEach((opt) => {
         if (opt.is_private && opt.allowed_user_ids?.includes(user.value.id)) {
-          if (!selectedOptionIndices.value.includes(idx)) {
-            selectedOptionIndices.value.push(idx)
+          const optId = String(opt.id)
+          if (!selectedOptionIds.value.includes(optId)) {
+            selectedOptionIds.value.push(optId)
           }
         }
       })

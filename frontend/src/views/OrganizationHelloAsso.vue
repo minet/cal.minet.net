@@ -35,6 +35,39 @@
             </div>
           </div>
 
+          <!-- Export checkouts -->
+          <div class="border-t pt-4">
+            <h3 class="text-sm font-medium text-gray-900 mb-3">Exporter les paiements</h3>
+            <p class="text-xs text-gray-600 mb-3">Téléchargez un fichier ODS contenant tous les paiements de votre organisation et des organisations enfants sur la période sélectionnée.</p>
+            <div class="space-y-3">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Date début</label>
+                  <input
+                    v-model="exportDateStart"
+                    type="date"
+                    class="block w-full rounded-md border-0 px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                  />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Date fin</label>
+                  <input
+                    v-model="exportDateEnd"
+                    type="date"
+                    class="block w-full rounded-md border-0 px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                  />
+                </div>
+              </div>
+              <button
+                @click="downloadCheckoutsExport"
+                :disabled="exportingCheckouts"
+                class="w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 transition-colors"
+              >
+                {{ exportingCheckouts ? 'Téléchargement…' : 'Télécharger ODS' }}
+              </button>
+            </div>
+          </div>
+
           <!-- Webhook URL -->
           <div v-if="status.webhook_url" class="rounded-lg border border-gray-200 p-4">
             <p class="text-sm font-medium text-gray-900 mb-1">URL de webhook</p>
@@ -105,9 +138,10 @@
               Supprimer les identifiants HelloAsso
             </button>
             <p class="mt-1 text-xs text-gray-500">
-              Les identifiants chiffrés seront supprimés. Les formulaires de paiement déjà approuvés resteront visibles.
+              Les identifiants chiffrés seront supprimés. Les formulaires de paiement déjà approuvés resteront visibles mais ne pourront plus être utilisés pour initier ou valider de nouveaux paiements.
             </p>
           </div>
+
         </div>
 
         <!-- Not connected state -->
@@ -279,6 +313,11 @@ const form = ref({
   api_client_secret: '',
 })
 
+// Export state
+const exportDateStart = ref('')
+const exportDateEnd = ref('')
+const exportingCheckouts = ref(false)
+
 // For update (connected state): require at least slug + client_id
 const canSave = computed(() =>
   form.value.helloasso_slug.trim() && form.value.api_client_id.trim()
@@ -291,6 +330,26 @@ const canSaveNew = computed(() =>
 const formatDate = (dateStr) =>
   new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
 
+// Initialize default dates (current academic year: Aug 15 -> Aug 15)
+const initializeExportDates = () => {
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const aug15ThisYear = new Date(currentYear, 7, 15) // August 15 (month is 0-indexed)
+
+  let startDate
+  let endDate
+  if (now < aug15ThisYear) {
+    startDate = new Date(currentYear - 1, 7, 15)
+    endDate = aug15ThisYear
+  } else {
+    startDate = aug15ThisYear
+    endDate = new Date(currentYear + 1, 7, 15)
+  }
+
+  exportDateStart.value = startDate.toISOString().split('T')[0]
+  exportDateEnd.value = endDate.toISOString().split('T')[0]
+}
+
 const copyWebhookUrl = async () => {
   try {
     await navigator.clipboard.writeText(status.value?.webhook_url || '')
@@ -298,6 +357,49 @@ const copyWebhookUrl = async () => {
     setTimeout(() => { copied.value = false }, 2000)
   } catch {
     // Fallback: select the text for manual copy
+  }
+}
+
+const downloadCheckoutsExport = async () => {
+  if (exportingCheckouts.value) return
+  exportingCheckouts.value = true
+  error.value = ''
+  try {
+    const params = new URLSearchParams()
+    if (exportDateStart.value) params.append('date_start', exportDateStart.value)
+    if (exportDateEnd.value) params.append('date_end', exportDateEnd.value)
+    
+    const response = await api.get(`/helloasso/${orgId}/checkouts/export?${params}`, {
+      responseType: 'blob'
+    })
+    
+    // Create a download link and trigger download
+    const url = window.URL.createObjectURL(response.data)
+    const link = document.createElement('a')
+    link.href = url
+    
+    // Extract filename from Content-Disposition header if available
+    const contentDisposition = response.headers['content-disposition']
+    let filename = 'checkouts.ods'
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename=([^;]+)/)
+      if (filenameMatch) {
+        filename = filenameMatch[1].trim().replace(/^["']|["']$/g, '')
+      }
+    }
+    
+    link.setAttribute('download', filename)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    
+    success.value = 'Export téléchargé avec succès.'
+    setTimeout(() => { success.value = '' }, 3000)
+  } catch (err) {
+    error.value = err.response?.data?.detail || 'Impossible de télécharger l\'export'
+  } finally {
+    exportingCheckouts.value = false
   }
 }
 
@@ -319,6 +421,10 @@ const loadStatus = async () => {
     }
     if (res.data.api_client_id) {
       form.value.api_client_id = res.data.api_client_id
+    }
+    // Initialize export dates when status is loaded and connected
+    if (res.data.connected) {
+      initializeExportDates()
     }
   } catch (err) {
     console.error('Failed to load HelloAsso status:', err)

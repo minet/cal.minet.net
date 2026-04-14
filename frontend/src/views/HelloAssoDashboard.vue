@@ -139,6 +139,15 @@
               Inscrits
             </button>
 
+            <button
+              v-if="item.status === 'approved' && item.entry_count > 0"
+              @click="downloadEntriesOds(item)"
+              class="flex items-center gap-1.5 rounded-md bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-300 hover:bg-indigo-100 transition-colors"
+            >
+              <ArrowDownTrayIcon class="h-3.5 w-3.5" />
+              Export ODS
+            </button>
+
             <!-- Billeterie button (only for approved forms with an approving org) -->
             <button
               v-if="item.status === 'approved' && item.approving_org_id"
@@ -180,7 +189,7 @@
           <div class="flex flex-wrap gap-2">
             <span
               v-for="opt in item.options"
-              :key="opt.name"
+              :key="opt.id || opt.name"
               class="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs text-indigo-700 ring-1 ring-inset ring-indigo-200"
             >
               {{ opt.name }} {{opt.price_cents !== 0 ? (opt.price_cents / 100).toFixed(2) + "&nbsp;€": ''}}
@@ -209,8 +218,8 @@
                   <template v-if="entry.imported_options?.length">
                     {{ entry.imported_options.map(o => o.amount_cents > 0 ? `${o.name} (+${(o.amount_cents / 100).toFixed(2)} €)` : o.name).join(', ') }}
                   </template>
-                  <template v-else-if="entry.selected_option_indices?.length">
-                    {{ entry.selected_option_indices.map(i => item.options[i]?.name).filter(Boolean).join(', ') }}
+                  <template v-else-if="entry.selected_option_ids?.length">
+                    {{ entry.selected_option_ids.map(id => item.options.find(o => String(o.id) === String(id))?.name).filter(Boolean).join(', ') }}
                   </template>
                   <span v-else class="text-gray-400">—</span>
                 </td>
@@ -231,7 +240,7 @@
 
     <!-- Edit options modal -->
     <div v-if="editModal.open" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl p-6">
         <h3 class="text-lg font-semibold text-gray-900 mb-4">Modifier les options</h3>
         <p class="text-sm text-gray-500 mb-1">{{ editModal.item?.item_name }} — {{ (editModal.item?.total_amount_cents / 100).toFixed(2) }}&nbsp;€</p>
 
@@ -272,18 +281,58 @@
               <label :for="'dash-priv-' + idx" class="text-sm text-gray-600">Option privée</label>
             </div>
 
-            <div v-if="opt.is_private" class="mt-2">
-              <label class="block text-xs font-medium text-gray-700 mb-1">Personnes autorisées (Collez une liste de noms ou emails, un par ligne)</label>
-              <textarea
-                v-model="opt.allowed_user_names"
-                rows="3"
-                placeholder="Jean Dupont&#10;jean.dupont@telecom-sudparis.eu"
-                class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-              ></textarea>
-              <p class="text-xs text-gray-500 mt-1">Actuellement {{ opt.allowed_user_ids?.length || 0 }} personne(s) autorisée(s).</p>
+            <div v-if="opt.is_private" class="space-y-2">
+              <details class="rounded-md border border-indigo-100 bg-indigo-50/40" @toggle="onToggleAllowedUsers(idx, $event)">
+                <summary class="cursor-pointer select-none px-3 py-2 text-xs font-medium text-indigo-700">
+                  Personnes autorisées ({{ opt.allowed_user_ids.length }})
+                </summary>
+                <div class="px-3 pb-3">
+                  <div v-if="opt.allowed_user_ids.length" class="mb-2">
+                    <input
+                      v-model="opt.allowed_user_search"
+                      type="text"
+                      placeholder="Rechercher dans la liste…"
+                      class="block w-full rounded-md border-0 px-3 py-1.5 text-xs text-gray-900 shadow-sm ring-1 ring-inset ring-indigo-200 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600"
+                    />
+                  </div>
+
+                  <p v-if="opt.allowed_users_loading" class="text-xs text-gray-500 italic">Chargement des noms…</p>
+                  <ul v-else-if="filteredAllowedUsers(opt).length" class="space-y-1 max-h-40 overflow-y-auto text-xs text-indigo-900">
+                    <li v-for="person in filteredAllowedUsers(opt)" :key="person.id" class="flex items-center justify-between gap-2 rounded bg-white px-2 py-1 ring-1 ring-inset ring-indigo-100">
+                      <span class="truncate">{{ person.full_name || person.email || person.id }}</span>
+                      <button type="button" @click="removeAllowedUser(idx, person.id)" class="rounded p-0.5 hover:bg-indigo-100 transition-colors">
+                        <XMarkIcon class="h-3 w-3" />
+                      </button>
+                    </li>
+                  </ul>
+                  <p v-else-if="opt.allowed_user_ids.length" class="text-xs text-gray-500 italic">Aucun résultat.</p>
+                  <p v-else class="text-xs text-gray-500 italic">Aucune personne autorisée.</p>
+                </div>
+              </details>
+
+              <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Ajouter des personnes (une ligne par nom/email/uid)</label>
+                <textarea
+                  v-model="opt.allowed_user_input"
+                  rows="4"
+                  placeholder="Jean Dupont&#10;jean.dupont@telecom-sudparis.eu"
+                  class="block w-full rounded-md border-0 px-3 py-2 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600"
+                />
+                <div class="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    @click="resolveAllowedUsersForOption(idx)"
+                    :disabled="resolveModal.resolving"
+                    class="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+                  >
+                    Valider la liste
+                  </button>
+                  <span class="text-xs text-gray-500">Les lignes non trouvées seront reproposées pour correction.</span>
+                </div>
+              </div>
             </div>
           </div>
-          <button type="button" @click="editModal.options.push({ name: '', amount_euros: '', is_private: false, allowed_user_names: '', allowed_user_ids: [] })"
+          <button type="button" @click="editModal.options.push({ id: null, name: '', amount_euros: '', is_private: false, allowed_user_ids: [], allowed_users: [], allowed_users_loaded: false, allowed_users_loading: false, allowed_user_search: '', allowed_user_input: '' })"
             class="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700">
             <PlusIcon class="h-4 w-4" />
             Ajouter une option
@@ -298,6 +347,29 @@
           <button @click="saveEditModal" :disabled="savingEdit"
             class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">
             {{ savingEdit ? 'Enregistrement…' : 'Enregistrer' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resolve failed lines modal -->
+    <div v-if="resolveModal.open" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Corriger les lignes non résolues</h3>
+        <p class="text-sm text-gray-500 mb-3">Certaines lignes n'ont pas pu être associées à un compte. Corrigez-les puis validez à nouveau.</p>
+        <textarea
+          v-model="resolveModal.failedText"
+          rows="8"
+          class="block w-full rounded-md border-0 px-3 py-2 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600"
+        />
+        <div class="mt-4 flex justify-end gap-3">
+          <button @click="resolveModal.open = false"
+            class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+            Fermer
+          </button>
+          <button @click="submitResolveCorrections" :disabled="resolveModal.resolving"
+            class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">
+            {{ resolveModal.resolving ? 'Validation…' : 'Valider de nouveau' }}
           </button>
         </div>
       </div>
@@ -430,6 +502,8 @@ const timeFilter = ref('upcoming')
 const editModal = ref({ open: false, item: null, options: [], is_open: true })
 const savingEdit = ref(false)
 const rejectModal = ref({ open: false, item: null, message: '' })
+const resolveModal = ref({ open: false, resolving: false, optionIdx: null, failedText: '' })
+
 
 const billeterieModal = ref({
   open: false,
@@ -482,52 +556,178 @@ const toggleOpen = async (item) => {
   }
 }
 
-const resolveUserNames = async (namesStr, eventId) => {
-  if (!namesStr || !namesStr.trim()) return []
-  const queries = namesStr.split('\n').map(n => n.trim()).filter(Boolean)
-  if (!queries.length) return []
-  try {
-    const res = await api.post(`/helloasso/events/${eventId}/attendee-bulk-resolve`, { queries })
-    return res.data.filter(r => r.user_id).map(r => r.user_id)
-  } catch (err) {
-    console.error('Bulk resolve failed:', err)
-    return []
-  }
-}
-
-const openEditModal = (item) => {
+const openEditModal = async (item) => {
   editModal.value = {
     open: true,
     item,
     is_open: item.is_open,
     options: (item.options || []).map(o => ({
+      id: o.id || null,
       name: o.name,
       amount_euros: o.price_cents / 100,
       is_private: o.is_private || false,
-      allowed_user_ids: o.allowed_user_ids || [],
-      allowed_user_names: '',
+      allowed_user_ids: [...(o.allowed_user_ids || [])],
+      allowed_users: [],
+      allowed_users_loaded: false,
+      allowed_users_loading: false,
+      allowed_user_search: '',
+      allowed_user_input: '',
     })),
   }
+}
+
+const loadAllowedUsersForOption = async (optIdx) => {
+  const opt = editModal.value.options[optIdx]
+  if (!opt || opt.allowed_users_loading || opt.allowed_users_loaded) return
+  if (!opt.allowed_user_ids.length) {
+    opt.allowed_users = []
+    opt.allowed_users_loaded = true
+    return
+  }
+
+  opt.allowed_users_loading = true
+  try {
+    const res = await api.post('/helloasso/users/batch-lookup', { ids: opt.allowed_user_ids })
+    const map = Object.fromEntries((res.data || []).map(u => [String(u.id), u]))
+    opt.allowed_users = opt.allowed_user_ids.map((id) => {
+      const found = map[String(id)]
+      return found
+        ? { id: String(found.id), full_name: found.full_name, email: found.email }
+        : { id: String(id), full_name: null, email: null }
+    })
+    opt.allowed_users_loaded = true
+  } catch (err) {
+    console.error('Failed to load allowed users:', err)
+  } finally {
+    opt.allowed_users_loading = false
+  }
+}
+
+const onToggleAllowedUsers = (optIdx, evt) => {
+  const isOpen = !!evt?.target?.open
+  if (isOpen) loadAllowedUsersForOption(optIdx)
+}
+
+const filteredAllowedUsers = (opt) => {
+  const q = (opt.allowed_user_search || '').trim().toLowerCase()
+  if (!q) return opt.allowed_users || []
+  return (opt.allowed_users || []).filter((u) => (
+    (u.full_name || '').toLowerCase().includes(q)
+    || (u.email || '').toLowerCase().includes(q)
+    || String(u.id || '').toLowerCase().includes(q)
+  ))
+}
+
+const _splitLines = (raw) => {
+  const seen = new Set()
+  return (raw || '')
+    .split('\n')
+    .map(s => s.trim())
+    .filter(Boolean)
+    .filter((s) => {
+      const key = s.toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+}
+
+const _resolveLinesToUserIds = async (eventId, lines) => {
+  if (!lines.length) return { resolvedIds: [], failedLines: [] }
+  const res = await api.post(`/helloasso/events/${eventId}/attendee-bulk-resolve`, { queries: lines })
+  const resolvedIds = []
+  const failedLines = []
+  for (const row of res.data || []) {
+    if (row.user_id) resolvedIds.push(String(row.user_id))
+    else if (row.query) failedLines.push(String(row.query))
+  }
+  return { resolvedIds, failedLines }
+}
+
+const _appendAllowedIds = (optIdx, ids) => {
+  const opt = editModal.value.options[optIdx]
+  if (!opt) return
+  const existing = new Set(opt.allowed_user_ids.map(String))
+  for (const id of ids) {
+    const sid = String(id)
+    if (!existing.has(sid)) {
+      opt.allowed_user_ids.push(sid)
+      existing.add(sid)
+    }
+  }
+  opt.allowed_users_loaded = false
+}
+
+const resolveAllowedUsersForOption = async (optIdx) => {
+  const opt = editModal.value.options[optIdx]
+  if (!opt) return
+  const lines = _splitLines(opt.allowed_user_input)
+  if (!lines.length) return
+
+  resolveModal.value.resolving = true
+  try {
+    const { resolvedIds, failedLines } = await _resolveLinesToUserIds(editModal.value.item.event_id, lines)
+    _appendAllowedIds(optIdx, resolvedIds)
+    opt.allowed_user_input = ''
+
+    if (failedLines.length) {
+      resolveModal.value.open = true
+      resolveModal.value.optionIdx = optIdx
+      resolveModal.value.failedText = failedLines.join('\n')
+    }
+  } catch (err) {
+    console.error('Bulk resolve failed:', err)
+  } finally {
+    resolveModal.value.resolving = false
+  }
+}
+
+const submitResolveCorrections = async () => {
+  const optIdx = resolveModal.value.optionIdx
+  if (optIdx === null || optIdx === undefined) return
+  const lines = _splitLines(resolveModal.value.failedText)
+  if (!lines.length) {
+    resolveModal.value.open = false
+    return
+  }
+
+  resolveModal.value.resolving = true
+  try {
+    const { resolvedIds, failedLines } = await _resolveLinesToUserIds(editModal.value.item.event_id, lines)
+    _appendAllowedIds(optIdx, resolvedIds)
+    if (failedLines.length) {
+      resolveModal.value.failedText = failedLines.join('\n')
+    } else {
+      resolveModal.value.open = false
+      resolveModal.value.failedText = ''
+      resolveModal.value.optionIdx = null
+    }
+  } catch (err) {
+    console.error('Correction resolve failed:', err)
+  } finally {
+    resolveModal.value.resolving = false
+  }
+}
+
+const removeAllowedUser = (optIdx, userId) => {
+  const opt = editModal.value.options[optIdx]
+  const id = String(userId)
+  opt.allowed_user_ids = opt.allowed_user_ids.filter(x => String(x) !== id)
+  opt.allowed_users = (opt.allowed_users || []).filter(u => String(u.id) !== id)
 }
 
 const saveEditModal = async () => {
   savingEdit.value = true
   try {
-    const optionsToSave = []
-    for (const o of editModal.value.options) {
-      if (!o.name || o.amount_euros === '' || o.amount_euros === null) continue
-      let finalUserIds = [...(o.allowed_user_ids || [])]
-      if (o.is_private && o.allowed_user_names) {
-        const resolvedIds = await resolveUserNames(o.allowed_user_names, editModal.value.item.event_id)
-        finalUserIds = [...new Set([...finalUserIds, ...resolvedIds])]
-      }
-      optionsToSave.push({
+    const optionsToSave = editModal.value.options
+      .filter(o => o.name && o.amount_euros !== '' && o.amount_euros !== null)
+      .map(o => ({
+        id: o.id || undefined,
         name: o.name,
         price_cents: Math.round(o.amount_euros * 100),
         is_private: o.is_private || false,
-        allowed_user_ids: finalUserIds,
-      })
-    }
+        allowed_user_ids: o.allowed_user_ids,
+      }))
     const res = await api.put(`/helloasso/events/${editModal.value.item.event_id}/payment-form`, {
       options: optionsToSave,
       is_open: editModal.value.is_open,
@@ -595,6 +795,27 @@ const toggleEntries = async (formId) => {
     entries[formId] = []
   } finally {
     loadingEntries[formId] = false
+  }
+}
+
+const downloadEntriesOds = async (item) => {
+  try {
+    const response = await api.get(`/helloasso/events/${item.event_id}/payment-form/entries/export`, {
+      responseType: 'blob',
+    })
+    const blob = new Blob([response.data], {
+      type: 'application/vnd.oasis.opendocument.spreadsheet',
+    })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `participants_${item.event_id}.ods`)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+  } catch (err) {
+    console.error('ODS export failed:', err)
   }
 }
 

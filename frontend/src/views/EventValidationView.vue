@@ -87,7 +87,7 @@
                 </div>
                 <span class="flex-shrink-0 text-xs px-1.5 py-0.5 rounded-full"
                   :class="person.source === 'user' ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-100 text-gray-500'">
-                  {{ person.source === 'user' ? 'Compte' : 'LDAP' }}
+                  {{ person.source === 'user' ? 'Compte' : 'Annuaire' }}
                 </span>
               </button>
             </div>
@@ -154,18 +154,18 @@
               <div class="space-y-1.5">
                 <button
                   v-for="(opt, idx) in formOptions"
-                  :key="idx"
-                  @click="toggleOption(idx)"
+                  :key="opt.id || idx"
+                  @click="toggleOption(opt)"
                   class="w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-colors text-left"
-                  :class="selectedOptionIndices.includes(idx)
+                  :class="selectedOptionIds.includes(String(opt.id))
                     ? 'bg-indigo-50 border-indigo-300 text-indigo-900'
                     : 'bg-white border-gray-200 text-gray-700 hover:border-indigo-200'"
                 >
                   <span class="flex-1">{{ opt.name }}</span>
-                  <span class="font-medium" :class="selectedOptionIndices.includes(idx) ? 'text-indigo-600' : 'text-gray-500'">
+                  <span class="font-medium" :class="selectedOptionIds.includes(String(opt.id)) ? 'text-indigo-600' : 'text-gray-500'">
                     +{{ (opt.price_cents / 100).toFixed(2) }} €
                   </span>
-                  <span v-if="selectedOptionIndices.includes(idx)" class="text-indigo-500">✓</span>
+                  <span v-if="selectedOptionIds.includes(String(opt.id))" class="text-indigo-500">✓</span>
                 </button>
               </div>
             </div>
@@ -181,7 +181,7 @@
             <label class="block text-xs font-medium text-gray-600 mb-1.5">Mode de paiement</label>
             <div class="flex flex-wrap gap-2">
               <button
-                v-for="(label, type) in PAYMENT_TYPE_LABELS"
+                v-for="type in manual_payment_type_options"
                 :key="type"
                 @click="manualPaymentType = type"
                 class="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
@@ -189,7 +189,7 @@
                   ? 'border-transparent text-white ' + PAYMENT_TYPE_BG[type]
                   : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400'"
               >
-                {{ label }}
+                {{ PAYMENT_TYPE_LABELS[type] || type }}
               </button>
             </div>
           </div>
@@ -324,7 +324,7 @@ let personSearchTimer = null
 // Price
 const useCustomPrice = ref(false)
 const customPriceEuros = ref('')
-const selectedOptionIndices = ref([])
+const selectedOptionIds = ref([])
 
 // Payment type
 const manualPaymentType = ref('cash')
@@ -339,6 +339,7 @@ const PAYMENT_TYPE_LABELS = {
   none: 'Gratuit',
   other: 'Autre',
 }
+const manual_payment_type_options = Object.keys(PAYMENT_TYPE_LABELS).filter(t => t !== 'helloasso_import' && t !== 'helloasso')
 
 const PAYMENT_TYPE_BG = {
   cash: 'bg-emerald-600',
@@ -360,9 +361,10 @@ const computedTotal = computed(() => {
   const base = useCustomPrice.value
     ? Math.round((customPriceEuros.value || 0) * 100)
     : formBaseCents.value
-  const extras = selectedOptionIndices.value.reduce((sum, idx) => {
-    const opt = formOptions.value[idx]
-    return sum + (opt ? opt.price_cents : 0)
+  const optionById = Object.fromEntries((formOptions.value || []).map(o => [String(o.id), o]))
+  const extras = selectedOptionIds.value.reduce((sum, optId) => {
+    const opt = optionById[String(optId)]
+    return sum + (opt?.price_cents || 0)
   }, 0)
   return base + extras
 })
@@ -379,7 +381,7 @@ const openManualForm = (prefill = '') => {
   selectedPerson.value = null
   useCustomPrice.value = false
   customPriceEuros.value = ''
-  selectedOptionIndices.value = []
+  selectedOptionIds.value = []
   manualPaymentType.value = 'cash'
   if (prefill) debouncedPersonSearch()
 }
@@ -421,10 +423,12 @@ const useCustomName = () => {
   personResults.value = []
 }
 
-const toggleOption = (idx) => {
-  const i = selectedOptionIndices.value.indexOf(idx)
-  if (i >= 0) selectedOptionIndices.value.splice(i, 1)
-  else selectedOptionIndices.value.push(idx)
+const toggleOption = (opt) => {
+  if (!opt?.id) return
+  const optId = String(opt.id)
+  const i = selectedOptionIds.value.indexOf(optId)
+  if (i >= 0) selectedOptionIds.value.splice(i, 1)
+  else selectedOptionIds.value.push(optId)
 }
 
 const PAYMENT_TYPE_COLOR_MAP = {
@@ -509,7 +513,7 @@ const submitManualEntry = async () => {
     const payload = {
       attendee_name: name.trim(),
       payment_type: manualPaymentType.value,
-      selected_option_indices: selectedOptionIndices.value,
+      selected_option_ids: selectedOptionIds.value,
       amount_cents: computedTotal.value,
     }
     const res = await api.post(`/helloasso/events/${eventId}/manual-entry`, payload)

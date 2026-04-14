@@ -174,6 +174,7 @@ async def get_other_user_memberships(
 
     return result
 
+
 @router.put("/me", response_model=UserRead)
 async def update_user_profile(
     user_data: UserUpdate,
@@ -529,7 +530,16 @@ async def delete_user(
     session: Session = Depends(get_session),
 ):
     """Delete a user"""
-    from app.models import GHOST_USER_ID, ShortLink, UserPushToken
+    from app.models import (
+        EventPaymentEntry,
+        EventPaymentForm,
+        GHOST_USER_ID,
+        OrganizationHelloAsso,
+        PaymentFormBilleterie,
+        ShortLink,
+        StoredFile,
+        UserPushToken,
+    )
 
     if not current_user.is_superadmin:
         raise HTTPException(status_code=403, detail="Not authorized")
@@ -542,7 +552,7 @@ async def delete_user(
     if user.id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
 
-    # Delete everything that mentions the user
+    # Replace/delete everything that mentions the user
 
     # 1. Memberships
     memberships = session.exec(
@@ -586,12 +596,68 @@ async def delete_user(
         sl.created_by_id = GHOST_USER_ID
         session.add(sl)
 
-    # 7. User Links
+    # 7. Payment entries: keep rows, replace the user with ghost
+    payment_entries = session.exec(
+        select(EventPaymentEntry).where(EventPaymentEntry.user_id == user.id)
+    ).all()
+    for pe in payment_entries:
+        pe.user_id = GHOST_USER_ID
+        session.add(pe)
+
+    # 8. Entries validated by this user
+    validated_entries = session.exec(
+        select(EventPaymentEntry).where(EventPaymentEntry.validated_by_id == user.id)
+    ).all()
+    for pe in validated_entries:
+        pe.validated_by_id = None
+        session.add(pe)
+
+    # 9. Payment forms
+    forms_created = session.exec(
+        select(EventPaymentForm).where(EventPaymentForm.created_by_id == user.id)
+    ).all()
+    for form in forms_created:
+        form.created_by_id = GHOST_USER_ID
+        session.add(form)
+
+    forms_reviewed = session.exec(
+        select(EventPaymentForm).where(EventPaymentForm.reviewed_by_id == user.id)
+    ).all()
+    for form in forms_reviewed:
+        form.reviewed_by_id = None
+        session.add(form)
+
+    billeteries = session.exec(
+        select(PaymentFormBilleterie).where(
+            PaymentFormBilleterie.created_by_id == user.id
+        )
+    ).all()
+    for b in billeteries:
+        b.created_by_id = GHOST_USER_ID
+        session.add(b)
+
+    ha_conns = session.exec(
+        select(OrganizationHelloAsso).where(
+            OrganizationHelloAsso.connected_by_id == user.id
+        )
+    ).all()
+    for ha in ha_conns:
+        ha.connected_by_id = GHOST_USER_ID
+        session.add(ha)
+
+    uploaded_files = session.exec(
+        select(StoredFile).where(StoredFile.uploaded_by_id == user.id)
+    ).all()
+    for sf in uploaded_files:
+        sf.uploaded_by_id = GHOST_USER_ID
+        session.add(sf)
+
+    # 10. User Links
     user_links = session.exec(select(UserLink).where(UserLink.user_id == user.id)).all()
     for ul in user_links:
         session.delete(ul)
 
-    # 8. Push Tokens
+    # 11. Push Tokens
     push_tokens = session.exec(
         select(UserPushToken).where(UserPushToken.user_id == user.id)
     ).all()

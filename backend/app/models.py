@@ -367,6 +367,35 @@ class OrganizationHelloAsso(SQLModel, table=True):
     connected_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class EventPaymentFormOptionUser(SQLModel, table=True):
+    """Join table: which users may select a specific private option."""
+
+    option_id: UUID = Field(foreign_key="eventpaymentformoption.id", primary_key=True)
+    user_id: UUID = Field(foreign_key="user.id", primary_key=True)
+
+    option: Optional["EventPaymentFormOption"] = Relationship(
+        back_populates="allowed_user_links"
+    )
+    user: Optional["User"] = Relationship()
+
+
+class EventPaymentFormOption(SQLModel, table=True):
+    """A selectable add-on option for a payment form (replaces the JSON options column)."""
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    payment_form_id: UUID = Field(foreign_key="eventpaymentform.id", index=True)
+    name: str
+    price_cents: int
+    is_private: bool = Field(default=False)
+    order: int = Field(default=0)
+
+    payment_form: Optional["EventPaymentForm"] = Relationship(back_populates="form_options")
+    allowed_user_links: List["EventPaymentFormOptionUser"] = Relationship(
+        back_populates="option",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+
+
 class EventPaymentForm(SQLModel, table=True):
     """A payment form proposal attached to an event.
 
@@ -383,8 +412,6 @@ class EventPaymentForm(SQLModel, table=True):
     total_amount_cents: int
     item_name: str
     status: PaymentFormStatus = Field(default=PaymentFormStatus.PENDING)
-    # Optional add-ons: JSON list of {"name": str, "price_cents": int}
-    options: Optional[str] = None
     # Whether new payments can be initiated (admins can close/reopen)
     is_open: bool = Field(default=True)
     # No HelloAsso URL stored here — checkout intents are created on demand
@@ -416,6 +443,10 @@ class EventPaymentForm(SQLModel, table=True):
     reviewed_by: Optional["User"] = Relationship(
         sa_relationship_kwargs={"foreign_keys": "[EventPaymentForm.reviewed_by_id]"}
     )
+    form_options: List["EventPaymentFormOption"] = Relationship(
+        back_populates="payment_form",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
     entries: List["EventPaymentEntry"] = Relationship(back_populates="payment_form")
     billeterie: Optional["PaymentFormBilleterie"] = Relationship(
         back_populates="payment_form",
@@ -436,8 +467,8 @@ class EventPaymentEntry(SQLModel, table=True):
     checkout_intent_id: Optional[str] = Field(default=None, index=True, unique=True)
     completed: bool = Field(default=False)
     completed_at: Optional[datetime] = None
-    # JSON array of int indices into the form's options list
-    selected_option_indices: Optional[str] = None
+    # JSON list of EventPaymentFormOption UUIDs chosen by the payer
+    selected_option_ids: Optional[str] = None
     amount_cents: int  # base + selected options
     payment_type: str = Field(default="helloasso")  # PaymentType enum value
     # For manual entries: name of the attendee (not a registered user)

@@ -625,6 +625,7 @@ class HelloAssoCredentials(BaseModel):
 
 
 class PaymentFormOption(BaseModel):
+    id: Optional[UUID] = None  # set when reading from DB; omit when creating
     name: str
     price_cents: int
     is_private: bool = False
@@ -670,7 +671,7 @@ class PaymentFormRead(BaseModel):
 class PaymentInitiateRequest(BaseModel):
     """Optional add-on options selected by the user before paying."""
 
-    selected_option_indices: List[int] = []
+    selected_option_ids: List[str] = []  # UUIDs of chosen EventPaymentFormOption rows
 
 
 class PaymentInitiateResponse(BaseModel):
@@ -694,7 +695,7 @@ class PaymentEntryRead(BaseModel):
     checkout_intent_id: Optional[str] = None
     amount_cents: int
     payment_type: str = "helloasso"
-    selected_option_indices: List[int] = []
+    selected_option_ids: List[str] = []  # UUIDs of chosen EventPaymentFormOption rows
     imported_options: List[ImportedOption] = []
     completed: bool
     completed_at: Optional[datetime] = None
@@ -767,7 +768,7 @@ class ManualEntryCreate(BaseModel):
     attendee_name: str
     payment_type: PaymentType = PaymentType.CASH
     amount_cents: Optional[int] = None  # defaults to form base price
-    selected_option_indices: List[int] = []
+    selected_option_ids: List[str] = []  # UUIDs of chosen EventPaymentFormOption rows
     note: Optional[str] = None
 
 
@@ -783,6 +784,10 @@ class AttendeeSearchResult(BaseModel):
 
 class BulkResolveRequest(BaseModel):
     queries: List[str]
+
+
+class UserBatchLookupRequest(BaseModel):
+    ids: List[str]
 
 
 class BulkResolveResult(BaseModel):

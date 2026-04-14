@@ -95,7 +95,7 @@
                     </DialogTitle>
                     <div class="mt-2">
                       <p class="text-sm text-gray-500">Mettre à jour la base de données des utilisateurs à partir du
-                        LDAP.</p>
+                        serveur LDAP de l'école. Entrez vos identifiants scolaires (ils ne seront pas stockés, seulement utilisés une fois pour importer les données) :</p>
                       <div class="mt-4 space-y-4 text-left">
                         <TextInput v-model="syncForm.username" label="LDAP Username (uid)" placeholder="uid" />
                         <TextInput v-model="syncForm.password" label="LDAP Password" type="password" />

@@ -4,17 +4,23 @@ approval workflow, on-demand checkout intent creation, and incoming payment webh
 
 import hashlib
 import hmac
+import io
 import json as _json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from jinja2 import Environment, FileSystemLoader
 import unicodedata
+from odf.opendocument import OpenDocumentSpreadsheet
+from odf.style import Style, TableCellProperties, TableColumnProperties, TextProperties
+from odf.table import Table, TableCell, TableColumn, TableRow
+from odf.text import P
 
 from sqlmodel import Session, col, or_, select
 
@@ -25,12 +31,16 @@ from app.models import (
     Event,
     EventPaymentEntry,
     EventPaymentForm,
+    EventPaymentFormOption,
+    EventPaymentFormOptionUser,
+    GHOST_USER_ID,
     LDAPUser,
     Membership,
     Organization,
     OrganizationHelloAsso,
     PaymentFormBilleterie,
     PaymentFormStatus,
+    Role,
     User,
 )
 from app.schemas import (
@@ -55,6 +65,7 @@ from app.schemas import (
     PaymentFormUpdate,
     PaymentInitiateRequest,
     PaymentInitiateResponse,
+    UserBatchLookupRequest,
     ValidationEntryRead,
 )
 from app.services import helloasso as ha_service
@@ -166,6 +177,23 @@ def _get_form_or_404(event_id: str, session: Session) -> EventPaymentForm:
     return form
 
 
+def _check_org_has_helloasso_credentials(
+    org_id: UUID, session: Session
+) -> OrganizationHelloAsso:
+    """Verify org has HelloAsso credentials; raise 403 if not."""
+    org_ha = session.exec(
+        select(OrganizationHelloAsso).where(
+            OrganizationHelloAsso.organization_id == org_id
+        )
+    ).first()
+    if not org_ha:
+        raise HTTPException(
+            status_code=403,
+            detail="Organization does not have HelloAsso credentials configured",
+        )
+    return org_ha
+
+
 def require_event_view(
     event_id: str,
     current_user: User = Depends(get_current_user),
@@ -217,6 +245,27 @@ def _requesting_org_in_ha_hierarchy(
     return False
 
 
+def _org_subtree_ids(root_org_id: UUID, session: Session) -> List[UUID]:
+    """Return root org id plus all descendants ids."""
+    ids: List[UUID] = [root_org_id]
+    queue: List[UUID] = [root_org_id]
+    seen: set[UUID] = {root_org_id}
+
+    while queue:
+        parent_id = queue.pop(0)
+        child_ids = session.exec(
+            select(Organization.id).where(Organization.parent_id == parent_id)
+        ).all()
+        for child_id in child_ids:
+            if child_id in seen:
+                continue
+            seen.add(child_id)
+            ids.append(child_id)
+            queue.append(child_id)
+
+    return ids
+
+
 def _billeterie_to_read(b: Optional[PaymentFormBilleterie]) -> Optional[BilleterieRead]:
     if b is None:
         return None
@@ -231,19 +280,77 @@ def _billeterie_to_read(b: Optional[PaymentFormBilleterie]) -> Optional[Billeter
     )
 
 
-def _parse_options(raw: Optional[str]) -> List[PaymentFormOption]:
+def _opt_to_schema(opt: EventPaymentFormOption) -> PaymentFormOption:
+    """Convert an ORM option row to the Pydantic read schema."""
+    return PaymentFormOption(
+        id=opt.id,
+        name=opt.name,
+        price_cents=opt.price_cents,
+        is_private=opt.is_private,
+        allowed_user_ids=[str(link.user_id) for link in opt.allowed_user_links],
+    )
+
+
+def _opts_sorted(form: EventPaymentForm) -> List[EventPaymentFormOption]:
+    """Return the form's ORM options in display order."""
+    return sorted(form.form_options, key=lambda o: o.order)
+
+
+def _opts_map(form: EventPaymentForm) -> dict:
+    """Return {str(option_id): EventPaymentFormOption} for quick UUID lookup."""
+    return {str(o.id): o for o in form.form_options}
+
+
+def _parse_selected_option_ids(raw: Optional[str]) -> List[str]:
+    """Parse JSON list of UUID strings from entry.selected_option_ids."""
     if not raw:
         return []
     try:
-        return [PaymentFormOption(**o) for o in _json.loads(raw)]
+        data = _json.loads(raw)
     except Exception:
         return []
+    if not isinstance(data, list):
+        return []
+    parsed: List[str] = []
+    seen: set = set()
+    for item in data:
+        try:
+            sid = str(UUID(str(item)))
+        except Exception:
+            continue
+        if sid in seen:
+            continue
+        seen.add(sid)
+        parsed.append(sid)
+    return parsed
+
+
+def _resolve_selected_options(
+    form: EventPaymentForm, selected_option_ids: List[str]
+) -> List[EventPaymentFormOption]:
+    """Validate and resolve selected option IDs against the form's options."""
+    by_id = _opts_map(form)
+    resolved: List[EventPaymentFormOption] = []
+    seen: set = set()
+    for raw_id in selected_option_ids:
+        try:
+            sid = str(UUID(str(raw_id)))
+        except Exception:
+            raise HTTPException(status_code=400, detail=f"Invalid option ID: {raw_id}")
+        if sid in seen:
+            continue
+        opt = by_id.get(sid)
+        if not opt:
+            raise HTTPException(status_code=400, detail=f"Invalid option ID: {raw_id}")
+        seen.add(sid)
+        resolved.append(opt)
+    return resolved
 
 
 def _to_read(
     form: EventPaymentForm, session: Optional[Session] = None
 ) -> PaymentFormRead:
-    options = _parse_options(form.options)
+    options = [_opt_to_schema(o) for o in _opts_sorted(form)]
 
     entry_count = 0
     completed_count = 0
@@ -283,6 +390,16 @@ def _to_read(
         reviewed_at=form.reviewed_at,
         billeterie=billeterie,
     )
+
+
+def _entry_user_display_name(
+    entry: EventPaymentEntry, user_obj: Optional[User]
+) -> Optional[str]:
+    if entry.user_id == GHOST_USER_ID:
+        return "Deleted User"
+    if user_obj:
+        return user_obj.full_name or user_obj.email
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -567,16 +684,32 @@ def create_payment_form(
         approving_org_id=org.parent_id,
         total_amount_cents=form_data.total_amount_cents,
         item_name=form_data.item_name,
-        options=(
-            _json.dumps([o.model_dump() for o in form_data.options])
-            if form_data.options
-            else None
-        ),
         created_by_id=current_user.id,
     )
     session.add(form)
     session.commit()
     session.refresh(form)
+
+    for idx, opt_data in enumerate(form_data.options):
+        opt = EventPaymentFormOption(
+            payment_form_id=form.id,
+            name=opt_data.name,
+            price_cents=opt_data.price_cents,
+            is_private=opt_data.is_private,
+            order=idx,
+        )
+        session.add(opt)
+        session.flush()
+        for uid in opt_data.allowed_user_ids:
+            try:
+                session.add(
+                    EventPaymentFormOptionUser(option_id=opt.id, user_id=UUID(uid))
+                )
+            except Exception:
+                pass
+    if form_data.options:
+        session.commit()
+        session.refresh(form)
 
     background_tasks.add_task(_notify_parent_admins_of_pending_form, form.id, event.id)
 
@@ -619,7 +752,54 @@ def update_payment_form(
         form.is_open = update_data.is_open
 
     if update_data.options is not None:
-        form.options = _json.dumps([o.model_dump() for o in update_data.options])
+        existing_opts = {str(o.id): o for o in form.form_options}
+        kept_ids: set = set()
+        for idx, opt_data in enumerate(update_data.options):
+            oid = str(opt_data.id) if opt_data.id else None
+            if oid and oid in existing_opts:
+                # Update in-place so that entry.selected_option_ids references remain valid
+                ex = existing_opts[oid]
+                ex.name = opt_data.name
+                ex.price_cents = opt_data.price_cents
+                ex.is_private = opt_data.is_private
+                ex.order = idx
+                session.add(ex)
+                for link in list(ex.allowed_user_links):
+                    session.delete(link)
+                session.flush()
+                for uid in opt_data.allowed_user_ids:
+                    try:
+                        session.add(
+                            EventPaymentFormOptionUser(
+                                option_id=ex.id, user_id=UUID(uid)
+                            )
+                        )
+                    except Exception:
+                        pass
+                kept_ids.add(oid)
+            else:
+                new_opt = EventPaymentFormOption(
+                    payment_form_id=form.id,
+                    name=opt_data.name,
+                    price_cents=opt_data.price_cents,
+                    is_private=opt_data.is_private,
+                    order=idx,
+                )
+                session.add(new_opt)
+                session.flush()
+                for uid in opt_data.allowed_user_ids:
+                    try:
+                        session.add(
+                            EventPaymentFormOptionUser(
+                                option_id=new_opt.id, user_id=UUID(uid)
+                            )
+                        )
+                    except Exception:
+                        pass
+                kept_ids.add(str(new_opt.id))
+        for oid, opt in existing_opts.items():
+            if oid not in kept_ids:
+                session.delete(opt)
 
     if form.status == PaymentFormStatus.PENDING:
         if update_data.item_name is not None:
@@ -773,14 +953,10 @@ def initiate_payment(
             status_code=400, detail="Payments are currently closed for this event"
         )
 
-    options = _parse_options(form.options)
-    for idx in request_data.selected_option_indices:
-        if idx < 0 or idx >= len(options):
-            raise HTTPException(status_code=400, detail=f"Invalid option index: {idx}")
+    selected_options = _resolve_selected_options(form, request_data.selected_option_ids)
+    selected_option_ids = [str(opt.id) for opt in selected_options]
 
-    extra_cents = sum(
-        options[i].price_cents for i in request_data.selected_option_indices
-    )
+    extra_cents = sum(opt.price_cents for opt in selected_options)
     total_cents = form.total_amount_cents + extra_cents
 
     org_ha = None
@@ -827,8 +1003,8 @@ def initiate_payment(
     item_parts.append(form.item_name)
     item_name = " — ".join(item_parts)
 
-    if request_data.selected_option_indices:
-        option_names = [options[i].name for i in request_data.selected_option_indices]
+    if selected_options:
+        option_names = [opt.name for opt in selected_options]
         item_name = f"{item_name} + {', '.join(option_names)}"
 
     try:
@@ -851,7 +1027,7 @@ def initiate_payment(
         payment_form_id=form.id,
         user_id=current_user.id,
         checkout_intent_id=checkout_intent_id,
-        selected_option_indices=_json.dumps(request_data.selected_option_indices),
+        selected_option_ids=_json.dumps(selected_option_ids),
         amount_cents=total_cents,
     )
     session.add(entry)
@@ -898,12 +1074,7 @@ def list_payment_entries(
     result = []
     for entry in entries:
         user_obj = session.get(User, entry.user_id)
-        indices: List[int] = []
-        if entry.selected_option_indices:
-            try:
-                indices = _json.loads(entry.selected_option_indices)
-            except Exception:
-                pass
+        selected_ids = _parse_selected_option_ids(entry.selected_option_ids)
         imp_opts: List[ImportedOption] = []
         if entry.imported_options:
             try:
@@ -916,12 +1087,12 @@ def list_payment_entries(
             PaymentEntryRead(
                 id=entry.id,
                 user_id=entry.user_id,
-                user_name=user_obj.full_name or user_obj.email if user_obj else None,
+                user_name=_entry_user_display_name(entry, user_obj),
                 attendee_name=entry.attendee_name,
                 checkout_intent_id=entry.checkout_intent_id,
                 amount_cents=entry.amount_cents,
                 payment_type=entry.payment_type,
-                selected_option_indices=indices,
+                selected_option_ids=selected_ids,
                 imported_options=imp_opts,
                 completed=entry.completed,
                 completed_at=entry.completed_at,
@@ -930,6 +1101,402 @@ def list_payment_entries(
         )
 
     return result
+
+
+@router.get("/events/{event_id}/payment-form/entries/export")
+def export_payment_entries_ods(
+    event_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Export payment entries for one form as ODS."""
+    form = _get_form_or_404(event_id, session)
+
+    if not (
+        current_user.is_superadmin
+        or _can_manage_form(form, current_user, session)
+        or _can_review_payment_form(form, current_user, session)
+    ):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Verify that the approving organization has HelloAsso credentials registered
+    if form.approving_org_id:
+        _check_org_has_helloasso_credentials(form.approving_org_id, session)
+
+    entries = session.exec(
+        select(EventPaymentEntry)
+        .where(EventPaymentEntry.payment_form_id == form.id)
+        .order_by(col(EventPaymentEntry.created_at).asc())
+    ).all()
+
+    options_by_id = _opts_map(form)
+
+    headers = [
+        "Participant",
+        "Email",
+        "Nom saisi",
+        "Date creation",
+        "Date paiement",
+        "Statut",
+        "Total paye (EUR)",
+        "Type paiement",
+        "Options",
+        "Options importees",
+        "Checkout intent",
+    ]
+
+    doc = OpenDocumentSpreadsheet()
+    table = Table(name="Participants")
+    doc.spreadsheet.addElement(table)  # pyright: ignore[reportAttributeAccessIssue]
+
+    header_style = Style(name="HeaderStylePF", family="table-cell")
+    header_style.addElement(TableCellProperties(backgroundcolor="#e2e8f0"))
+    header_style.addElement(TextProperties(fontweight="bold"))
+    doc.styles.addElement(header_style)
+
+    col_widths = [24, 28, 24, 18, 18, 12, 16, 16, 34, 30, 28]
+    for idx, width_chars in enumerate(col_widths):
+        c_style = Style(name=f"PFColStyle{idx}", family="table-column")
+        c_style.addElement(
+            TableColumnProperties(columnwidth=f"{max(2.5, width_chars * 0.18):.2f}cm")
+        )
+        doc.automaticstyles.addElement(c_style)
+        table.addElement(TableColumn(stylename=c_style))
+
+    tr = TableRow()
+    table.addElement(tr)
+    for h in headers:
+        tc = TableCell(stylename=header_style)
+        tc.addElement(P(text=h))
+        tr.addElement(tc)
+
+    for entry in entries:
+        user_obj = session.get(User, entry.user_id) if entry.user_id else None
+        participant = (
+            _entry_user_display_name(entry, user_obj)
+            or entry.attendee_name
+            or "Inconnu"
+        )
+        user_email = user_obj.email if user_obj else ""
+        paid_at = (
+            entry.completed_at.strftime("%d/%m/%Y %H:%M")
+            if entry.completed and entry.completed_at
+            else ""
+        )
+        created_at = entry.created_at.strftime("%d/%m/%Y %H:%M")
+        status = "Paye" if entry.completed else "En attente"
+        selected_ids = _parse_selected_option_ids(entry.selected_option_ids)
+        selected_opts = [
+            options_by_id[oid] for oid in selected_ids if oid in options_by_id
+        ]
+        selected_names = [opt.name for opt in selected_opts]
+        selected_total_cents = sum(opt.price_cents for opt in selected_opts)
+
+        imported_opts: List[ImportedOption] = []
+        if entry.imported_options:
+            try:
+                imported_opts = [
+                    ImportedOption(**o) for o in _json.loads(entry.imported_options)
+                ]
+            except Exception:
+                imported_opts = []
+        imported_names = [
+            (
+                f"{o.name} ({'+' if o.amount_cents >= 0 else '-'}{abs(o.amount_cents) / 100:.2f} EUR)"
+            )
+            for o in imported_opts
+        ]
+        imported_total_cents = sum(o.amount_cents for o in imported_opts)
+
+        total_paid_cents = (
+            form.total_amount_cents + selected_total_cents + imported_total_cents
+        )
+
+        row_values = [
+            participant,
+            user_email,
+            entry.attendee_name or "",
+            created_at,
+            paid_at,
+            status,
+            f"{total_paid_cents / 100:.2f}",
+            entry.payment_type,
+            ", ".join(selected_names),
+            ", ".join(imported_names),
+            entry.checkout_intent_id or "",
+        ]
+
+        tr = TableRow()
+        table.addElement(tr)
+        for value in row_values:
+            tc = TableCell()
+            tc.addElement(P(text=value))
+            tr.addElement(tc)
+
+    output = io.BytesIO()
+    doc.save(output)
+    output.seek(0)
+
+    response = StreamingResponse(
+        output,
+        media_type="application/vnd.oasis.opendocument.spreadsheet",
+    )
+    response.headers["Content-Disposition"] = (
+        f"attachment; filename=payment_entries_{event_id}.ods"
+    )
+    return response
+
+
+@router.get("/{org_id}/checkouts/export")
+def export_organization_checkouts_ods(
+    org_id: str,
+    date_start: Optional[str] = None,
+    date_end: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Export all org-level checkouts/entries (organization-wide) as ODS.
+    date_start and date_end should be ISO format (YYYY-MM-DD).
+    If not provided, defaults to Aug 15 of current year (both start and end).
+    """
+    org_uuid = UUID(org_id)
+    org = session.get(Organization, org_uuid)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    # Check user has access to organization (must be member or superadmin)
+    if not current_user.is_superadmin:
+        membership = session.exec(
+            select(Membership).where(
+                Membership.user_id == current_user.id,
+                Membership.organization_id == org_uuid,
+            )
+        ).first()
+        if not membership:
+            raise HTTPException(
+                status_code=403,
+                detail="Not authorized to view this organization's data",
+            )
+
+    # Verify that the organization has HelloAsso credentials registered
+    _check_org_has_helloasso_credentials(org_uuid, session)
+
+    # Parse dates or use defaults (current academic year: Aug 15 -> Aug 15)
+    now = datetime.now(timezone.utc)
+    aug_15_this_year = datetime(now.year, 8, 15, 0, 0, 0, tzinfo=timezone.utc)
+    if now < aug_15_this_year:
+        default_start = datetime(now.year - 1, 8, 15, 0, 0, 0, tzinfo=timezone.utc)
+        default_end = aug_15_this_year
+    else:
+        default_start = aug_15_this_year
+        default_end = datetime(now.year + 1, 8, 15, 0, 0, 0, tzinfo=timezone.utc)
+
+    try:
+        if date_start:
+            start_date = datetime.fromisoformat(date_start.replace("Z", "+00:00"))
+            if start_date.tzinfo is None:
+                start_date = start_date.replace(tzinfo=timezone.utc)
+        else:
+            start_date = default_start
+
+        if date_end:
+            end_date = datetime.fromisoformat(date_end.replace("Z", "+00:00"))
+            if end_date.tzinfo is None:
+                end_date = end_date.replace(tzinfo=timezone.utc)
+        else:
+            end_date = default_end
+    except ValueError:
+        raise HTTPException(
+            status_code=400, detail="Invalid date format. Use YYYY-MM-DD"
+        )
+
+    if start_date > end_date:
+        raise HTTPException(
+            status_code=400, detail="date_start must be before or equal to date_end"
+        )
+
+    # Use an inclusive full-day range [start, end + 1 day)
+    range_start = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    range_end_exclusive = end_date.replace(
+        hour=0, minute=0, second=0, microsecond=0
+    ) + timedelta(days=1)
+
+    # Get all payment forms for this organization and full descendant subtree
+    org_ids = _org_subtree_ids(org_uuid, session)
+
+    # Get all payment entries for forms in these organizations within date range
+    forms = session.exec(
+        select(EventPaymentForm).where(
+            col(EventPaymentForm.requesting_org_id).in_(org_ids)
+        )
+    ).all()
+
+    form_ids = [f.id for f in forms]
+    if not form_ids:
+        # Return empty ODS if no forms
+        form_ids = [UUID("00000000-0000-0000-0000-000000000000")]
+
+    raw_entries = session.exec(
+        select(EventPaymentEntry)
+        .where(col(EventPaymentEntry.payment_form_id).in_(form_ids))
+        .order_by(col(EventPaymentEntry.created_at).asc())
+    ).all()
+
+    entries = []
+    for entry in raw_entries:
+        event_dt = entry.completed_at or entry.created_at
+        if event_dt.tzinfo is None:
+            event_dt = event_dt.replace(tzinfo=timezone.utc)
+        if range_start <= event_dt < range_end_exclusive:
+            entries.append(entry)
+
+    # Build ODS with extended columns for organization context
+    headers = [
+        "Organisation",
+        "Événement",
+        "Participant",
+        "Email",
+        "Nom saisi",
+        "Date creation",
+        "Date paiement",
+        "Statut",
+        "Total paye (EUR)",
+        "Type paiement",
+        "Options",
+        "Options importees",
+        "Checkout intent",
+    ]
+
+    doc = OpenDocumentSpreadsheet()
+    table = Table(name="Transactions")
+    doc.spreadsheet.addElement(table)  # pyright: ignore[reportAttributeAccessIssue]
+
+    header_style = Style(name="HeaderStyleOrg", family="table-cell")
+    header_style.addElement(TableCellProperties(backgroundcolor="#e2e8f0"))
+    header_style.addElement(TextProperties(fontweight="bold"))
+    doc.styles.addElement(header_style)
+
+    col_widths = [20, 24, 24, 28, 24, 18, 18, 12, 16, 16, 34, 30, 28]
+    for idx, width_chars in enumerate(col_widths):
+        c_style = Style(name=f"OrgColStyle{idx}", family="table-column")
+        c_style.addElement(
+            TableColumnProperties(columnwidth=f"{max(2.5, width_chars * 0.18):.2f}cm")
+        )
+        doc.automaticstyles.addElement(c_style)
+        table.addElement(TableColumn(stylename=c_style))
+
+    tr = TableRow()
+    table.addElement(tr)
+    for h in headers:
+        tc = TableCell(stylename=header_style)
+        tc.addElement(P(text=h))
+        tr.addElement(tc)
+
+    # Build map of form ID to (requesting org name, event title)
+    form_context = {}
+    for form in forms:
+        event = session.get(Event, form.event_id)
+        event_title = event.title if event else "Événement inconnu"
+        requesting_org = session.get(Organization, form.requesting_org_id)
+        org_name = requesting_org.name if requesting_org else org.name
+        form_context[form.id] = (org_name, event_title)
+
+    # Add rows
+    for entry in entries:
+        form = next((f for f in forms if f.id == entry.payment_form_id), None)
+        if not form:
+            continue
+
+        org_name, event_title = form_context[form.id]
+
+        user_obj = session.get(User, entry.user_id) if entry.user_id else None
+        participant = (
+            _entry_user_display_name(entry, user_obj)
+            or entry.attendee_name
+            or "Inconnu"
+        )
+        user_email = user_obj.email if user_obj else ""
+        paid_at = (
+            entry.completed_at.strftime("%d/%m/%Y %H:%M")
+            if entry.completed and entry.completed_at
+            else ""
+        )
+        created_at = entry.created_at.strftime("%d/%m/%Y %H:%M")
+        status = "Paye" if entry.completed else "En attente"
+
+        options_by_id = _opts_map(form)
+        selected_ids = _parse_selected_option_ids(entry.selected_option_ids)
+        selected_opts = [
+            options_by_id[oid] for oid in selected_ids if oid in options_by_id
+        ]
+        selected_names = [opt.name for opt in selected_opts]
+        selected_total_cents = sum(opt.price_cents for opt in selected_opts)
+
+        imported_opts: List[ImportedOption] = []
+        if entry.imported_options:
+            try:
+                imported_opts = [
+                    ImportedOption(**o) for o in _json.loads(entry.imported_options)
+                ]
+            except Exception:
+                imported_opts = []
+        imported_names = [
+            (
+                f"{o.name} ({'+' if o.amount_cents >= 0 else '-'}{abs(o.amount_cents) / 100:.2f} EUR)"
+            )
+            for o in imported_opts
+        ]
+        imported_total_cents = sum(o.amount_cents for o in imported_opts)
+
+        total_paid_cents = (
+            form.total_amount_cents + selected_total_cents + imported_total_cents
+        )
+
+        row_values = [
+            org_name,
+            event_title,
+            participant,
+            user_email,
+            entry.attendee_name or "",
+            created_at,
+            paid_at,
+            status,
+            f"{total_paid_cents / 100:.2f}",
+            entry.payment_type,
+            ", ".join(selected_names),
+            ", ".join(imported_names),
+            entry.checkout_intent_id or "",
+        ]
+
+        tr = TableRow()
+        table.addElement(tr)
+        for value in row_values:
+            tc = TableCell()
+            tc.addElement(P(text=value))
+            tr.addElement(tc)
+
+    output = io.BytesIO()
+    doc.save(output)
+    output.seek(0)
+
+    # Build filename: org_slug_event_slug_datetime.ods
+    # If there's only one event, use it; otherwise use "all"
+    event_slugs = set()
+    for form in forms:
+        event = session.get(Event, form.event_id)
+        if event:
+            event_slugs.add(event.title.lower().replace(" ", "-")[:40])
+
+    event_part = next(iter(event_slugs)) if len(event_slugs) == 1 else "all"
+    timestamp = now.strftime("%Y%m%d_%H%M%S")
+    filename = f"{org.slug}_{event_part}_{timestamp}.ods"
+
+    response = StreamingResponse(
+        output,
+        media_type="application/vnd.oasis.opendocument.spreadsheet",
+    )
+    response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+    return response
 
 
 # ---------------------------------------------------------------------------
@@ -1038,7 +1605,7 @@ def my_payment_forms(
                 approving_org_id=form.approving_org_id,
                 item_name=form.item_name,
                 total_amount_cents=form.total_amount_cents,
-                options=_parse_options(form.options),
+                options=[_opt_to_schema(o) for o in _opts_sorted(form)],
                 status=form.status,
                 is_open=form.is_open,
                 entry_count=len(entries),
@@ -1077,14 +1644,11 @@ def _build_my_entry(
         return None
     org = session.get(Organization, form.requesting_org_id)
 
-    all_options = _parse_options(form.options)
-    indices: List[int] = []
-    if entry.selected_option_indices:
-        try:
-            indices = _json.loads(entry.selected_option_indices)
-        except Exception:
-            pass
-    selected_options = [all_options[i] for i in indices if i < len(all_options)]
+    option_by_id = _opts_map(form)
+    selected_ids = _parse_selected_option_ids(entry.selected_option_ids)
+    selected_options = [
+        _opt_to_schema(option_by_id[oid]) for oid in selected_ids if oid in option_by_id
+    ]
 
     start = event.start_time
     if start and start.tzinfo is None:
@@ -1157,14 +1721,11 @@ def _to_validation_entry(
     entry: EventPaymentEntry, form: EventPaymentForm, session: Session
 ) -> ValidationEntryRead:
     user_obj = session.get(User, entry.user_id) if entry.user_id else None
-    all_options = _parse_options(form.options)
-    indices: List[int] = []
-    if entry.selected_option_indices:
-        try:
-            indices = _json.loads(entry.selected_option_indices)
-        except Exception:
-            pass
-    selected_options = [all_options[i] for i in indices if i < len(all_options)]
+    option_by_id = _opts_map(form)
+    selected_ids = _parse_selected_option_ids(entry.selected_option_ids)
+    selected_options = [
+        _opt_to_schema(option_by_id[oid]) for oid in selected_ids if oid in option_by_id
+    ]
 
     imp_opts: List[ImportedOption] = []
     if entry.imported_options:
@@ -1175,7 +1736,7 @@ def _to_validation_entry(
         except Exception:
             pass
 
-    user_name = user_obj.full_name or user_obj.email if user_obj else None
+    user_name = _entry_user_display_name(entry, user_obj)
     user_email = user_obj.email if user_obj else None
     display_name = user_name or entry.attendee_name or "Inconnu"
 
@@ -1387,21 +1948,23 @@ def attendee_bulk_resolve(
         raise HTTPException(status_code=403, detail="Not authorized")
 
     results: List[BulkResolveResult] = []
+    users = session.exec(select(User)).all()
+    ldap_users = session.exec(select(LDAPUser)).all()
 
     for q in request.queries:
         q_clean = q.strip()
         if not q_clean:
             continue
 
-        # Try finding a direct user match first
-        users = session.exec(select(User)).all()
-        best_user = None
-        for u in users:
-            if _fuzzy_match(q_clean, (u.full_name or "") + " " + (u.email or "")):
-                best_user = u
-                break
+        # Resolve only on unique matches; ambiguous queries must be corrected manually.
+        user_matches = [
+            u
+            for u in users
+            if _fuzzy_match(q_clean, (u.full_name or "") + " " + (u.email or ""))
+        ]
 
-        if best_user:
+        if len(user_matches) == 1:
+            best_user = user_matches[0]
             results.append(
                 BulkResolveResult(
                     query=q, user_id=str(best_user.id), full_name=best_user.full_name
@@ -1409,35 +1972,75 @@ def attendee_bulk_resolve(
             )
             continue
 
-        # If not found, try LDAP
-        ldap_users = session.exec(select(LDAPUser)).all()
-        best_ldap = None
-        for lu in ldap_users:
+        if len(user_matches) > 1:
+            results.append(BulkResolveResult(query=q, user_id=None, full_name=None))
+            continue
+
+        ldap_matches = [
+            lu
+            for lu in ldap_users
             if _fuzzy_match(
                 q_clean,
                 (lu.full_name or "") + " " + (lu.email or "") + " " + (lu.uid or ""),
-            ):
-                best_ldap = lu
-                break
+            )
+        ]
+
+        if len(ldap_matches) > 1:
+            results.append(BulkResolveResult(query=q, user_id=None, full_name=None))
+            continue
+
+        best_ldap = ldap_matches[0] if ldap_matches else None
 
         if best_ldap and best_ldap.email:
-            # Create user from LDAP
-            new_user = User(
-                email=best_ldap.email,
-                full_name=best_ldap.full_name,
-                is_active=True,
-            )
-            session.add(new_user)
-            session.commit()
-            session.refresh(new_user)
+            existing_user = session.exec(
+                select(User).where(User.email == best_ldap.email)
+            ).first()
+            if existing_user:
+                resolved_user = existing_user
+            else:
+                resolved_user = User(
+                    email=best_ldap.email,
+                    full_name=best_ldap.full_name,
+                    is_active=True,
+                )
+                session.add(resolved_user)
+                session.commit()
+                session.refresh(resolved_user)
             results.append(
                 BulkResolveResult(
-                    query=q, user_id=str(new_user.id), full_name=new_user.full_name
+                    query=q,
+                    user_id=str(resolved_user.id),
+                    full_name=resolved_user.full_name,
                 )
             )
         else:
             results.append(BulkResolveResult(query=q, user_id=None, full_name=None))
 
+    return results
+
+
+@router.post("/users/batch-lookup", response_model=List[AttendeeSearchResult])
+def batch_lookup_users(
+    request: UserBatchLookupRequest,
+    _: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Look up multiple users by UUID — used to display allowed_user_ids as names in the UI."""
+    results: List[AttendeeSearchResult] = []
+    for uid_str in request.ids:
+        try:
+            user = session.get(User, UUID(uid_str))
+            if user:
+                results.append(
+                    AttendeeSearchResult(
+                        id=user.id,
+                        full_name=user.full_name,
+                        email=user.email,
+                        source="user",
+                    )
+                )
+        except Exception:
+            pass
     return results
 
 
@@ -1720,22 +2323,22 @@ def import_billeterie_attendees(
         ]
 
         # Match imported options against form-defined options by name + price.
-        # Matched ones go into selected_option_indices; unmatched stay as imported_options.
-        form_options = _parse_options(form.options)
-        matched_indices: List[int] = []
+        # Matched ones go into selected_option_ids; unmatched stay as imported_options.
+        form_options = _opts_sorted(form)
+        matched_ids: List[str] = []
         unmatched_opts: List[dict] = []
         for opt_dict in imp_opts:
-            match_idx = next(
+            match_opt = next(
                 (
-                    i
-                    for i, fo in enumerate(form_options)
+                    fo
+                    for fo in form_options
                     if fo.name.lower() == opt_dict["name"].lower()
                     and fo.price_cents == opt_dict["amount_cents"]
                 ),
                 None,
             )
-            if match_idx is not None and match_idx not in matched_indices:
-                matched_indices.append(match_idx)
+            if match_opt is not None and str(match_opt.id) not in matched_ids:
+                matched_ids.append(str(match_opt.id))
             else:
                 unmatched_opts.append(opt_dict)
 
@@ -1748,9 +2351,7 @@ def import_billeterie_attendees(
             amount_cents=item.get("amount", 0),
             payment_type="helloasso_import",
             attendee_name=attendee_name,
-            selected_option_indices=(
-                _json.dumps(matched_indices) if matched_indices else None
-            ),
+            selected_option_ids=_json.dumps(matched_ids) if matched_ids else None,
             imported_options=_json.dumps(unmatched_opts) if unmatched_opts else None,
             validated=False,
         )
@@ -1782,11 +2383,10 @@ def create_manual_entry(
         raise HTTPException(status_code=403, detail="Not authorized")
 
     # Compute amount
-    options = _parse_options(form.options)
+    selected_options = _resolve_selected_options(form, data.selected_option_ids)
+    selected_option_ids = [str(opt.id) for opt in selected_options]
     base = form.total_amount_cents
-    extra = sum(
-        options[i].price_cents for i in data.selected_option_indices if i < len(options)
-    )
+    extra = sum(opt.price_cents for opt in selected_options)
     total = data.amount_cents if data.amount_cents is not None else base + extra
 
     entry = EventPaymentEntry(
@@ -1795,7 +2395,7 @@ def create_manual_entry(
         checkout_intent_id=None,
         attendee_name=data.attendee_name,
         payment_type=data.payment_type.value,
-        selected_option_indices=_json.dumps(data.selected_option_indices),
+        selected_option_ids=_json.dumps(selected_option_ids),
         amount_cents=total,
         completed=True,  # manual entries are considered paid
         completed_at=datetime.now(timezone.utc),
