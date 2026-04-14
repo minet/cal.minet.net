@@ -395,6 +395,9 @@ class EventPaymentForm(SQLModel, table=True):
     payment_completed: bool = Field(
         default=False
     )  # Set to True on first completed payment
+    # Baseline counters for entries removed upon user account deletion (RGPD)
+    baseline_total_amount_cents: int = Field(default=0)
+    baseline_participant_count: int = Field(default=0)
     created_by_id: UUID = Field(foreign_key="user.id")
     reviewed_by_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

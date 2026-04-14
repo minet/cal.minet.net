@@ -26,13 +26,13 @@
       Chargement…
     </div>
 
-    <div v-else-if="filteredItems.length === 0" class="bg-white shadow-sm rounded-lg p-8 text-center text-sm text-gray-500">
+    <div v-else-if="items.length === 0" class="bg-white shadow-sm rounded-lg p-8 text-center text-sm text-gray-500">
       Aucun formulaire de paiement pour la période sélectionnée.
     </div>
 
     <div v-else class="space-y-4">
       <div
-        v-for="item in filteredItems"
+        v-for="item in items"
         :key="item.id"
         class="bg-white shadow-sm rounded-lg overflow-hidden"
       >
@@ -397,7 +397,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, reactive } from 'vue'
+import { ref, watch, onMounted, reactive } from 'vue'
 import {
   CreditCardIcon,
   LockClosedIcon,
@@ -423,16 +423,6 @@ const entries = reactive({})
 
 // Time filter: 'upcoming' | 'all' | 'past'
 const timeFilter = ref('upcoming')
-
-const filteredItems = computed(() => {
-  const now = new Date()
-  return items.value.filter(item => {
-    const start = new Date(item.event_start_time)
-    if (timeFilter.value === 'upcoming') return start >= now
-    if (timeFilter.value === 'past') return start < now
-    return true
-  })
-})
 
 const editModal = ref({ open: false, item: null, options: [], is_open: true })
 const savingEdit = ref(false)
@@ -460,7 +450,9 @@ const statusLabel = (status) => ({
 const loadItems = async () => {
   loading.value = true
   try {
-    const res = await api.get('/helloasso/my-payment-forms')
+    const res = await api.get('/helloasso/my-payment-forms', {
+      params: { time_filter: timeFilter.value },
+    })
     items.value = res.data
   } catch (err) {
     console.error('Failed to load payment forms:', err)
@@ -468,6 +460,8 @@ const loadItems = async () => {
     loading.value = false
   }
 }
+
+watch(timeFilter, loadItems)
 
 const toggleOpen = async (item) => {
   processingId.value = item.id

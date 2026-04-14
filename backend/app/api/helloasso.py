@@ -942,6 +942,7 @@ def list_pending_forms(
 
 @router.get("/my-payment-forms", response_model=List[PaymentDashboardItem])
 def my_payment_forms(
+    time_filter: str = "upcoming",  # "upcoming" | "all" | "past"
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
@@ -1026,11 +1027,19 @@ def my_payment_forms(
                 status=form.status,
                 is_open=form.is_open,
                 entry_count=len(entries),
-                completed_count=sum(1 for e in entries if e.completed),
+                completed_count=sum(1 for e in entries if e.completed) + form.baseline_participant_count,
+                baseline_total_amount_cents=form.baseline_total_amount_cents,
+                baseline_participant_count=form.baseline_participant_count,
                 created_at=form.created_at,
                 billeterie=_billeterie_to_read(b),
             )
         )
+
+    now = datetime.now(timezone.utc)
+    if time_filter == "upcoming":
+        result = [r for r in result if r.event_start_time >= now]
+    elif time_filter == "past":
+        result = [r for r in result if r.event_start_time < now]
 
     result.sort(key=lambda x: x.event_start_time, reverse=True)
     return result

@@ -709,6 +709,8 @@ class PaymentDashboardItem(BaseModel):
     is_open: bool
     entry_count: int
     completed_count: int
+    baseline_total_amount_cents: int = 0
+    baseline_participant_count: int = 0
     created_at: datetime
     billeterie: Optional[BilleterieRead] = None
 
