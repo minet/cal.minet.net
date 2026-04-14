@@ -414,6 +414,10 @@ class EventPaymentForm(SQLModel, table=True):
         sa_relationship_kwargs={"foreign_keys": "[EventPaymentForm.reviewed_by_id]"}
     )
     entries: List["EventPaymentEntry"] = Relationship(back_populates="payment_form")
+    billeterie: Optional["PaymentFormBilleterie"] = Relationship(
+        back_populates="payment_form",
+        sa_relationship_kwargs={"uselist": False, "cascade": "all, delete-orphan"},
+    )
 
 
 class EventPaymentEntry(SQLModel, table=True):
@@ -447,6 +451,33 @@ class EventPaymentEntry(SQLModel, table=True):
     )
     validated_by: Optional["User"] = Relationship(
         sa_relationship_kwargs={"foreign_keys": "[EventPaymentEntry.validated_by_id]"}
+    )
+
+
+class PaymentFormBilleterie(SQLModel, table=True):
+    """Links a payment form to a HelloAsso billeterie (ticketing event) for attendee import.
+
+    Only users with can_manage_payment_forms on the org that *directly* has HelloAsso
+    configured can create or remove this link.  The link is restricted to the same
+    org hierarchy: the HA org must be an ancestor-or-equal of the form's requesting org.
+    """
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    payment_form_id: UUID = Field(foreign_key="eventpaymentform.id", unique=True)
+    # FK to OrganizationHelloAsso.id (not organization.id) so cascade-delete works
+    # when the HA integration is removed.
+    helloasso_org_id: UUID = Field(foreign_key="organizationhelloasso.id")
+    helloasso_form_slug: str
+    helloasso_form_title: str
+    helloasso_form_type: str = Field(default="Event")
+    last_imported_at: Optional[datetime] = None
+    created_by_id: UUID = Field(foreign_key="user.id")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    payment_form: "EventPaymentForm" = Relationship(back_populates="billeterie")
+    helloasso_org: Optional["OrganizationHelloAsso"] = Relationship()
+    created_by: Optional["User"] = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[PaymentFormBilleterie.created_by_id]"}
     )
 
 

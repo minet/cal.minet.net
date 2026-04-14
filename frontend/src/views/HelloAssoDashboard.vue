@@ -1,12 +1,24 @@
 <template>
   <div class="max-w-5xl mx-auto">
     <header class="bg-white shadow-sm rounded-lg mb-6">
-      <div class="px-4 py-6 sm:px-6 lg:px-8 flex items-center gap-3">
-        <CreditCardIcon class="h-7 w-7 text-green-600" />
-        <div>
-          <h1 class="text-2xl font-bold tracking-tight text-gray-900">Paiements HelloAsso</h1>
-          <p class="text-sm text-gray-500 mt-0.5">Formulaires de paiement de vos organisations</p>
+      <div class="px-4 py-6 sm:px-6 lg:px-8 flex items-center justify-between gap-4 flex-wrap">
+        <div class="flex items-center gap-3">
+          <CreditCardIcon class="h-7 w-7 text-green-600" />
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight text-gray-900">Paiements HelloAsso</h1>
+            <p class="text-sm text-gray-500 mt-0.5">Formulaires de paiement de vos organisations</p>
+          </div>
         </div>
+
+        <!-- Time filter dropdown -->
+        <select
+          v-model="timeFilter"
+          class="rounded-md border-0 py-1.5 pl-3 pr-8 text-sm text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600"
+        >
+          <option value="upcoming">À venir</option>
+          <option value="all">Tous</option>
+          <option value="past">Passés</option>
+        </select>
       </div>
     </header>
 
@@ -14,13 +26,13 @@
       Chargement…
     </div>
 
-    <div v-else-if="items.length === 0" class="bg-white shadow-sm rounded-lg p-8 text-center text-sm text-gray-500">
-      Aucun formulaire de paiement pour vos organisations.
+    <div v-else-if="filteredItems.length === 0" class="bg-white shadow-sm rounded-lg p-8 text-center text-sm text-gray-500">
+      Aucun formulaire de paiement pour la période sélectionnée.
     </div>
 
     <div v-else class="space-y-4">
       <div
-        v-for="item in items"
+        v-for="item in filteredItems"
         :key="item.id"
         class="bg-white shadow-sm rounded-lg overflow-hidden"
       >
@@ -74,6 +86,24 @@
 
           <!-- Actions -->
           <div class="ml-auto flex items-center gap-2 flex-wrap">
+            <!-- Approve/reject (pending) -->
+            <template v-if="item.status === 'pending'">
+              <button
+                @click="approveForm(item)"
+                :disabled="processingId === item.id"
+                class="rounded-md bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-500 disabled:opacity-50 transition-colors"
+              >
+                Approuver
+              </button>
+              <button
+                @click="openRejectModal(item)"
+                :disabled="processingId === item.id"
+                class="rounded-md bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 ring-1 ring-inset ring-red-300 hover:bg-red-100 disabled:opacity-50 transition-colors"
+              >
+                Refuser
+              </button>
+            </template>
+
             <!-- Open/close toggle (approved only) -->
             <template v-if="item.status === 'approved'">
               <button
@@ -99,24 +129,6 @@
               Options
             </button>
 
-            <!-- Approve/reject (pending) -->
-            <template v-if="item.status === 'pending'">
-              <button
-                @click="approveForm(item)"
-                :disabled="processingId === item.id"
-                class="rounded-md bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-500 disabled:opacity-50 transition-colors"
-              >
-                Approuver
-              </button>
-              <button
-                @click="openRejectModal(item)"
-                :disabled="processingId === item.id"
-                class="rounded-md bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 ring-1 ring-inset ring-red-300 hover:bg-red-100 disabled:opacity-50 transition-colors"
-              >
-                Refuser
-              </button>
-            </template>
-
             <!-- View entries -->
             <button
               v-if="item.status === 'approved' && item.entry_count > 0"
@@ -126,7 +138,41 @@
               <UsersIcon class="h-3.5 w-3.5" />
               Inscrits
             </button>
+
+            <!-- Billeterie button (only for approved forms with an approving org) -->
+            <button
+              v-if="item.status === 'approved' && item.approving_org_id"
+              @click="openBilleterieModal(item)"
+              class="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+              :class="item.billeterie
+                ? 'bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-300 hover:bg-purple-100'
+                : 'bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-100'"
+            >
+              <TicketIcon class="h-3.5 w-3.5" />
+              {{ item.billeterie ? 'Billeterie liée' : 'Billeterie Exté' }}
+            </button>
           </div>
+        </div>
+
+        <!-- Billeterie status strip -->
+        <div v-if="item.billeterie" class="px-5 py-2 bg-purple-50 border-t border-purple-100 flex items-center justify-between gap-4 flex-wrap">
+          <div class="flex items-center gap-2 text-xs text-purple-700">
+            <TicketIcon class="h-3.5 w-3.5 shrink-0" />
+            <span class="font-medium">{{ item.billeterie.helloasso_form_title }}</span>
+            <span class="text-purple-400">·</span>
+            <span v-if="item.billeterie.last_imported_at" class="text-purple-500">
+              Dernier import : {{ formatDate(item.billeterie.last_imported_at) }}
+            </span>
+            <span v-else class="text-purple-400 italic">Aucun import effectué</span>
+          </div>
+          <button
+            @click="importBilleterie(item)"
+            :disabled="importingId === item.id"
+            class="flex items-center gap-1 rounded-md bg-purple-600 px-3 py-1 text-xs font-semibold text-white hover:bg-purple-500 disabled:opacity-50 transition-colors"
+          >
+            <ArrowDownTrayIcon class="h-3.5 w-3.5" />
+            {{ importingId === item.id ? 'Import…' : 'Importer les participants' }}
+          </button>
         </div>
 
         <!-- Options list -->
@@ -157,7 +203,7 @@
             </thead>
             <tbody class="divide-y divide-gray-100">
               <tr v-for="entry in entries[item.id]" :key="entry.id" class="py-1">
-                <td class="py-1.5 pr-4">{{ entry.user_name || entry.user_id }}</td>
+                <td class="py-1.5 pr-4">{{ entry.user_name || entry.attendee_name || entry.user_id }}</td>
                 <td class="py-1.5 pr-4">{{ (entry.amount_cents / 100).toFixed(2) }}&nbsp;€</td>
                 <td class="py-1.5 pr-4">
                   <template v-if="entry.selected_option_indices?.length">
@@ -169,6 +215,7 @@
                   <span :class="entry.completed ? 'text-green-600 font-medium' : 'text-amber-600'">
                     {{ entry.completed ? 'Payé' : 'En attente' }}
                   </span>
+                  <span v-if="entry.payment_type === 'helloasso_import'" class="ml-1 text-purple-500 text-xs">(billeterie)</span>
                 </td>
                 <td class="py-1.5 text-gray-400">{{ formatDate(entry.created_at) }}</td>
               </tr>
@@ -215,18 +262,18 @@
                 <XMarkIcon class="h-4 w-4" />
               </button>
             </div>
-            
+
             <!-- Private Option Config -->
             <div class="flex items-center gap-2">
               <input type="checkbox" v-model="opt.is_private" :id="'dash-priv-' + idx" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" />
               <label :for="'dash-priv-' + idx" class="text-sm text-gray-600">Option privée</label>
             </div>
-            
+
             <div v-if="opt.is_private" class="mt-2">
               <label class="block text-xs font-medium text-gray-700 mb-1">Personnes autorisées (Collez une liste de noms ou emails, un par ligne)</label>
-              <textarea 
-                v-model="opt.allowed_user_names" 
-                rows="3" 
+              <textarea
+                v-model="opt.allowed_user_names"
+                rows="3"
                 placeholder="Jean Dupont&#10;jean.dupont@telecom-sudparis.eu"
                 class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
               ></textarea>
@@ -271,11 +318,86 @@
         </div>
       </div>
     </div>
+
+    <!-- Billeterie modal -->
+    <div v-if="billeterieModal.open" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-1">Lier une billeterie HelloAsso</h3>
+        <p class="text-sm text-gray-500 mb-4">
+          Sélectionnez un formulaire de billeterie HelloAsso pour importer automatiquement ses participants dans la liste des inscrits.
+        </p>
+
+        <!-- Currently linked billeterie -->
+        <div v-if="billeterieModal.item?.billeterie" class="mb-4 p-3 rounded-lg bg-purple-50 border border-purple-200 flex items-center justify-between gap-3">
+          <div class="text-sm text-purple-800">
+            <span class="font-medium">Liée&nbsp;: </span>{{ billeterieModal.item.billeterie.helloasso_form_title }}
+          </div>
+          <button
+            @click="unlinkBilleterie(billeterieModal.item)"
+            :disabled="billeterieModal.saving"
+            class="text-xs text-red-600 hover:text-red-700 font-medium disabled:opacity-50"
+          >
+            Délier
+          </button>
+        </div>
+
+        <!-- Billeterie list -->
+        <div v-if="billeterieModal.loading" class="text-sm text-gray-400 py-4 text-center">Chargement des billeteries…</div>
+        <div v-else-if="billeterieModal.error" class="text-sm text-red-600 py-2">{{ billeterieModal.error }}</div>
+        <div v-else-if="billeterieModal.forms.length === 0" class="text-sm text-gray-400 py-4 text-center">
+          Aucun formulaire de billeterie trouvé sur HelloAsso.
+        </div>
+        <div v-else class="space-y-2 max-h-64 overflow-y-auto mb-4">
+          <label
+            v-for="form in billeterieModal.forms"
+            :key="form.form_slug"
+            class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors"
+            :class="billeterieModal.selected === form.form_slug
+              ? 'border-purple-400 bg-purple-50'
+              : 'border-gray-200 hover:bg-gray-50'"
+          >
+            <input
+              type="radio"
+              :value="form.form_slug"
+              v-model="billeterieModal.selected"
+              class="text-purple-600 focus:ring-purple-500"
+            />
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-gray-900 truncate">{{ form.title }}</p>
+              <p class="text-xs text-gray-400">
+                {{ form.state }}
+                <template v-if="form.start_date"> · {{ formatDate(form.start_date) }}</template>
+              </p>
+            </div>
+          </label>
+        </div>
+
+        <div class="flex justify-end gap-3">
+          <button @click="billeterieModal.open = false"
+            class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+            Fermer
+          </button>
+          <button
+            @click="saveBilleterieLink"
+            :disabled="!billeterieModal.selected || billeterieModal.saving"
+            class="rounded-md bg-purple-600 px-3 py-2 text-sm font-semibold text-white hover:bg-purple-500 disabled:opacity-50"
+          >
+            {{ billeterieModal.saving ? 'Enregistrement…' : 'Lier la billeterie' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Import result toast -->
+    <div v-if="importToast" class="fixed bottom-4 right-4 z-50 bg-white shadow-lg rounded-lg px-4 py-3 flex items-center gap-3 ring-1 ring-gray-200">
+      <CheckCircleIcon class="h-5 w-5 text-green-500 shrink-0" />
+      <p class="text-sm text-gray-800">{{ importToast }}</p>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import {
   CreditCardIcon,
   LockClosedIcon,
@@ -284,19 +406,47 @@ import {
   UsersIcon,
   XMarkIcon,
   PlusIcon,
+  TicketIcon,
+  ArrowDownTrayIcon,
+  CheckCircleIcon,
 } from '@heroicons/vue/24/outline'
 import api from '../utils/api'
 
 const items = ref([])
 const loading = ref(true)
 const processingId = ref(null)
+const importingId = ref(null)
+const importToast = ref(null)
 const expandedEntries = reactive({})
 const loadingEntries = reactive({})
 const entries = reactive({})
 
+// Time filter: 'upcoming' | 'all' | 'past'
+const timeFilter = ref('upcoming')
+
+const filteredItems = computed(() => {
+  const now = new Date()
+  return items.value.filter(item => {
+    const start = new Date(item.event_start_time)
+    if (timeFilter.value === 'upcoming') return start >= now
+    if (timeFilter.value === 'past') return start < now
+    return true
+  })
+})
+
 const editModal = ref({ open: false, item: null, options: [], is_open: true })
 const savingEdit = ref(false)
 const rejectModal = ref({ open: false, item: null, message: '' })
+
+const billeterieModal = ref({
+  open: false,
+  item: null,
+  forms: [],
+  selected: null,
+  loading: false,
+  saving: false,
+  error: null,
+})
 
 const formatDate = (dateStr) =>
   new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -339,7 +489,6 @@ const resolveUserNames = async (namesStr, eventId) => {
   if (!namesStr || !namesStr.trim()) return []
   const queries = namesStr.split('\n').map(n => n.trim()).filter(Boolean)
   if (!queries.length) return []
-  
   try {
     const res = await api.post(`/helloasso/events/${eventId}/attendee-bulk-resolve`, { queries })
     return res.data.filter(r => r.user_id).map(r => r.user_id)
@@ -354,8 +503,8 @@ const openEditModal = (item) => {
     open: true,
     item,
     is_open: item.is_open,
-    options: (item.options || []).map(o => ({ 
-      name: o.name, 
+    options: (item.options || []).map(o => ({
+      name: o.name,
       amount_euros: o.price_cents / 100,
       is_private: o.is_private || false,
       allowed_user_ids: o.allowed_user_ids || [],
@@ -370,21 +519,18 @@ const saveEditModal = async () => {
     const optionsToSave = []
     for (const o of editModal.value.options) {
       if (!o.name || o.amount_euros === '' || o.amount_euros === null) continue
-      
       let finalUserIds = [...(o.allowed_user_ids || [])]
       if (o.is_private && o.allowed_user_names) {
         const resolvedIds = await resolveUserNames(o.allowed_user_names, editModal.value.item.event_id)
         finalUserIds = [...new Set([...finalUserIds, ...resolvedIds])]
       }
-      
       optionsToSave.push({
         name: o.name,
         price_cents: Math.round(o.amount_euros * 100),
         is_private: o.is_private || false,
-        allowed_user_ids: finalUserIds
+        allowed_user_ids: finalUserIds,
       })
     }
-
     const res = await api.put(`/helloasso/events/${editModal.value.item.event_id}/payment-form`, {
       options: optionsToSave,
       is_open: editModal.value.is_open,
@@ -452,6 +598,99 @@ const toggleEntries = async (formId) => {
     entries[formId] = []
   } finally {
     loadingEntries[formId] = false
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Billeterie
+// ---------------------------------------------------------------------------
+
+const openBilleterieModal = async (item) => {
+  billeterieModal.value = {
+    open: true,
+    item,
+    forms: [],
+    selected: item.billeterie?.helloasso_form_slug ?? null,
+    loading: true,
+    saving: false,
+    error: null,
+  }
+
+  try {
+    const res = await api.get(`/helloasso/${item.approving_org_id}/billeteries`)
+    billeterieModal.value.forms = res.data
+  } catch (err) {
+    if (err.response?.status === 403) {
+      billeterieModal.value.error = 'Vous n\'avez pas les droits pour gérer les billeteries de cette organisation.'
+    } else if (err.response?.status === 404) {
+      billeterieModal.value.error = 'Aucune intégration HelloAsso configurée sur cette organisation.'
+    } else {
+      billeterieModal.value.error = err.response?.data?.detail || 'Erreur lors du chargement des billeteries.'
+    }
+  } finally {
+    billeterieModal.value.loading = false
+  }
+}
+
+const saveBilleterieLink = async () => {
+  const { item, selected, forms } = billeterieModal.value
+  if (!selected) return
+
+  const form = forms.find(f => f.form_slug === selected)
+  billeterieModal.value.saving = true
+  try {
+    const res = await api.post(`/helloasso/events/${item.event_id}/payment-form/billeterie`, {
+      org_id: item.approving_org_id,
+      form_slug: selected,
+      form_type: form?.form_type ?? 'Event',
+      form_title: form?.title ?? selected,
+    })
+    // Update local item
+    const idx = items.value.findIndex(i => i.id === item.id)
+    if (idx !== -1) items.value[idx].billeterie = res.data
+    billeterieModal.value.item = { ...item, billeterie: res.data }
+    billeterieModal.value.open = false
+  } catch (err) {
+    billeterieModal.value.error = err.response?.data?.detail || 'Erreur lors de la liaison.'
+  } finally {
+    billeterieModal.value.saving = false
+  }
+}
+
+const unlinkBilleterie = async (item) => {
+  billeterieModal.value.saving = true
+  try {
+    await api.delete(`/helloasso/events/${item.event_id}/payment-form/billeterie`)
+    const idx = items.value.findIndex(i => i.id === item.id)
+    if (idx !== -1) items.value[idx].billeterie = null
+    billeterieModal.value.item = { ...item, billeterie: null }
+    billeterieModal.value.open = false
+  } catch (err) {
+    billeterieModal.value.error = err.response?.data?.detail || 'Erreur lors de la déliaison.'
+  } finally {
+    billeterieModal.value.saving = false
+  }
+}
+
+const importBilleterie = async (item) => {
+  importingId.value = item.id
+  try {
+    const res = await api.post(`/helloasso/events/${item.event_id}/payment-form/billeterie/import`)
+    const { imported, skipped } = res.data
+
+    // Refresh the item's billeterie (to update last_imported_at) and entries
+    await loadItems()
+    // Reset cached entries so they reload on next expand
+    delete entries[item.id]
+
+    importToast.value = `${imported} participant(s) importé(s), ${skipped} ignoré(s).`
+    setTimeout(() => { importToast.value = null }, 4000)
+  } catch (err) {
+    console.error('Import failed:', err)
+    importToast.value = err.response?.data?.detail || 'Erreur lors de l\'import.'
+    setTimeout(() => { importToast.value = null }, 5000)
+  } finally {
+    importingId.value = null
   }
 }
 

@@ -577,6 +577,45 @@ class HelloAssoStatus(BaseModel):
     can_manage_payment_forms: bool = False
 
 
+class HelloAssoFormSummary(BaseModel):
+    """A HelloAsso form as returned by the HA forms list API."""
+
+    form_type: str
+    form_slug: str
+    title: str
+    state: str
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+
+class BilleterieCreate(BaseModel):
+    """Request body for linking a HelloAsso billeterie to a payment form."""
+
+    org_id: UUID  # The organization that directly has HA configured
+    form_slug: str
+    form_type: str = "Event"
+    form_title: str
+
+
+class BilleterieRead(BaseModel):
+    """Billeterie link as returned by the API."""
+
+    id: UUID
+    helloasso_org_id: UUID
+    helloasso_form_slug: str
+    helloasso_form_title: str
+    helloasso_form_type: str
+    last_imported_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class BilleterieImportResult(BaseModel):
+    """Result of a billeterie attendee import."""
+
+    imported: int
+    skipped: int
+
+
 class HelloAssoCredentials(BaseModel):
     """Write-only: set/update API credentials for an organization."""
 
@@ -625,6 +664,7 @@ class PaymentFormRead(BaseModel):
     reviewed_by_id: Optional[UUID] = None
     created_at: datetime
     reviewed_at: Optional[datetime] = None
+    billeterie: Optional[BilleterieRead] = None
 
 
 class PaymentInitiateRequest(BaseModel):
@@ -661,6 +701,7 @@ class PaymentDashboardItem(BaseModel):
     event_start_time: datetime
     org_id: UUID
     org_name: str
+    approving_org_id: Optional[UUID] = None
     item_name: str
     total_amount_cents: int
     options: List[PaymentFormOption] = []
@@ -669,6 +710,7 @@ class PaymentDashboardItem(BaseModel):
     entry_count: int
     completed_count: int
     created_at: datetime
+    billeterie: Optional[BilleterieRead] = None
 
 
 class PaymentFormReject(BaseModel):

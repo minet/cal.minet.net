@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from typing import List, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi import APIRouter, Body, Depends, HTTPException
@@ -434,7 +435,22 @@ def delete_organization(
         event.title = f"({org_name}) {event.title}"
         event.group_id = None
         session.add(event)
-        
+
+    # 6b. Reassign EventPaymentForm references that point to this org.
+    #     requesting_org_id: reassign to parent/ghost so FK constraint is satisfied.
+    #     approving_org_id:  set to None (the form is already approved/rejected/pending).
+    from app.models import EventPaymentForm as _EPF
+    for form in session.exec(
+        select(_EPF).where(_EPF.requesting_org_id == UUID(org_id))
+    ).all():
+        form.requesting_org_id = org_parent
+        session.add(form)
+    for form in session.exec(
+        select(_EPF).where(_EPF.approving_org_id == UUID(org_id))
+    ).all():
+        form.approving_org_id = None
+        session.add(form)
+
     # 7. Clean up Guest Events (where this org is a guest)
     guest_entries = session.exec(select(EventGuestOrganization).where(EventGuestOrganization.organization_id == org_id)).all()
     for ge in guest_entries:

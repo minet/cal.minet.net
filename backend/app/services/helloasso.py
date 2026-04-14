@@ -11,7 +11,7 @@ production can be switched without code changes.  Default: https://api.helloasso
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Tuple
+from typing import Optional, Tuple
 
 import httpx
 from cryptography.fernet import Fernet
@@ -25,8 +25,11 @@ from app.models import OrganizationHelloAsso
 # Configuration
 # ---------------------------------------------------------------------------
 
+
 def _base_url() -> str:
-    return os.getenv("HELLOASSO_BASE_URL", "https://api.helloasso-sandbox.com").rstrip("/")
+    return os.getenv("HELLOASSO_BASE_URL", "https://api.helloasso-sandbox.com").rstrip(
+        "/"
+    )
 
 
 def _token_url() -> str:
@@ -41,13 +44,14 @@ def _api_url(path: str) -> str:
 # Encryption helpers
 # ---------------------------------------------------------------------------
 
+
 def _get_fernet() -> Fernet:
     key = os.getenv("TOKEN_ENCRYPTION_KEY", "")
     if not key:
         raise RuntimeError(
             "TOKEN_ENCRYPTION_KEY environment variable is not set. "
             "Generate one with: "
-            "python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+            'python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"'
         )
     return Fernet(key.encode())
 
@@ -63,6 +67,7 @@ def decrypt(value: str) -> str:
 # ---------------------------------------------------------------------------
 # Token management
 # ---------------------------------------------------------------------------
+
 
 def get_access_token(org_ha: OrganizationHelloAsso, session: Session) -> str:
     """Return a valid access token for this org, refreshing via client_credentials if needed.
@@ -85,7 +90,11 @@ def get_access_token(org_ha: OrganizationHelloAsso, session: Session) -> str:
     client_secret = decrypt(org_ha.api_client_secret)
 
     token_url = _token_url()
-    log.info("[HelloAsso] POST %s  body=grant_type=client_credentials&client_id=%s&client_secret=***", token_url, org_ha.api_client_id)
+    log.info(
+        "[HelloAsso] POST %s  body=grant_type=client_credentials&client_id=%s&client_secret=***",
+        token_url,
+        org_ha.api_client_id,
+    )
     response = httpx.post(
         token_url,
         data={
@@ -96,7 +105,11 @@ def get_access_token(org_ha: OrganizationHelloAsso, session: Session) -> str:
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         timeout=15,
     )
-    log.info("[HelloAsso] token response  status=%s  body=%s", response.status_code, response.text)
+    log.info(
+        "[HelloAsso] token response  status=%s  body=%s",
+        response.status_code,
+        response.text,
+    )
     response.raise_for_status()
     token_data = response.json()
 
@@ -134,6 +147,105 @@ def validate_credentials(api_client_id: str, api_client_secret: str) -> bool:
 # ---------------------------------------------------------------------------
 # HelloAsso API calls
 # ---------------------------------------------------------------------------
+
+
+def list_forms(
+    org_ha: OrganizationHelloAsso,
+    session: Session,
+    form_type: Optional[str] = None,
+) -> list:
+    """List forms for this org from the HelloAsso API, optionally filtered by formType."""
+    token = get_access_token(org_ha, session)
+    params: dict = {"pageSize": 100, "pageIndex": 1}
+    if form_type:
+        params["formType"] = form_type
+
+    url = _api_url(f"organizations/{org_ha.helloasso_slug}/forms")
+    log.info("[HelloAsso] GET %s  params=%s", url, params)
+    response = httpx.get(
+        url,
+        params=params,
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=15,
+    )
+    log.info(
+        "[HelloAsso] forms response  status=%s  body=%s",
+        response.status_code,
+        response.text[:500],
+    )
+    if not response.is_success:
+        raise RuntimeError(f"{response.status_code} from HelloAsso: {response.text}")
+    data = response.json()
+    result = data.get("data", [])
+    if data.get("pagination", {}).get("totalPages", 1) > 1:
+        continuation_token = data.get("pagination", {}).get("continuationToken")
+        while True:
+            params["continuationToken"] = continuation_token
+            log.info("[HelloAsso] GET %s  params=%s", url, params)
+            response = httpx.get(
+                url,
+                params=params,
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=15,
+            )
+            log.info(
+                "[HelloAsso] forms continuation response  status=%s  body=%s",
+                response.status_code,
+                response.text[:500],
+            )
+            if not response.is_success:
+                raise RuntimeError(
+                    f"{response.status_code} from HelloAsso: {response.text}"
+                )
+            data = response.json()
+            result.extend(data.get("data", []))
+            if not data.get("pagination", {}).get("pageIndex", 1) < data.get(
+                "pagination", {}
+            ).get("totalPages", 1):
+                break
+    return data.get("data", [])
+
+
+def list_form_items(
+    org_ha: OrganizationHelloAsso,
+    session: Session,
+    form_slug: str,
+    form_type: str = "Event",
+) -> list:
+    """List all items (attendee tickets) for a HelloAsso form, paginates automatically."""
+    token = get_access_token(org_ha, session)
+    all_items: list = []
+    page = 1
+    page_size = 100
+
+    while True:
+        url = _api_url(
+            f"organizations/{org_ha.helloasso_slug}/forms/{form_type}/{form_slug}/items"
+        )
+        params: dict = {"pageSize": page_size, "pageIndex": page}
+        log.info("[HelloAsso] GET %s  params=%s", url, params)
+        response = httpx.get(
+            url,
+            params=params,
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=15,
+        )
+        log.info("[HelloAsso] items response  status=%s", response.status_code)
+        if not response.is_success:
+            raise RuntimeError(
+                f"{response.status_code} from HelloAsso: {response.text}"
+            )
+        data = response.json()
+        batch = data.get("data", [])
+        all_items.extend(batch)
+        pagination = data.get("pagination", {})
+        total_pages = pagination.get("totalPages", 1)
+        if page >= total_pages or not batch:
+            break
+        page += 1
+
+    return all_items
+
 
 def create_checkout_intent(
     org_ha: OrganizationHelloAsso,
@@ -180,11 +292,13 @@ def create_checkout_intent(
         },
         timeout=15,
     )
-    log.info("[HelloAsso] checkout-intents response  status=%s  body=%s", response.status_code, response.text)
+    log.info(
+        "[HelloAsso] checkout-intents response  status=%s  body=%s",
+        response.status_code,
+        response.text,
+    )
     if not response.is_success:
-        raise RuntimeError(
-            f"{response.status_code} from HelloAsso: {response.text}"
-        )
+        raise RuntimeError(f"{response.status_code} from HelloAsso: {response.text}")
     data = response.json()
     # The sandbox API returns "id" (int); production may return "checkoutIntentId"
     checkout_id = data.get("checkoutIntentId") or str(data["id"])

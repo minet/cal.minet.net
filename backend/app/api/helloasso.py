@@ -29,12 +29,19 @@ from app.models import (
     Membership,
     Organization,
     OrganizationHelloAsso,
+    PaymentFormBilleterie,
     PaymentFormStatus,
     User,
 )
 from app.schemas import (
     AttendeeSearchResult,
+    BilleterieCreate,
+    BilleterieImportResult,
+    BilleterieRead,
+    BulkResolveRequest,
+    BulkResolveResult,
     HelloAssoCredentials,
+    HelloAssoFormSummary,
     HelloAssoStatus,
     ManualEntryCreate,
     MyPaymentEntryRead,
@@ -48,8 +55,6 @@ from app.schemas import (
     PaymentInitiateRequest,
     PaymentInitiateResponse,
     ValidationEntryRead,
-    BulkResolveRequest,
-    BulkResolveResult,
 )
 from app.services import helloasso as ha_service
 from app.utils.email import send_email
@@ -185,6 +190,43 @@ def require_event_edit(
     return event
 
 
+def _requesting_org_in_ha_hierarchy(
+    form: EventPaymentForm, ha_org_id: UUID, session: Session
+) -> bool:
+    """Return True if the form's requesting org is in the subtree rooted at ha_org_id.
+
+    Walks up the parent chain from requesting_org until it finds ha_org_id or reaches
+    the root.  Prevents cross-branch links (org A cannot use a form from org B).
+    """
+    current_id: Optional[UUID] = form.requesting_org_id
+    visited: set = set()
+    while current_id:
+        if current_id in visited:
+            break
+        visited.add(current_id)
+        if current_id == ha_org_id:
+            return True
+        org = session.get(Organization, current_id)
+        if not org:
+            break
+        current_id = org.parent_id
+    return False
+
+
+def _billeterie_to_read(b: Optional[PaymentFormBilleterie]) -> Optional[BilleterieRead]:
+    if b is None:
+        return None
+    return BilleterieRead(
+        id=b.id,
+        helloasso_org_id=b.helloasso_org_id,
+        helloasso_form_slug=b.helloasso_form_slug,
+        helloasso_form_title=b.helloasso_form_title,
+        helloasso_form_type=b.helloasso_form_type,
+        last_imported_at=b.last_imported_at,
+        created_at=b.created_at,
+    )
+
+
 def _parse_options(raw: Optional[str]) -> List[PaymentFormOption]:
     if not raw:
         return []
@@ -201,6 +243,7 @@ def _to_read(
 
     entry_count = 0
     completed_count = 0
+    billeterie = None
     if session:
         entries = session.exec(
             select(EventPaymentEntry).where(
@@ -209,6 +252,12 @@ def _to_read(
         ).all()
         entry_count = len(entries)
         completed_count = sum(1 for e in entries if e.completed)
+        b = session.exec(
+            select(PaymentFormBilleterie).where(
+                PaymentFormBilleterie.payment_form_id == form.id
+            )
+        ).first()
+        billeterie = _billeterie_to_read(b)
 
     return PaymentFormRead(
         id=form.id,
@@ -228,6 +277,7 @@ def _to_read(
         reviewed_by_id=form.reviewed_by_id,
         created_at=form.created_at,
         reviewed_at=form.reviewed_at,
+        billeterie=billeterie,
     )
 
 
@@ -951,6 +1001,12 @@ def my_payment_forms(
             )
         ).all()
 
+        b = session.exec(
+            select(PaymentFormBilleterie).where(
+                PaymentFormBilleterie.payment_form_id == form.id
+            )
+        ).first()
+
         result.append(
             PaymentDashboardItem(
                 id=form.id,
@@ -963,6 +1019,7 @@ def my_payment_forms(
                 ),
                 org_id=form.requesting_org_id,
                 org_name=org.name if org else "Inconnue",
+                approving_org_id=form.approving_org_id,
                 item_name=form.item_name,
                 total_amount_cents=form.total_amount_cents,
                 options=_parse_options(form.options),
@@ -971,6 +1028,7 @@ def my_payment_forms(
                 entry_count=len(entries),
                 completed_count=sum(1 for e in entries if e.completed),
                 created_at=form.created_at,
+                billeterie=_billeterie_to_read(b),
             )
         )
 
@@ -1346,6 +1404,298 @@ def attendee_bulk_resolve(
             results.append(BulkResolveResult(query=q, user_id=None, full_name=None))
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# Billeterie (HelloAsso Event form) linking and attendee import
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{org_id}/billeteries", response_model=List[HelloAssoFormSummary])
+def list_billeteries(
+    org_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """List available HelloAsso billeteries (Event-type forms) for an org.
+
+    The org must *directly* have a HelloAsso integration configured and
+    the caller must have can_manage_payment_forms on that exact org.
+    Child organisations cannot call this endpoint for a parent org.
+    """
+    _require_org_admin(UUID(org_id), current_user, session)
+
+    org_ha = session.exec(
+        select(OrganizationHelloAsso).where(
+            OrganizationHelloAsso.organization_id == UUID(org_id)
+        )
+    ).first()
+    if not org_ha:
+        raise HTTPException(
+            status_code=404,
+            detail="No HelloAsso integration configured for this organisation",
+        )
+
+    try:
+        forms = ha_service.list_forms(org_ha, session, form_type="Event")
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"HelloAsso API error: {exc}")
+
+    return [
+        HelloAssoFormSummary(
+            form_type=f.get("formType", "Event"),
+            form_slug=f.get("formSlug", ""),
+            title=f.get("title", ""),
+            state=f.get("state", ""),
+            start_date=f.get("startDate"),
+            end_date=f.get("endDate"),
+        )
+        for f in forms
+    ]
+
+
+@router.post(
+    "/events/{event_id}/payment-form/billeterie", response_model=BilleterieRead
+)
+def link_billeterie(
+    event_id: str,
+    data: BilleterieCreate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Link a HelloAsso billeterie to a payment form for later attendee import.
+
+    Permission rules:
+    - The caller must have can_manage_payment_forms on the organisation that
+      *directly* has HelloAsso configured (identified by data.org_id).
+    - The payment form's requesting org must be in the subtree rooted at data.org_id
+      (prevents cross-branch links).
+    """
+    form = _get_form_or_404(event_id, session)
+
+    # Resolve the HelloAsso integration record for the given org
+    org_ha = session.exec(
+        select(OrganizationHelloAsso).where(
+            OrganizationHelloAsso.organization_id == data.org_id
+        )
+    ).first()
+    if not org_ha:
+        raise HTTPException(
+            status_code=404,
+            detail="No HelloAsso integration configured for this organisation",
+        )
+
+    # Must have can_manage_payment_forms on the HA org itself (not a child)
+    _require_org_admin(data.org_id, current_user, session)
+
+    # Hierarchy check: form's requesting org must be a descendant-or-equal of data.org_id
+    if not _requesting_org_in_ha_hierarchy(form, data.org_id, session):
+        raise HTTPException(
+            status_code=403,
+            detail="The payment form does not belong to this organisation's hierarchy",
+        )
+
+    # Upsert: update existing link or create a new one
+    existing = session.exec(
+        select(PaymentFormBilleterie).where(
+            PaymentFormBilleterie.payment_form_id == form.id
+        )
+    ).first()
+
+    if existing:
+        existing.helloasso_org_id = org_ha.id
+        existing.helloasso_form_slug = data.form_slug
+        existing.helloasso_form_title = data.form_title
+        existing.helloasso_form_type = data.form_type
+        session.add(existing)
+        session.commit()
+        session.refresh(existing)
+        return _billeterie_to_read(existing)  # type: ignore[return-value]
+
+    billeterie = PaymentFormBilleterie(
+        payment_form_id=form.id,
+        helloasso_org_id=org_ha.id,
+        helloasso_form_slug=data.form_slug,
+        helloasso_form_title=data.form_title,
+        helloasso_form_type=data.form_type,
+        created_by_id=current_user.id,
+    )
+    session.add(billeterie)
+    session.commit()
+    session.refresh(billeterie)
+    return _billeterie_to_read(billeterie)  # type: ignore[return-value]
+
+
+@router.get(
+    "/events/{event_id}/payment-form/billeterie",
+    response_model=Optional[BilleterieRead],
+)
+def get_billeterie(
+    event_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return the billeterie link for a payment form, or null if none."""
+    form = _get_form_or_404(event_id, session)
+    if not (
+        current_user.is_superadmin
+        or _can_manage_form(form, current_user, session)
+        or _can_review_payment_form(form, current_user, session)
+    ):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    b = session.exec(
+        select(PaymentFormBilleterie).where(
+            PaymentFormBilleterie.payment_form_id == form.id
+        )
+    ).first()
+    return _billeterie_to_read(b)
+
+
+@router.delete("/events/{event_id}/payment-form/billeterie")
+def unlink_billeterie(
+    event_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Unlink the billeterie from a payment form."""
+    form = _get_form_or_404(event_id, session)
+
+    b = session.exec(
+        select(PaymentFormBilleterie).where(
+            PaymentFormBilleterie.payment_form_id == form.id
+        )
+    ).first()
+    if not b:
+        raise HTTPException(status_code=404, detail="No billeterie linked")
+
+    # Only the admin of the HA org (or superadmin) can unlink
+    org_ha = session.get(OrganizationHelloAsso, b.helloasso_org_id)
+    if org_ha:
+        _require_org_admin(org_ha.organization_id, current_user, session)
+    elif not current_user.is_superadmin:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    session.delete(b)
+    session.commit()
+    return {"message": "Billeterie unlinked"}
+
+
+@router.post(
+    "/events/{event_id}/payment-form/billeterie/import",
+    response_model=BilleterieImportResult,
+)
+def import_billeterie_attendees(
+    event_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Fetch participants from the linked HelloAsso billeterie and add them to the
+    guest list as completed EventPaymentEntry records.
+
+    - Attendees are NOT matched against the User or LDAP tables.
+    - Import is idempotent: already-imported items (identified by HelloAsso item ID)
+      are skipped.
+    - Items whose state is not 'Processed' or 'Validated' are skipped.
+    """
+    form = _get_form_or_404(event_id, session)
+
+    b = session.exec(
+        select(PaymentFormBilleterie).where(
+            PaymentFormBilleterie.payment_form_id == form.id
+        )
+    ).first()
+    if not b:
+        raise HTTPException(
+            status_code=404, detail="No billeterie linked to this payment form"
+        )
+
+    org_ha = session.get(OrganizationHelloAsso, b.helloasso_org_id)
+    if not org_ha:
+        raise HTTPException(
+            status_code=404, detail="HelloAsso integration no longer available"
+        )
+
+    _require_org_admin(org_ha.organization_id, current_user, session)
+
+    try:
+        items = ha_service.list_form_items(
+            org_ha, session, b.helloasso_form_slug, b.helloasso_form_type
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"HelloAsso API error: {exc}")
+
+    imported = 0
+    skipped = 0
+
+    for item in items:
+        # Only import paid/validated tickets
+        if item.get("state") not in ("Processed", "Validated"):
+            skipped += 1
+            continue
+
+        # Resolve attendee name from item.user (ticket holder) or order.payer (buyer)
+        user_info = item.get("user") or {}
+        first_name = (user_info.get("firstName") or "").strip()
+        last_name = (user_info.get("lastName") or "").strip()
+
+        if not first_name and not last_name:
+            order = item.get("order") or {}
+            payer = order.get("payer") or {}
+            first_name = (payer.get("firstName") or "").strip()
+            last_name = (payer.get("lastName") or "").strip()
+
+        attendee_name = f"{first_name} {last_name}".strip()
+        if not attendee_name:
+            skipped += 1
+            continue
+
+        # Stable external key: scoped to the form so two forms can import the same billeterie
+        item_id = item.get("id")
+        ha_key = f"ha_import:{form.id}:{item_id}" if item_id else None
+
+        if ha_key:
+            already = session.exec(
+                select(EventPaymentEntry).where(
+                    EventPaymentEntry.checkout_intent_id == ha_key
+                )
+            ).first()
+            if already:
+                skipped += 1
+                continue
+        else:
+            # Fallback dedup by name within this form and payment type
+            already = session.exec(
+                select(EventPaymentEntry).where(
+                    EventPaymentEntry.payment_form_id == form.id,
+                    EventPaymentEntry.attendee_name == attendee_name,
+                    EventPaymentEntry.payment_type == "helloasso_import",
+                )
+            ).first()
+            if already:
+                skipped += 1
+                continue
+
+        entry = EventPaymentEntry(
+            payment_form_id=form.id,
+            user_id=None,
+            checkout_intent_id=ha_key,
+            completed=True,
+            completed_at=datetime.now(timezone.utc),
+            amount_cents=item.get("amount", 0),
+            payment_type="helloasso_import",
+            attendee_name=attendee_name,
+            validated=False,
+        )
+        session.add(entry)
+        imported += 1
+
+    if imported:
+        b.last_imported_at = datetime.now(timezone.utc)
+        session.add(b)
+
+    session.commit()
+    return BilleterieImportResult(imported=imported, skipped=skipped)
 
 
 @router.post("/events/{event_id}/manual-entry", response_model=ValidationEntryRead)
