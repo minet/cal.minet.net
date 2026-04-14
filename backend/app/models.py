@@ -81,7 +81,9 @@ class User(SQLModel, table=True):
     is_superadmin: bool = Field(default=False)
     exempt_from_rgpd_delete: bool = Field(default=False)
     notification_delay: int = Field(default=45)  # Minutes before event
-    profile_picture_file_id: Optional[UUID] = Field(default=None, foreign_key="storedfile.id")
+    profile_picture_file_id: Optional[UUID] = Field(
+        default=None, foreign_key="storedfile.id"
+    )
 
     memberships: List["Membership"] = Relationship(back_populates="user")
     subscriptions: List["Subscription"] = Relationship(back_populates="user")
@@ -144,6 +146,7 @@ class Organization(SQLModel, table=True):
     guest_events: List["Event"] = Relationship(
         back_populates="guest_organizations", link_model=EventGuestOrganization
     )
+
 
     def to_read_model(self, session=None):
         from app.schemas import OrganizationRead
@@ -252,6 +255,7 @@ class Event(SQLModel, table=True):
         back_populates="guest_events", link_model=EventGuestOrganization
     )
     reactions: List["EventReaction"] = Relationship(back_populates="event")
+    payment_forms: List["EventPaymentForm"] = Relationship(back_populates="event")
 
     def to_read_model(
         self, current_user: Optional["User"] = None, session: Optional["Session"] = None
@@ -373,7 +377,9 @@ class EventPaymentForm(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     event_id: UUID = Field(foreign_key="event.id", unique=True)
     requesting_org_id: UUID = Field(foreign_key="organization.id")  # Child org
-    approving_org_id: Optional[UUID] = Field(default=None, foreign_key="organization.id")  # Parent org
+    approving_org_id: Optional[UUID] = Field(
+        default=None, foreign_key="organization.id"
+    )  # Parent org
     total_amount_cents: int
     item_name: str
     status: PaymentFormStatus = Field(default=PaymentFormStatus.PENDING)
@@ -386,11 +392,28 @@ class EventPaymentForm(SQLModel, table=True):
     # webhook matching only (the most recently generated intent).
     last_checkout_intent_id: Optional[str] = None
     rejection_message: Optional[str] = None
-    payment_completed: bool = Field(default=False)  # Set to True on first completed payment
+    payment_completed: bool = Field(
+        default=False
+    )  # Set to True on first completed payment
     created_by_id: UUID = Field(foreign_key="user.id")
     reviewed_by_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     reviewed_at: Optional[datetime] = None
+
+    event: Event = Relationship(back_populates="payment_forms")
+    requesting_org: "Organization" = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[EventPaymentForm.requesting_org_id]"}
+    )
+    approving_org: Optional["Organization"] = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[EventPaymentForm.approving_org_id]"}
+    )
+    created_by: "User" = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[EventPaymentForm.created_by_id]"}
+    )
+    reviewed_by: Optional["User"] = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[EventPaymentForm.reviewed_by_id]"}
+    )
+    entries: List["EventPaymentEntry"] = Relationship(back_populates="payment_form")
 
 
 class EventPaymentEntry(SQLModel, table=True):
@@ -418,6 +441,14 @@ class EventPaymentEntry(SQLModel, table=True):
     validated_by_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+    payment_form: EventPaymentForm = Relationship(back_populates="entries")
+    user: Optional["User"] = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[EventPaymentEntry.user_id]"}
+    )
+    validated_by: Optional["User"] = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[EventPaymentEntry.validated_by_id]"}
+    )
+
 
 class StoredFile(SQLModel, table=True):
     """Tracks every file uploaded to MinIO storage"""
@@ -434,4 +465,3 @@ class StoredFile(SQLModel, table=True):
     file_type: str = Field(default="image")  # "image" or "video"
     variants: Optional[str] = Field(default=None)  # JSON list of variant dicts
     retry_count: int = Field(default=0)
-

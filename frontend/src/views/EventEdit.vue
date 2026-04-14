@@ -239,7 +239,7 @@
         </div>
 
         <!-- Payment Form (HelloAsso) -->
-        <div v-if="helloassoConnected || existingPaymentForm" class="border-t border-gray-900/10 pt-8 mt-8">
+        <div v-if="(helloassoConnected && canManagePayments) || existingPaymentForm" class="border-t border-gray-900/10 pt-8 mt-8">
           <div class="flex items-center gap-2 mb-1">
             <h2 class="text-base font-semibold leading-7 text-gray-900">Formulaire de paiement HelloAsso</h2>
           </div>
@@ -281,7 +281,7 @@
             </div>
 
             <!-- Edit options (available for non-rejected forms) -->
-            <div v-if="existingPaymentForm.status !== 'rejected'" class="space-y-3">
+            <div v-if="existingPaymentForm.status !== 'rejected' && canManagePayments" class="space-y-3">
               <p class="text-xs text-gray-500">Modifier les options payantes :</p>
               <div class="space-y-4">
                 <div v-for="(opt, idx) in paymentFormEdit.options" :key="idx" class="flex flex-col gap-2 p-3 border border-gray-100 rounded-lg bg-gray-50">
@@ -341,7 +341,7 @@
           </template>
 
           <!-- No form yet: propose one -->
-          <template v-else-if="helloassoConnected">
+          <template v-else-if="helloassoConnected && canManagePayments">
             <p class="text-sm text-gray-500 mb-4">
               Proposez un formulaire de paiement. Un administrateur de l'organisation parente devra l'approuver.
             </p>
@@ -526,6 +526,7 @@ const eventLoaded = ref(false)
 const error = ref('')
 const loading = ref(false)
 const helloassoConnected = ref(false)
+const canManagePayments = ref(false)
 const existingPaymentForm = ref(null)
 const savingPaymentForm = ref(false)
 // For editing options on an existing form
@@ -840,12 +841,14 @@ const loadPaymentForm = async () => {
 }
 
 const loadHelloAssoStatus = async (orgId) => {
-  if (!orgId) { helloassoConnected.value = false; return }
+  if (!orgId) { helloassoConnected.value = false; canManagePayments.value = false; return }
   try {
     const res = await api.get(`/helloasso/status/${orgId}`)
     helloassoConnected.value = res.data.connected
+    canManagePayments.value = res.data.can_manage_payment_forms
   } catch {
     helloassoConnected.value = false
+    canManagePayments.value = false
   }
 }
 

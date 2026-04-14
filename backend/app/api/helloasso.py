@@ -30,7 +30,6 @@ from app.models import (
     Organization,
     OrganizationHelloAsso,
     PaymentFormStatus,
-    Role,
     User,
 )
 from app.schemas import (
@@ -90,7 +89,7 @@ def _require_org_admin(org_id: UUID, current_user: User, session: Session) -> No
         select(Membership).where(
             Membership.user_id == current_user.id,
             Membership.organization_id == org_id,
-            Membership.role == Role.ORG_ADMIN,
+            Membership.can_manage_payment_forms == True,
         )
     ).first()
     if not membership:
@@ -110,7 +109,7 @@ def _can_propose_payment_form(
     ).first()
     if not membership:
         return False
-    return membership.role == Role.ORG_ADMIN or membership.can_manage_payment_forms
+    return membership.can_manage_payment_forms
 
 
 def _can_review_payment_form(
@@ -124,7 +123,7 @@ def _can_review_payment_form(
         select(Membership).where(
             Membership.user_id == current_user.id,
             Membership.organization_id == form.approving_org_id,
-            Membership.role == Role.ORG_ADMIN,
+            Membership.can_manage_payment_forms == True,
         )
     ).first()
     return membership is not None
@@ -146,7 +145,7 @@ def _can_manage_form(
     ).first()
     if not membership:
         return False
-    return membership.role == Role.ORG_ADMIN or membership.can_manage_payment_forms
+    return membership.can_manage_payment_forms
 
 
 def _get_form_or_404(event_id: str, session: Session) -> EventPaymentForm:
@@ -252,7 +251,7 @@ def _notify_parent_admins_of_pending_form(form_id: UUID, event_id: UUID) -> None
         admins = session.exec(
             select(Membership).where(
                 Membership.organization_id == form.approving_org_id,
-                Membership.role == Role.ORG_ADMIN,
+                Membership.can_manage_payment_forms == True,
             )
         ).all()
 
@@ -352,28 +351,43 @@ def helloasso_status(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
+    target_org_id = UUID(org_id)
     org_ha = session.exec(
         select(OrganizationHelloAsso).where(
-            OrganizationHelloAsso.organization_id == UUID(org_id)
+            OrganizationHelloAsso.organization_id == target_org_id
         )
     ).first()
 
+    # If the org itself hasn't connected HelloAsso, check its parent
+    if not org_ha:
+        org = session.get(Organization, target_org_id)
+        if org and org.parent_id:
+            org_ha = session.exec(
+                select(OrganizationHelloAsso).where(
+                    OrganizationHelloAsso.organization_id == org.parent_id
+                )
+            ).first()
+
     is_admin = current_user.is_superadmin
+    has_manage_permission = False
+
     if not is_admin:
         membership = session.exec(
             select(Membership).where(
                 Membership.user_id == current_user.id,
-                Membership.organization_id == UUID(org_id),
+                Membership.organization_id == target_org_id,
             )
         ).first()
-        if membership and (
-            membership.role == Role.ORG_ADMIN or membership.can_manage_payment_forms
-        ):
+        if membership and membership.can_manage_payment_forms:
+            has_manage_permission = True
             is_admin = True
 
     if not org_ha:
         return HelloAssoStatus(
-            connected=False, webhook_url=_webhook_url(org_id) if is_admin else None
+            connected=False,
+            webhook_url=_webhook_url(org_id) if is_admin else None,
+            can_manage_payment_forms=has_manage_permission
+            or current_user.is_superadmin,
         )
 
     return HelloAssoStatus(
@@ -381,6 +395,7 @@ def helloasso_status(
         helloasso_slug=org_ha.helloasso_slug if is_admin else None,
         api_client_id=org_ha.api_client_id if is_admin else None,
         webhook_url=_webhook_url(org_id) if is_admin else None,
+        can_manage_payment_forms=has_manage_permission or current_user.is_superadmin,
     )
 
 
@@ -881,6 +896,7 @@ def my_payment_forms(
     session: Session = Depends(get_session),
 ):
     """All payment forms across orgs where the user has payment management rights."""
+
     if current_user.is_superadmin:
         forms = session.exec(select(EventPaymentForm)).all()
     else:
@@ -888,15 +904,12 @@ def my_payment_forms(
             select(Membership).where(Membership.user_id == current_user.id)
         ).all()
 
-        # Orgs where user can propose/manage
+        # Orgs where user can propose/manage (or approve)
         proposing_org_ids = [
-            m.organization_id
-            for m in memberships
-            if m.role == Role.ORG_ADMIN or m.can_manage_payment_forms
+            m.organization_id for m in memberships if m.can_manage_payment_forms
         ]
-        # Orgs where user can approve (as parent org admin)
         approving_org_ids = [
-            m.organization_id for m in memberships if m.role == Role.ORG_ADMIN
+            m.organization_id for m in memberships if m.can_manage_payment_forms
         ]
 
         if not proposing_org_ids and not approving_org_ids:
@@ -1456,7 +1469,7 @@ async def helloasso_webhook(
             select(EventPaymentEntry)
             .where(
                 EventPaymentEntry.user_id == user_obj.id,
-                EventPaymentEntry.completed == False,
+                not EventPaymentEntry.completed,
                 EventPaymentEntry.amount_cents == amount_cents,
                 col(EventPaymentEntry.payment_form_id).in_(org_form_ids),
             )

@@ -5,9 +5,16 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from app.models import EventVisibility, OrganizationType, PaymentFormStatus, PaymentType, Role
+from app.models import (
+    EventVisibility,
+    OrganizationType,
+    PaymentFormStatus,
+    PaymentType,
+    Role,
+)
 
 T = TypeVar("T")
+
 
 class PaginatedResponse(BaseModel, Generic[T]):
     items: List[T]
@@ -16,15 +23,26 @@ class PaginatedResponse(BaseModel, Generic[T]):
     size: int
     pages: int
 
+
 if TYPE_CHECKING:
-    from app.models import Tag, Organization, OrganizationImage, User, Event, Membership, StoredFile
+    from app.models import (
+        Tag,
+        Organization,
+        OrganizationImage,
+        User,
+        Event,
+        Membership,
+        StoredFile,
+    )
     from sqlmodel import Session
+
 
 class StoredFileVariantRead(BaseModel):
     width: int
     url: str
-    format: str   # "webp" or "webm"
-    size: int     # bytes
+    format: str  # "webp" or "webm"
+    size: int  # bytes
+
 
 class StoredFileRead(BaseModel):
     id: UUID
@@ -36,6 +54,7 @@ class StoredFileRead(BaseModel):
     @classmethod
     def from_model(cls, sf: "StoredFile") -> "StoredFileRead":
         import json as _json
+
         variants: List[StoredFileVariantRead] = []
         if sf.variants:
             try:
@@ -43,7 +62,14 @@ class StoredFileRead(BaseModel):
                     variants.append(StoredFileVariantRead(**v))
             except Exception:
                 pass
-        return cls(id=sf.id, url=sf.url, variants=variants, processed=sf.processed, file_type=sf.file_type)
+        return cls(
+            id=sf.id,
+            url=sf.url,
+            variants=variants,
+            processed=sf.processed,
+            file_type=sf.file_type,
+        )
+
 
 class TagRead(BaseModel):
     id: UUID
@@ -60,14 +86,16 @@ class TagRead(BaseModel):
             name=tag.name,
             color=tag.color,
             organization_id=tag.organization_id,
-            is_auto_approved=tag.is_auto_approved if is_super else None
+            is_auto_approved=tag.is_auto_approved if is_super else None,
         )
+
 
 class OrganizationLinkRead(BaseModel):
     id: UUID
     name: str
     url: str
     order: int
+
 
 class OrganizationImageRead(BaseModel):
     id: UUID
@@ -77,10 +105,13 @@ class OrganizationImageRead(BaseModel):
     stored_file: Optional[StoredFileRead] = None
 
     @classmethod
-    def from_model(cls, img: "OrganizationImage", session: Optional["Session"] = None) -> "OrganizationImageRead":
+    def from_model(
+        cls, img: "OrganizationImage", session: Optional["Session"] = None
+    ) -> "OrganizationImageRead":
         stored_file = None
         if session and img.stored_file_id:
             from app.models import StoredFile
+
             sf = session.get(StoredFile, img.stored_file_id)
             if sf:
                 stored_file = StoredFileRead.from_model(sf)
@@ -92,26 +123,31 @@ class OrganizationImageRead(BaseModel):
             stored_file=stored_file,
         )
 
+
 class UserLinkRead(BaseModel):
     id: UUID
     name: str
     url: str
     order: int
 
+
 class UserLinkCreate(BaseModel):
     name: str
     url: str
     order: int = 0
-    
+
+
 class EventLinkCreate(BaseModel):
     name: str
     url: str
+
 
 class EventLinkRead(BaseModel):
     id: UUID
     name: str
     url: str
     order: int
+
 
 class OrganizationRead(BaseModel):
     id: UUID
@@ -129,13 +165,28 @@ class OrganizationRead(BaseModel):
     updated_at: Optional[datetime] = None
     organization_links: List[OrganizationLinkRead] = []
     logo_file: Optional[StoredFileRead] = None
+    can_edit: Optional[bool] = None
+    can_manage_payment_forms: Optional[bool] = None
 
     @classmethod
-    def from_model(cls, org: "Organization", session: Optional["Session"] = None) -> "OrganizationRead":
-        links = [OrganizationLinkRead(id=l.id, name=l.name, url=l.url, order=l.order) for l in org.organization_links]
+    def from_model(
+        cls,
+        org: "Organization",
+        session: Optional["Session"] = None,
+        membership: Optional["Membership"] = None,
+    ) -> "OrganizationRead":
+        links = [
+            OrganizationLinkRead(id=l.id, name=l.name, url=l.url, order=l.order)
+            for l in org.organization_links
+        ]
         logo_file = None
+        can_edit = membership.role in [Role.ORG_ADMIN] if membership else None
+        can_manage_payment_forms = (
+            membership.can_manage_payment_forms if membership else None
+        )
         if session and org.logo_file_id:
             from app.models import StoredFile
+
             sf = session.get(StoredFile, org.logo_file_id)
             if sf:
                 logo_file = StoredFileRead.from_model(sf)
@@ -155,7 +206,10 @@ class OrganizationRead(BaseModel):
             updated_at=org.updated_at,
             organization_links=links,
             logo_file=logo_file,
+            can_edit=can_edit,
+            can_manage_payment_forms=can_manage_payment_forms,
         )
+
 
 class UserRead(BaseModel):
     id: UUID
@@ -173,15 +227,18 @@ class UserRead(BaseModel):
     class Config:
         from_attributes = True
 
+
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     profile_picture_file_id: Optional[str] = None  # UUID string
     phone_number: Optional[str] = None
     notification_delay: Optional[int] = None
 
+
 class PushTokenCreate(BaseModel):
     endpoint: str
     keys: str
+
 
 class UserPublicRead(BaseModel):
     id: UUID
@@ -195,26 +252,37 @@ class UserPublicRead(BaseModel):
         from_attributes = True
 
     @classmethod
-    def from_model(cls, user: "User", session: Optional["Session"] = None) -> "UserPublicRead":
+    def from_model(
+        cls, user: "User", session: Optional["Session"] = None
+    ) -> "UserPublicRead":
         from app.models import UserLink
+
         profile_picture_file = None
         if session and user.profile_picture_file_id:
             from app.models import StoredFile
+
             sf = session.get(StoredFile, user.profile_picture_file_id)
             if sf:
                 profile_picture_file = StoredFileRead.from_model(sf)
         return cls(
             id=user.id,
             full_name=user.full_name,
-            profile_picture_url=profile_picture_file.url if profile_picture_file else None,
+            profile_picture_url=(
+                profile_picture_file.url if profile_picture_file else None
+            ),
             phone_number=user.phone_number,
-            links=[UserLinkRead(id=l.id, name=l.name, url=l.url, order=l.order) for l in user.links],
+            links=[
+                UserLinkRead(id=l.id, name=l.name, url=l.url, order=l.order)
+                for l in user.links
+            ],
             profile_picture_file=profile_picture_file,
         )
+
 
 class GroupRead(BaseModel):
     id: UUID
     name: str
+
 
 class CreateEvent(BaseModel):
     title: str
@@ -233,6 +301,7 @@ class CreateEvent(BaseModel):
     video_file_id: Optional[UUID] = None
     links: List[EventLinkCreate] = []
 
+
 class UpdateEvent(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
@@ -250,18 +319,22 @@ class UpdateEvent(BaseModel):
     featured: Optional[int] = None
     links: Optional[List[EventLinkCreate]] = None
 
+
 class RejectEventRequest(BaseModel):
     message: str
+
 
 class ReactionSummary(BaseModel):
     emoji: str
     count: int
     user_reacted: bool
 
+
 class ReactionDetail(BaseModel):
     user: UserPublicRead
     emoji: str
     created_at: datetime
+
 
 class EventRead(BaseModel):
     id: UUID
@@ -279,11 +352,11 @@ class EventRead(BaseModel):
     approved_at: Optional[datetime] = None
     submitted_at: Optional[datetime] = None
     created_at: datetime
-    
+
     # New Fields
     featured: int = 0
     is_featured: bool = False
-    
+
     organization: Optional[OrganizationRead] = None
     guest_organizations: List[OrganizationRead] = []
     tags: List[TagRead] = []
@@ -291,7 +364,7 @@ class EventRead(BaseModel):
     group: Optional[GroupRead] = None
     created_by: Optional[UserPublicRead] = None
     created_by_id: Optional[UUID] = None
-    
+
     reactions: List[ReactionSummary] = []
 
     is_draft: Optional[bool] = None
@@ -300,50 +373,59 @@ class EventRead(BaseModel):
     video_file: Optional[StoredFileRead] = None
 
     @classmethod
-    def from_model(cls, event: "Event", current_user: Optional["User"] = None, session: Optional["Session"] = None) -> "EventRead":
+    def from_model(
+        cls,
+        event: "Event",
+        current_user: Optional["User"] = None,
+        session: Optional["Session"] = None,
+    ) -> "EventRead":
         from app.models import Role, Membership, User
         from sqlmodel import select
 
         # Logic to determine if user can see details
         should_hide = False
         if event.hide_details and event.visibility == EventVisibility.PUBLIC_APPROVED:
-             is_auth = False
-             if current_user:
-                 if current_user.is_superadmin:
-                     is_auth = True
-                 elif session:
-                     # Check membership
-                     membership = session.exec(
+            is_auth = False
+            if current_user:
+                if current_user.is_superadmin:
+                    is_auth = True
+                elif session:
+                    # Check membership
+                    membership = session.exec(
                         select(Membership).where(
                             Membership.user_id == current_user.id,
-                            Membership.organization_id == event.organization_id
+                            Membership.organization_id == event.organization_id,
                         )
-                     ).first()
-                     if membership:
-                         is_auth = True
-             
-             if not is_auth:
-                 should_hide = True
+                    ).first()
+                    if membership:
+                        is_auth = True
+
+            if not is_auth:
+                should_hide = True
 
         # Tags
         tags_read = [
-            TagRead.from_model(et.tag, current_user) 
-            for et in event.event_tags 
+            TagRead.from_model(et.tag, current_user)
+            for et in event.event_tags
             if et.tag
         ]
-        
+
         # Guest Orgs
         guest_orgs_read = [
             OrganizationRead.from_model(org, session)
             for org in event.guest_organizations
         ]
-        
+
         # Links
-        links_read = [
-            EventLinkRead(id=l.id, name=l.name, url=l.url, order=l.order)
-            for l in event.event_links
-        ] if not should_hide else []
-        
+        links_read = (
+            [
+                EventLinkRead(id=l.id, name=l.name, url=l.url, order=l.order)
+                for l in event.event_links
+            ]
+            if not should_hide
+            else []
+        )
+
         # Reactions
         reaction_counts = {}
         user_reacted_emojis = set()
@@ -358,26 +440,25 @@ class EventRead(BaseModel):
 
         reactions_summary = [
             ReactionSummary(
-                emoji=emoji,
-                count=count,
-                user_reacted=(emoji in user_reacted_emojis)
+                emoji=emoji, count=count, user_reacted=(emoji in user_reacted_emojis)
             )
             for emoji, count in reaction_counts.items()
         ]
 
         creator = None
         if session and event.created_by_id:
-             creator_obj = session.get(User, event.created_by_id)
-             if creator_obj:
-                 creator = UserPublicRead.from_model(creator_obj, session)
+            creator_obj = session.get(User, event.created_by_id)
+            if creator_obj:
+                creator = UserPublicRead.from_model(creator_obj, session)
 
         group_read = None
         if event.group:
-             group_read = GroupRead(id=event.group.id, name=event.group.name)
+            group_read = GroupRead(id=event.group.id, name=event.group.name)
 
         poster_file = None
         if session and event.poster_file_id:
             from app.models import StoredFile
+
             sf = session.get(StoredFile, event.poster_file_id)
             if sf:
                 poster_file = StoredFileRead.from_model(sf)
@@ -385,14 +466,22 @@ class EventRead(BaseModel):
         video_file = None
         if session and event.video_file_id:
             from app.models import StoredFile
+
             sf = session.get(StoredFile, event.video_file_id)
             if sf:
                 video_file = StoredFileRead.from_model(sf)
 
-
         # Ensure timezone context is preserved/added
-        start_time = event.start_time.replace(tzinfo=timezone.utc) if event.start_time.tzinfo is None else event.start_time
-        end_time = event.end_time.replace(tzinfo=timezone.utc) if event.end_time.tzinfo is None else event.end_time
+        start_time = (
+            event.start_time.replace(tzinfo=timezone.utc)
+            if event.start_time.tzinfo is None
+            else event.start_time
+        )
+        end_time = (
+            event.end_time.replace(tzinfo=timezone.utc)
+            if event.end_time.tzinfo is None
+            else event.end_time
+        )
 
         return cls(
             id=event.id,
@@ -404,43 +493,58 @@ class EventRead(BaseModel):
             location_url=None if should_hide else event.location_url,
             visibility=event.visibility,
             hide_details=event.hide_details,
-            poster_url=None if should_hide else (poster_file.url if poster_file else None),
+            poster_url=(
+                None if should_hide else (poster_file.url if poster_file else None)
+            ),
             video_url=None if should_hide else (video_file.url if video_file else None),
             submitted_at=event.submitted_at,
             created_at=event.created_at,
             featured=event.featured,
-            is_featured=(event.featured > 0 and start_time.replace(tzinfo=timezone.utc) <= (datetime.now(timezone.utc) + timedelta(days=event.featured))),
+            is_featured=(
+                event.featured > 0
+                and start_time.replace(tzinfo=timezone.utc)
+                <= (datetime.now(timezone.utc) + timedelta(days=event.featured))
+            ),
             approved_at=event.approved_at,
-            rejection_message=event.rejection_message if (
-                current_user and (
-                    current_user.id == event.created_by_id or current_user.is_superadmin
+            rejection_message=(
+                event.rejection_message
+                if (
+                    current_user
+                    and (
+                        current_user.id == event.created_by_id
+                        or current_user.is_superadmin
+                    )
                 )
-            ) else None,
-            
-            organization=OrganizationRead.from_model(event.organization, session) if event.organization else None,
+                else None
+            ),
+            organization=(
+                OrganizationRead.from_model(event.organization, session)
+                if event.organization
+                else None
+            ),
             guest_organizations=guest_orgs_read,
             tags=tags_read,
             event_links=links_read,
             group=group_read,
-            
             created_by=creator,
             created_by_id=event.created_by_id,
-
             reactions=reactions_summary,
             is_draft=(event.visibility == EventVisibility.DRAFT),
-
             poster_file=poster_file,
             video_file=video_file,
         )
+
 
 class ShortLinkCreate(BaseModel):
     item_type: str
     item_id: str
     action_type: str
 
+
 class ShortLinkRead(BaseModel):
     id: str
     url: str
+
 
 class ShortLinkInfo(BaseModel):
     id: str
@@ -455,6 +559,7 @@ class ShortLinkInfo(BaseModel):
     color_dark: Optional[str] = None
     tag_color: Optional[str] = None
 
+
 class Message(BaseModel):
     message: str
 
@@ -463,15 +568,18 @@ class Message(BaseModel):
 # HelloAsso schemas
 # ---------------------------------------------------------------------------
 
+
 class HelloAssoStatus(BaseModel):
     connected: bool
     helloasso_slug: Optional[str] = None
     api_client_id: Optional[str] = None  # Shown to admins; secret is never returned
-    webhook_url: Optional[str] = None    # Full URL to configure on HelloAsso
+    webhook_url: Optional[str] = None  # Full URL to configure on HelloAsso
+    can_manage_payment_forms: bool = False
 
 
 class HelloAssoCredentials(BaseModel):
     """Write-only: set/update API credentials for an organization."""
+
     helloasso_slug: str
     api_client_id: str
     api_client_secret: str  # Accepted but never returned after storage
@@ -492,6 +600,7 @@ class PaymentFormCreate(BaseModel):
 
 class PaymentFormUpdate(BaseModel):
     """Partial update for an existing payment form."""
+
     item_name: Optional[str] = None
     total_amount_cents: Optional[int] = None
     options: Optional[List[PaymentFormOption]] = None
@@ -520,11 +629,13 @@ class PaymentFormRead(BaseModel):
 
 class PaymentInitiateRequest(BaseModel):
     """Optional add-on options selected by the user before paying."""
+
     selected_option_indices: List[int] = []
 
 
 class PaymentInitiateResponse(BaseModel):
     """Returned when a user initiates payment — contains the HelloAsso redirect URL."""
+
     redirect_url: str
     checkout_intent_id: str
 
@@ -543,6 +654,7 @@ class PaymentEntryRead(BaseModel):
 
 class PaymentDashboardItem(BaseModel):
     """Aggregated view of a payment form for the dashboard."""
+
     id: UUID
     event_id: UUID
     event_title: str
@@ -565,6 +677,7 @@ class PaymentFormReject(BaseModel):
 
 class MyPaymentEntryRead(BaseModel):
     """A user's own payment entry, enriched with event and form details."""
+
     id: UUID
     event_id: UUID
     event_title: str
@@ -580,6 +693,7 @@ class MyPaymentEntryRead(BaseModel):
 
 class ValidationEntryRead(BaseModel):
     """Entry as shown on the ticket-validation page."""
+
     id: UUID
     user_name: Optional[str] = None
     user_email: Optional[str] = None
@@ -605,17 +719,19 @@ class ManualEntryCreate(BaseModel):
 
 class AttendeeSearchResult(BaseModel):
     """A candidate person for manual entry autocomplete."""
-    id: Optional[UUID] = None           # None for LDAP-only users
+
+    id: Optional[UUID] = None  # None for LDAP-only users
     full_name: Optional[str] = None
     email: Optional[str] = None
-    uid: Optional[str] = None           # LDAP uid / login
-    source: str                          # "user" | "ldap"
+    uid: Optional[str] = None  # LDAP uid / login
+    source: str  # "user" | "ldap"
 
 
 class BulkResolveRequest(BaseModel):
     queries: List[str]
 
+
 class BulkResolveResult(BaseModel):
     query: str
-    user_id: Optional[str] = None # UUID as string
+    user_id: Optional[str] = None  # UUID as string
     full_name: Optional[str] = None

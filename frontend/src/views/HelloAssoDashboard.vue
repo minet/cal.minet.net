@@ -137,7 +137,7 @@
               :key="opt.name"
               class="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs text-indigo-700 ring-1 ring-inset ring-indigo-200"
             >
-              {{ opt.name }} +{{ (opt.price_cents / 100).toFixed(2) }}&nbsp;€
+              {{ opt.name }} {{opt.price_cents !== 0 ? (opt.price_cents / 100).toFixed(2) + "&nbsp;€": ''}}
             </span>
           </div>
         </div>

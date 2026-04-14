@@ -70,7 +70,7 @@
       </div>
 
       <!-- Administration -->
-      <div v-if="isSuperAdmin || organizations.length > 0">
+      <div v-if="isSuperAdmin || showTreasuryLink">
         <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Administration</h4>
         <nav class="space-y-1">
           <template v-if="isSuperAdmin">
@@ -99,9 +99,15 @@
               <TagIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-gray-500 transition-colors" />
               Tags
             </router-link>
+
+            <router-link @click="closeSidebar" to="/admin/instance" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-gray-900">
+              <WrenchScrewdriverIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-gray-500 transition-colors" />
+              Instance
+            </router-link>
           </template>
 
           <router-link @click="closeSidebar"
+            v-if="showTreasuryLink"
             to="/payments"
             class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700"
           >
@@ -109,10 +115,6 @@
             Trésorerie
           </router-link>
 
-          <router-link @click="closeSidebar" to="/admin/instance" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-gray-900">
-            <WrenchScrewdriverIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-gray-500 transition-colors" />
-            Instance
-          </router-link>
         </nav>
       </div>
 
@@ -242,6 +244,7 @@ const closeSidebar = () => {
 const { user, isAuthenticated, isSuperAdmin, logout } = useAuth()
 const organizations = ref([])
 const loading = ref(false)
+const showTreasuryLink = computed(() => organizations.value.some(org => org.can_manage_payment_forms))
 
 const loadUserOrganizations = async () => {
   if (!isAuthenticated.value) return
