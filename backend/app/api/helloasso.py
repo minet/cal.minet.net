@@ -89,7 +89,7 @@ def _require_org_admin(org_id: UUID, current_user: User, session: Session) -> No
         select(Membership).where(
             Membership.user_id == current_user.id,
             Membership.organization_id == org_id,
-            Membership.can_manage_payment_forms == True,
+            Membership.can_manage_payment_forms,
         )
     ).first()
     if not membership:
@@ -123,7 +123,7 @@ def _can_review_payment_form(
         select(Membership).where(
             Membership.user_id == current_user.id,
             Membership.organization_id == form.approving_org_id,
-            Membership.can_manage_payment_forms == True,
+            Membership.can_manage_payment_forms,
         )
     ).first()
     return membership is not None
@@ -251,7 +251,7 @@ def _notify_parent_admins_of_pending_form(form_id: UUID, event_id: UUID) -> None
         admins = session.exec(
             select(Membership).where(
                 Membership.organization_id == form.approving_org_id,
-                Membership.can_manage_payment_forms == True,
+                Membership.can_manage_payment_forms,
             )
         ).all()
 

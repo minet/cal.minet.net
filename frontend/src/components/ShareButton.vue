@@ -1,31 +1,21 @@
 <template>
-  <div>
-    <ActionPanelButton
-        :block="block"
-        :variant="variant"
-        :icon="ShareIcon"
-        @click="openModal"
-    >
-      Partager
-    </ActionPanelButton>
+  <TransitionRoot as="template" :show="isOpen">
+    <Dialog as="div" class="relative z-50" @close="closeModal">
+      <TransitionChild as="template" enter="ease-out duration-300" enter-from="opacity-0" enter-to="opacity-100" leave="ease-in duration-200" leave-from="opacity-100" leave-to="opacity-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+      </TransitionChild>
 
-    <TransitionRoot as="template" :show="isOpen">
-      <Dialog as="div" class="relative z-50" @close="closeModal">
-        <TransitionChild as="template" enter="ease-out duration-300" enter-from="opacity-0" enter-to="opacity-100" leave="ease-in duration-200" leave-from="opacity-100" leave-to="opacity-0">
-          <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
-        </TransitionChild>
-
-        <div class="fixed inset-0 z-10 overflow-y-auto">
-          <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-            <TransitionChild as="template" enter="ease-out duration-300" enter-from="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" enter-to="opacity-100 translate-y-0 sm:scale-100" leave="ease-in duration-200" leave-from="opacity-100 translate-y-0 sm:scale-100" leave-to="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
-              <DialogPanel class="relative transform rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
-                <div>
-                  <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100">
-                    <ShareIcon class="h-6 w-6 text-indigo-600" aria-hidden="true" />
-                  </div>
-                  <div class="mt-3 text-center sm:mt-5">
-                    <DialogTitle as="h3" class="text-base font-semibold leading-6 text-gray-900">Partager</DialogTitle>
-                    <div class="mt-4 space-y-4">
+      <div class="fixed inset-0 z-10 overflow-y-auto">
+        <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+          <TransitionChild as="template" enter="ease-out duration-300" enter-from="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" enter-to="opacity-100 translate-y-0 sm:scale-100" leave="ease-in duration-200" leave-from="opacity-100 translate-y-0 sm:scale-100" leave-to="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
+            <DialogPanel class="relative transform rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
+              <div>
+                <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100">
+                  <ShareIcon class="h-6 w-6 text-indigo-600" aria-hidden="true" />
+                </div>
+                <div class="mt-3 text-center sm:mt-5">
+                  <DialogTitle as="h3" class="text-base font-semibold leading-6 text-gray-900">Partager</DialogTitle>
+                  <div class="mt-4 space-y-4">
                       
                       <!-- View Link -->
                       <div v-if="itemType !== 'tag'" class="bg-gray-50 rounded-lg p-3 text-left border border-gray-100">
@@ -384,7 +374,6 @@
             </div>
         </Dialog>
     </TransitionRoot>
-  </div>
 </template>
 
 <script setup>
@@ -402,12 +391,17 @@ import {
     CheckIcon,
     QrCodeIcon,
     ArrowDownTrayIcon,
-    ChevronUpDownIcon
+    ChevronUpDownIcon,
+    CreditCardIcon
 } from '@heroicons/vue/24/outline';
 import QRCodeVue3 from 'qrcode-vue3';
 import { computed } from 'vue';
 
 const props = defineProps({
+    isOpen: {
+        type: Boolean,
+        required: true
+    },
     itemId: {
         type: String,
         required: true
@@ -434,7 +428,8 @@ const props = defineProps({
     }
 });
 
-const isOpen = ref(false);
+const emit = defineEmits(['close']);
+
 const loading = ref(false);
 const viewLink = ref(null);
 const subscribeLink = ref(null);
@@ -454,11 +449,11 @@ const qrFormat = ref('png');
 const qrDotType = ref('square');
 
 const openModal = () => {
-    isOpen.value = true;
+    // Only used if triggered externally, or kept for ref compat
 }
 
 const closeModal = () => {
-    isOpen.value = false;
+    emit('close');
 }
 
 const openQrPreview = async (type) => {

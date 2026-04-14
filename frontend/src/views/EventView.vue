@@ -133,12 +133,21 @@
       <!-- Sidebar -->
       <div class="space-y-6">
         <ActionPanel title="Actions">
-             <ShareButton 
+             <ActionPanelButton
               v-if="event && user"
+              :icon="ShareIcon"
+              @click="showShareModal = true"
+              variant="indigo"
+             >
+                Partager
+             </ActionPanelButton>
+             
+             <ShareButton 
+                v-if="event && user"
+                :is-open="showShareModal"
+                @close="showShareModal = false"
                 :item-id="event.id" 
                 item-type="event" 
-                :block="true" 
-                variant="indigo" 
                 :organization="event.organization"
                 :guest-organizations="event.guest_organizations"
              />
@@ -147,7 +156,7 @@
               v-if="canEdit"
               :icon="FaceSmileIcon"
               @click="showReactionModal = true"
-              variant="amber"
+              variant="violet"
               class="w-full"
             >
               Réactions
@@ -157,7 +166,7 @@
               v-if="canEdit"
               :to="`/events/${event.id}/edit`"
               :icon="PencilIcon"
-              variant="sky"
+              variant="purple"
               class="w-full"
             >
               Modifier
@@ -167,7 +176,7 @@
               v-if="paymentForm?.status === 'approved' && canEdit"
               :to="`/events/${event.id}/validation`"
               :icon="TicketIcon"
-              variant="green"
+              variant="fuchsia"
               class="w-full"
             >
               Validation
@@ -177,7 +186,7 @@
                v-if="canEdit"
                :icon="DocumentDuplicateIcon"
                @click="duplicateEvent"
-               variant="cyan"
+               variant="pink"
                class="w-full"
             >
               Dupliquer
@@ -440,6 +449,7 @@ import {
   LinkIcon,
   CreditCardIcon,
   TicketIcon,
+  ShareIcon,
 } from '@heroicons/vue/24/outline'
 import { formatLocalDate } from '../utils/dateUtils'
 import TagBadge from '../components/TagBadge.vue'
@@ -467,6 +477,7 @@ const userMemberships = ref([])
 const subscriptions = ref([])
 const loading = ref(true)
 const showReactionModal = ref(false)
+const showShareModal = ref(false)
 
 const canEdit = computed(() => {
   if (!event.value || !user.value) return false

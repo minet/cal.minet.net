@@ -33,32 +33,34 @@
     </header>
 
     <ActionPanel title="Actions" content-class="flex flex-col lg:flex-row lg:flex-wrap lg:gap-3 lg:space-y-0">
-      <ShareButton v-if="isMember || (user && user.is_superadmin)" :item-id="organization.id" item-type="organization"
-        :block="true" variant="indigo" class="lg:w-auto" :organization="organization" />
+      <ActionPanelButton v-if="isMember || (user && user.is_superadmin)" @click="showOrgShareModal = true"
+        :icon="ShareIcon" variant="indigo" class="w-full lg:w-auto">
+        Partager
+      </ActionPanelButton>
 
       <SubscribeButton v-if="!isMember" :organization-id="organization.id" class="w-full lg:w-auto" />
 
-      <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/tags`" :icon="TagIcon" variant="purple"
+      <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/tags`" :icon="TagIcon" variant="violet"
         class="w-full lg:w-auto">
         Tags
       </ActionPanelButton>
 
       <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/groups`" :icon="UsersIcon"
-        variant="emerald" class="w-full lg:w-auto">
+        variant="purple" class="w-full lg:w-auto">
         Groupes
       </ActionPanelButton>
 
       <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/members`" :icon="UserGroupIcon"
-        variant="gray" class="w-full lg:w-auto">
+        variant="fuchsia" class="w-full lg:w-auto">
         Membres
       </ActionPanelButton>
 
       <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/helloasso`" :icon="CreditCardIcon"
-        variant="green" class="w-full lg:w-auto">
+        variant="pink" class="w-full lg:w-auto">
         HelloAsso
       </ActionPanelButton>
 
-      <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/edit`" :icon="PencilIcon" variant="sky"
+      <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/edit`" :icon="PencilIcon" variant="rose"
         class="w-full lg:w-auto">
         Modifier
       </ActionPanelButton>
@@ -158,9 +160,10 @@
         <EventCard v-for="event in events" :key="event.id" :event="event" />
       </div>
     </div>
-    <!-- Hidden Share Button for Tags -->
-    <ShareButton v-if="activeShareTag" ref="tagShareButton" :item-id="activeShareTag.id" item-type="tag"
-      class="hidden" />
+    <!-- Share Buttons -->
+    <ShareButton v-if="showOrgShareModal" :is-open="showOrgShareModal" @close="showOrgShareModal = false" :item-id="organization.id" item-type="organization"
+      :organization="organization" />
+    <ShareButton v-if="activeShareTag" :is-open="showTagShareModal" @close="showTagShareModal = false" :item-id="activeShareTag.id" item-type="tag" />
   </div>
 </template>
 
@@ -188,7 +191,8 @@ import {
   TagIcon,
   UsersIcon,
   LinkIcon,
-  CreditCardIcon
+  CreditCardIcon,
+  ShareIcon
 } from '@heroicons/vue/24/outline'
 
 const route = useRoute()
@@ -205,14 +209,13 @@ const loadingMembers = ref(false)
 const loadingEvents = ref(false)
 const orgImages = ref([])
 
+const showOrgShareModal = ref(false)
+const showTagShareModal = ref(false)
 const activeShareTag = ref(null)
-const tagShareButton = ref(null)
 
 const openTagShare = (tag) => {
   activeShareTag.value = tag
-  nextTick(() => {
-    tagShareButton.value?.openModal()
-  })
+  showTagShareModal.value = true
 }
 
 const isMember = computed(() => {
