@@ -239,7 +239,14 @@
               <p v-if="entry.user_email" class="text-xs text-gray-400 truncate">{{ entry.user_email }}</p>
               <div class="flex items-center gap-2 mt-0.5 flex-wrap">
                 <span class="text-xs text-gray-600">{{ entry.item_name }}</span>
-                <span v-for="opt in entry.selected_options" :key="opt.name" class="text-xs text-indigo-600">+{{ opt.name }}</span>
+                <template v-if="entry.imported_options?.length">
+                  <span v-for="opt in entry.imported_options" :key="opt.name" class="text-xs text-indigo-600">
+                    {{ opt.amount_cents > 0 ? `+${opt.name} (+${(opt.amount_cents / 100).toFixed(2)} €)` : `+${opt.name}` }}
+                  </span>
+                </template>
+                <template v-else>
+                  <span v-for="opt in entry.selected_options" :key="opt.name" class="text-xs text-indigo-600">+{{ opt.name }}</span>
+                </template>
                 <span class="text-xs font-medium text-gray-700 ml-auto">{{ (entry.amount_cents / 100).toFixed(2) }}&nbsp;€</span>
                 <PaymentTypeBadge :type="entry.payment_type" />
               </div>

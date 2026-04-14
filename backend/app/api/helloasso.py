@@ -146,7 +146,10 @@ def _can_manage_form(
     membership = session.exec(
         select(Membership).where(
             Membership.user_id == current_user.id,
-            Membership.organization_id == form.requesting_org_id,
+            or_(
+                Membership.organization_id == form.requesting_org_id,
+                Membership.organization_id == form.approving_org_id,
+            ),
         )
     ).first()
     if not membership:
@@ -905,8 +908,7 @@ def list_payment_entries(
         if entry.imported_options:
             try:
                 imp_opts = [
-                    ImportedOption(**o)
-                    for o in _json.loads(entry.imported_options)
+                    ImportedOption(**o) for o in _json.loads(entry.imported_options)
                 ]
             except Exception:
                 pass
@@ -1040,7 +1042,8 @@ def my_payment_forms(
                 status=form.status,
                 is_open=form.is_open,
                 entry_count=len(entries),
-                completed_count=sum(1 for e in entries if e.completed) + form.baseline_participant_count,
+                completed_count=sum(1 for e in entries if e.completed)
+                + form.baseline_participant_count,
                 baseline_total_amount_cents=form.baseline_total_amount_cents,
                 baseline_participant_count=form.baseline_participant_count,
                 created_at=form.created_at,
@@ -1163,6 +1166,15 @@ def _to_validation_entry(
             pass
     selected_options = [all_options[i] for i in indices if i < len(all_options)]
 
+    imp_opts: List[ImportedOption] = []
+    if entry.imported_options:
+        try:
+            imp_opts = [
+                ImportedOption(**o) for o in _json.loads(entry.imported_options)
+            ]
+        except Exception:
+            pass
+
     user_name = user_obj.full_name or user_obj.email if user_obj else None
     user_email = user_obj.email if user_obj else None
     display_name = user_name or entry.attendee_name or "Inconnu"
@@ -1177,6 +1189,7 @@ def _to_validation_entry(
         amount_cents=entry.amount_cents,
         payment_type=entry.payment_type,
         selected_options=selected_options,
+        imported_options=imp_opts,
         completed=entry.completed,
         validated=entry.validated,
         validated_at=entry.validated_at,
@@ -1638,7 +1651,7 @@ def import_billeterie_attendees(
             status_code=404, detail="HelloAsso integration no longer available"
         )
 
-    _require_org_admin(org_ha.organization_id, current_user, session)
+    _can_manage_form(form, current_user, session)  # also check form permissions
 
     try:
         items = ha_service.list_form_items(
@@ -1706,6 +1719,26 @@ def import_billeterie_attendees(
             if opt.get("name")
         ]
 
+        # Match imported options against form-defined options by name + price.
+        # Matched ones go into selected_option_indices; unmatched stay as imported_options.
+        form_options = _parse_options(form.options)
+        matched_indices: List[int] = []
+        unmatched_opts: List[dict] = []
+        for opt_dict in imp_opts:
+            match_idx = next(
+                (
+                    i
+                    for i, fo in enumerate(form_options)
+                    if fo.name.lower() == opt_dict["name"].lower()
+                    and fo.price_cents == opt_dict["amount_cents"]
+                ),
+                None,
+            )
+            if match_idx is not None and match_idx not in matched_indices:
+                matched_indices.append(match_idx)
+            else:
+                unmatched_opts.append(opt_dict)
+
         entry = EventPaymentEntry(
             payment_form_id=form.id,
             user_id=None,
@@ -1715,7 +1748,10 @@ def import_billeterie_attendees(
             amount_cents=item.get("amount", 0),
             payment_type="helloasso_import",
             attendee_name=attendee_name,
-            imported_options=_json.dumps(imp_opts) if imp_opts else None,
+            selected_option_indices=(
+                _json.dumps(matched_indices) if matched_indices else None
+            ),
+            imported_options=_json.dumps(unmatched_opts) if unmatched_opts else None,
             validated=False,
         )
         session.add(entry)

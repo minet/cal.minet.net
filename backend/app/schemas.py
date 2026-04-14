@@ -756,6 +756,7 @@ class ValidationEntryRead(BaseModel):
     amount_cents: int
     payment_type: str
     selected_options: List[PaymentFormOption] = []
+    imported_options: List[ImportedOption] = []
     completed: bool
     validated: bool
     validated_at: Optional[datetime] = None
