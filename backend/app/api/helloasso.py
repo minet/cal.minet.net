@@ -43,6 +43,7 @@ from app.schemas import (
     HelloAssoCredentials,
     HelloAssoFormSummary,
     HelloAssoStatus,
+    ImportedOption,
     ManualEntryCreate,
     MyPaymentEntryRead,
     PaymentDashboardItem,
@@ -900,14 +901,26 @@ def list_payment_entries(
                 indices = _json.loads(entry.selected_option_indices)
             except Exception:
                 pass
+        imp_opts: List[ImportedOption] = []
+        if entry.imported_options:
+            try:
+                imp_opts = [
+                    ImportedOption(**o)
+                    for o in _json.loads(entry.imported_options)
+                ]
+            except Exception:
+                pass
         result.append(
             PaymentEntryRead(
                 id=entry.id,
                 user_id=entry.user_id,
                 user_name=user_obj.full_name or user_obj.email if user_obj else None,
+                attendee_name=entry.attendee_name,
                 checkout_intent_id=entry.checkout_intent_id,
                 amount_cents=entry.amount_cents,
+                payment_type=entry.payment_type,
                 selected_option_indices=indices,
+                imported_options=imp_opts,
                 completed=entry.completed,
                 completed_at=entry.completed_at,
                 created_at=entry.created_at,
@@ -1643,14 +1656,15 @@ def import_billeterie_attendees(
             skipped += 1
             continue
 
-        # Resolve attendee name from item.user (ticket holder) or order.payer (buyer)
+        # Resolve attendee name.
+        # item.user  = ticket holder (may differ from buyer when someone buys for another person)
+        # item.payer = buyer (top-level field, NOT nested inside item.order)
         user_info = item.get("user") or {}
         first_name = (user_info.get("firstName") or "").strip()
         last_name = (user_info.get("lastName") or "").strip()
 
         if not first_name and not last_name:
-            order = item.get("order") or {}
-            payer = order.get("payer") or {}
+            payer = item.get("payer") or {}
             first_name = (payer.get("firstName") or "").strip()
             last_name = (payer.get("lastName") or "").strip()
 
@@ -1685,6 +1699,13 @@ def import_billeterie_attendees(
                 skipped += 1
                 continue
 
+        ha_options = item.get("options") or []
+        imp_opts = [
+            {"name": opt.get("name", ""), "amount_cents": opt.get("amount", 0)}
+            for opt in ha_options
+            if opt.get("name")
+        ]
+
         entry = EventPaymentEntry(
             payment_form_id=form.id,
             user_id=None,
@@ -1694,6 +1715,7 @@ def import_billeterie_attendees(
             amount_cents=item.get("amount", 0),
             payment_type="helloasso_import",
             attendee_name=attendee_name,
+            imported_options=_json.dumps(imp_opts) if imp_opts else None,
             validated=False,
         )
         session.add(entry)

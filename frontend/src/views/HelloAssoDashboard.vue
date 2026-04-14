@@ -206,7 +206,10 @@
                 <td class="py-1.5 pr-4">{{ entry.user_name || entry.attendee_name || entry.user_id }}</td>
                 <td class="py-1.5 pr-4">{{ (entry.amount_cents / 100).toFixed(2) }}&nbsp;€</td>
                 <td class="py-1.5 pr-4">
-                  <template v-if="entry.selected_option_indices?.length">
+                  <template v-if="entry.imported_options?.length">
+                    {{ entry.imported_options.map(o => o.amount_cents > 0 ? `${o.name} (+${(o.amount_cents / 100).toFixed(2)} €)` : o.name).join(', ') }}
+                  </template>
+                  <template v-else-if="entry.selected_option_indices?.length">
                     {{ entry.selected_option_indices.map(i => item.options[i]?.name).filter(Boolean).join(', ') }}
                   </template>
                   <span v-else class="text-gray-400">—</span>

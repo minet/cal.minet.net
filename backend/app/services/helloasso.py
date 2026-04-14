@@ -212,17 +212,26 @@ def list_form_items(
     form_slug: str,
     form_type: str = "Event",
 ) -> list:
-    """List all items (attendee tickets) for a HelloAsso form, paginates automatically."""
+    """List all items (attendee tickets) for a HelloAsso form, paginates automatically.
+
+    HelloAsso may return totalPages=-1 with a continuationToken instead of
+    numeric pagination; both modes are handled here.
+    """
     token = get_access_token(org_ha, session)
     all_items: list = []
     page = 1
-    page_size = 100
+    continuation_token: Optional[str] = None
 
     while True:
         url = _api_url(
             f"organizations/{org_ha.helloasso_slug}/forms/{form_type}/{form_slug}/items"
         )
-        params: dict = {"pageSize": page_size, "pageIndex": page}
+        params: dict = {"pageSize": 100, "withDetails": True}
+        if continuation_token:
+            params["continuationToken"] = continuation_token
+        else:
+            params["pageIndex"] = page
+
         log.info("[HelloAsso] GET %s  params=%s", url, params)
         response = httpx.get(
             url,
@@ -238,11 +247,23 @@ def list_form_items(
         data = response.json()
         batch = data.get("data", [])
         all_items.extend(batch)
+
+        if not batch:
+            break
+
         pagination = data.get("pagination", {})
         total_pages = pagination.get("totalPages", 1)
-        if page >= total_pages or not batch:
-            break
-        page += 1
+        next_token = pagination.get("continuationToken")
+
+        if total_pages == -1:
+            # Continuation-token mode: keep going while a token is returned
+            if not next_token:
+                break
+            continuation_token = next_token
+        else:
+            if page >= total_pages:
+                break
+            page += 1
 
     return all_items
 

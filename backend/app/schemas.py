@@ -680,13 +680,22 @@ class PaymentInitiateResponse(BaseModel):
     checkout_intent_id: str
 
 
+class ImportedOption(BaseModel):
+    """An option as imported from a HelloAsso billeterie item."""
+    name: str
+    amount_cents: int
+
+
 class PaymentEntryRead(BaseModel):
     id: UUID
     user_id: Optional[UUID] = None
     user_name: Optional[str] = None
+    attendee_name: Optional[str] = None
     checkout_intent_id: Optional[str] = None
     amount_cents: int
+    payment_type: str = "helloasso"
     selected_option_indices: List[int] = []
+    imported_options: List[ImportedOption] = []
     completed: bool
     completed_at: Optional[datetime] = None
     created_at: datetime

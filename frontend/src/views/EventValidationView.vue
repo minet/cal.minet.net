@@ -328,6 +328,7 @@ const PAYMENT_TYPE_LABELS = {
   cheque: 'Chèque',
   exchange: 'Échange',
   helloasso: 'HelloAsso',
+  helloasso_import: 'HelloAsso (Externe)',
   none: 'Gratuit',
   other: 'Autre',
 }
@@ -338,6 +339,7 @@ const PAYMENT_TYPE_BG = {
   cheque: 'bg-orange-600',
   exchange: 'bg-pink-600',
   helloasso: 'bg-blue-600',
+  helloasso_import: 'bg-indigo-600',
   none: 'bg-gray-400',
   other: 'bg-gray-500',
 }
@@ -420,6 +422,7 @@ const toggleOption = (idx) => {
 
 const PAYMENT_TYPE_COLOR_MAP = {
   helloasso: 'bg-blue-50 text-blue-600',
+  helloasso_import: 'bg-indigo-50 text-indigo-600',
   credit_card: 'bg-purple-50 text-purple-600',
   cash: 'bg-emerald-50 text-emerald-600',
   cheque: 'bg-orange-50 text-orange-600',

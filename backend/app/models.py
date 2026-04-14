@@ -442,6 +442,8 @@ class EventPaymentEntry(SQLModel, table=True):
     payment_type: str = Field(default="helloasso")  # PaymentType enum value
     # For manual entries: name of the attendee (not a registered user)
     attendee_name: Optional[str] = None
+    # For billeterie imports: JSON list of {"name": str, "amount_cents": int}
+    imported_options: Optional[str] = None
     # Ticket validation (checked at entrance)
     validated: bool = Field(default=False)
     validated_at: Optional[datetime] = None
