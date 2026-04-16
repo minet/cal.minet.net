@@ -277,19 +277,26 @@
                 Options payantes
                 <span class="text-xs font-normal text-gray-500 ml-1">(s'ajoutent au prix de base)</span>
               </label>
+              <p class="mb-3 rounded-md border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs text-indigo-700">
+                Les membres autorises pour les options privees se configurent dans l'onglet Tresorerie de l'app.
+              </p>
               <div class="space-y-4">
                 <div
                   v-for="(opt, idx) in paymentForm.options"
                   :key="idx"
                   class="flex flex-col gap-2 p-3 border border-gray-100 rounded-lg bg-gray-50"
                 >
-                  <div class="flex items-center gap-3">
+                  <div class="flex flex-wrap items-center gap-3">
                     <input
                       v-model="opt.name"
                       type="text"
                       placeholder="ex: Option alcool, Repas végétarien..."
-                      class="flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                      class="min-w-[12rem] flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                     />
+                    <label :for="'create-priv-' + idx" class="inline-flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+                      <input type="checkbox" v-model="opt.is_private" :id="'create-priv-' + idx" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" />
+                      Option privée
+                    </label>
                     <div class="flex items-center gap-1">
                       <span class="text-sm text-gray-500">+/-</span>
                       <input
@@ -308,22 +315,6 @@
                     >
                       <XMarkIcon class="h-4 w-4" />
                     </button>
-                  </div>
-
-                  <!-- Private Option Config -->
-                  <div class="flex items-center gap-2">
-                    <input type="checkbox" v-model="opt.is_private" :id="'create-priv-' + idx" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" />
-                    <label :for="'create-priv-' + idx" class="text-sm text-gray-600">Option privée (réservée à certaines personnes)</label>
-                  </div>
-
-                  <div v-if="opt.is_private" class="mt-2">
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Personnes autorisées (Collez une liste de noms ou emails, un par ligne)</label>
-                    <textarea 
-                      v-model="opt.allowed_user_names" 
-                      rows="3" 
-                      placeholder="Jean Dupont&#10;jean.dupont@telecom-sudparis.eu"
-                      class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                    ></textarea>
                   </div>
                 </div>
                 <button
@@ -423,7 +414,6 @@ interface PaymentOption {
   name: string
   amount_euros: number | string
   is_private?: boolean
-  allowed_user_names?: string
 }
 
 
@@ -626,20 +616,6 @@ const removeLink = (index: number) => {
   })
 }
 
-const resolveUserNames = async (namesStr: string, eventId: string) => {
-  if (!namesStr || !namesStr.trim()) return []
-  const queries = namesStr.split('\n').map((n: string) => n.trim()).filter(Boolean)
-  if (!queries.length) return []
-  
-  try {
-    const res = await api.helloasso.bulk_resolve_attendees(eventId, { queries })
-    return res.filter(r => r.user_id).map(r => r.user_id).filter((id): id is string => id !== null)
-  } catch (err) {
-    console.error('Bulk resolve failed:', err)
-    return []
-  }
-}
-
 const createEvent = async () => {
   loading.value = true
   error.value = ''
@@ -676,17 +652,12 @@ const createEvent = async () => {
         const optionsToSave = []
         for (const o of paymentForm.value.options) {
           if (!o.name || o.amount_euros === '' || o.amount_euros === null) continue
-          
-          let finalUserIds: string[] = []
-          if (o.is_private && o.allowed_user_names) {
-            finalUserIds = await resolveUserNames(o.allowed_user_names, eventId)
-          }
-          
+
           optionsToSave.push({
             name: o.name,
             price_cents: Math.round(Number(o.amount_euros) * 100),
             is_private: o.is_private || false,
-            allowed_user_ids: finalUserIds
+            allowed_user_ids: []
           })
         }
 

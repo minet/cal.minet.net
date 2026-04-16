@@ -283,15 +283,22 @@
             <!-- Edit options (available for non-rejected forms) -->
             <div v-if="existingPaymentForm.status !== 'rejected' && canManagePayments" class="space-y-3">
               <p class="text-xs text-gray-500">Modifier les options payantes :</p>
+              <p class="rounded-md border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs text-indigo-700">
+                Les membres autorises pour les options privees se configurent dans l'onglet Tresorerie de l'app.
+              </p>
               <div class="space-y-4">
                 <div v-for="(opt, idx) in paymentFormEdit.options" :key="idx" class="flex flex-col gap-2 p-3 border border-gray-100 rounded-lg bg-gray-50">
-                  <div class="flex items-center gap-3">
+                  <div class="flex flex-wrap items-center gap-3">
                     <input
                       v-model="opt.name"
                       type="text"
                       placeholder="ex: Option alcool..."
-                      class="flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                      class="min-w-[12rem] flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                     />
+                    <label :for="'edit-priv-' + idx" class="inline-flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+                      <input type="checkbox" v-model="opt.is_private" :id="'edit-priv-' + idx" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" />
+                      Option privée
+                    </label>
                     <div class="flex items-center gap-1">
                       <span class="text-sm text-gray-500">+/-</span>
                       <input
@@ -305,25 +312,8 @@
                       <XMarkIcon class="h-4 w-4" />
                     </button>
                   </div>
-                  
-                  <!-- Private Option Config -->
-                  <div class="flex items-center gap-2">
-                    <input type="checkbox" v-model="opt.is_private" :id="'edit-priv-' + idx" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" />
-                    <label :for="'edit-priv-' + idx" class="text-sm text-gray-600">Option privée (réservée à certaines personnes)</label>
-                  </div>
-                  
-                  <div v-if="opt.is_private" class="mt-2">
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Personnes autorisées (Collez une liste de noms ou emails, un par ligne)</label>
-                    <textarea 
-                      v-model="opt.allowed_user_names" 
-                      rows="3" 
-                      placeholder="Jean Dupont&#10;jean.dupont@telecom-sudparis.eu"
-                      class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                    ></textarea>
-                    <p class="text-xs text-gray-500 mt-1">Actuellement {{ opt.allowed_user_ids?.length || 0 }} personne(s) autorisée(s). Ajoutez-en de nouvelles ci-dessus.</p>
-                  </div>
                 </div>
-                <button type="button" @click="paymentFormEdit.options.push({ name: '', amount_euros: '', is_private: false, allowed_user_names: '', allowed_user_ids: [] })"
+                <button type="button" @click="paymentFormEdit.options.push({ name: '', amount_euros: '', is_private: false, allowed_user_ids: [] })"
                   class="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700">
                   <PlusIcon class="h-4 w-4" />
                   Ajouter une option
@@ -358,11 +348,18 @@
               </div>
               <div class="sm:col-span-6">
                 <label class="block text-sm font-medium leading-6 text-gray-900 mb-2">Options payantes <span class="text-xs font-normal text-gray-500">(optionnel)</span></label>
+                <p class="mb-3 rounded-md border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs text-indigo-700">
+                  Les membres autorises pour les options privees se configurent dans l'onglet Tresorerie de l'app.
+                </p>
                 <div class="space-y-4">
                   <div v-for="(opt, idx) in newPaymentForm.options" :key="idx" class="flex flex-col gap-2 p-3 border border-gray-100 rounded-lg bg-gray-50">
-                    <div class="flex items-center gap-3">
+                    <div class="flex flex-wrap items-center gap-3">
                       <input v-model="opt.name" type="text" placeholder="ex: Option alcool..."
-                        class="flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" />
+                        class="min-w-[12rem] flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" />
+                      <label :for="'new-priv-' + idx" class="inline-flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+                        <input type="checkbox" v-model="opt.is_private" :id="'new-priv-' + idx" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" />
+                        Option privée
+                      </label>
                       <div class="flex items-center gap-1">
                         <span class="text-sm text-gray-500">+/-</span>
                         <input v-model.number="opt.amount_euros" type="number" step="0.01" placeholder="2.00"
@@ -373,24 +370,8 @@
                         <XMarkIcon class="h-4 w-4" />
                       </button>
                     </div>
-
-                    <!-- Private Option Config -->
-                    <div class="flex items-center gap-2">
-                      <input type="checkbox" v-model="opt.is_private" :id="'new-priv-' + idx" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" />
-                      <label :for="'new-priv-' + idx" class="text-sm text-gray-600">Option privée (réservée à certaines personnes)</label>
-                    </div>
-                    
-                    <div v-if="opt.is_private" class="mt-2">
-                      <label class="block text-xs font-medium text-gray-700 mb-1">Personnes autorisées (Collez une liste de noms ou emails, un par ligne)</label>
-                      <textarea 
-                        v-model="opt.allowed_user_names" 
-                        rows="3" 
-                        placeholder="Jean Dupont&#10;jean.dupont@telecom-sudparis.eu"
-                        class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                      ></textarea>
-                    </div>
                   </div>
-                  <button type="button" @click="newPaymentForm.options.push({ name: '', amount_euros: '', is_private: false, allowed_user_names: '', allowed_user_ids: [] })"
+                  <button type="button" @click="newPaymentForm.options.push({ name: '', amount_euros: '', is_private: false, allowed_user_ids: [] })"
                     class="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700">
                     <PlusIcon class="h-4 w-4" />
                     Ajouter une option
@@ -511,7 +492,6 @@ type PaymentOptionForm = {
   name: string
   amount_euros: number | ''
   is_private: boolean
-  allowed_user_names: string
   allowed_user_ids: string[]
 }
 
@@ -882,7 +862,6 @@ const loadPaymentForm = async () => {
       amount_euros: o.price_cents / 100,
       is_private: o.is_private || false,
       allowed_user_ids: o.allowed_user_ids || [],
-      allowed_user_names: '', // We don't have the names back, so this starts empty. It's only for appending.
     }))
   } catch (err: unknown) {
     const status = (err as { response?: { status?: number } }).response?.status
@@ -905,40 +884,18 @@ const loadHelloAssoStatus = async (orgId: string) => {
   }
 }
 
-const resolveUserNames = async (namesStr: string) => {
-  if (!namesStr || !namesStr.trim()) return []
-  const queries = namesStr.split('\n').map(n => n.trim()).filter(Boolean)
-  if (!queries.length) return []
-  
-  try {
-    const res = await api.helloasso.bulk_resolve_attendees(eventId, { queries })
-    return res
-      .map(r => r.user_id)
-      .filter((id): id is string => Boolean(id))
-  } catch (err) {
-    console.error('Bulk resolve failed:', err)
-    return []
-  }
-}
-
 const savePaymentFormOptions = async () => {
   savingPaymentForm.value = true
   try {
     const optionsToSave = []
     for (const o of paymentFormEdit.value.options) {
       if (!o.name || o.amount_euros === '' || o.amount_euros === null) continue
-      
-      let finalUserIds = [...(o.allowed_user_ids || [])]
-      if (o.is_private && o.allowed_user_names) {
-        const resolvedIds = await resolveUserNames(o.allowed_user_names)
-        finalUserIds = [...new Set([...finalUserIds, ...resolvedIds])]
-      }
-      
+
       optionsToSave.push({
         name: o.name,
         price_cents: Math.round(o.amount_euros * 100),
         is_private: o.is_private || false,
-        allowed_user_ids: finalUserIds
+        allowed_user_ids: o.allowed_user_ids || []
       })
     }
 
@@ -949,7 +906,6 @@ const savePaymentFormOptions = async () => {
       amount_euros: o.price_cents / 100,
       is_private: o.is_private || false,
       allowed_user_ids: o.allowed_user_ids || [],
-      allowed_user_names: '',
     }))
   } catch (err: unknown) {
     error.value = getErrorDetail(err, 'Impossible de mettre à jour les options')
@@ -965,17 +921,12 @@ const submitNewPaymentForm = async () => {
     const optionsToSave = []
     for (const o of newPaymentForm.value.options) {
       if (!o.name || o.amount_euros === '' || o.amount_euros === null) continue
-      
-      let finalUserIds: string[] = []
-      if (o.is_private && o.allowed_user_names) {
-        finalUserIds = await resolveUserNames(o.allowed_user_names)
-      }
-      
+
       optionsToSave.push({
         name: o.name,
         price_cents: Math.round(o.amount_euros * 100),
         is_private: o.is_private || false,
-        allowed_user_ids: finalUserIds
+        allowed_user_ids: []
       })
     }
 
