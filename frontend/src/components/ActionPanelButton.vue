@@ -1,29 +1,66 @@
 <template>
   <component 
-    :is="tag"
+    :is="resolvedTag"
     :to="to"
     :href="resolvedHref"
     :target="target"
+    :disabled="disabled || loading"
     :class="[
-      'inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-semibold shadow-sm ring-1 ring-inset gap-3', 
-      block ? 'w-full' : '',
-      variantClass
+      'group relative inline-flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed', 
+      block ? 'w-full flex-1' : '',
+      active ? 'active:scale-95' : '',
+      computedAlignClass,
+      computedVariantClass
     ]"
-    @click="$emit('click', $event)"
+    @click="handleClick"
   >
-    <component :is="icon" class="h-5 w-5 flex-shrink-0" />
-    <span class="flex-1 text-left truncate"><slot /></span>
+    <!-- Loading Spinner -->
+    <svg v-if="loading" class="animate-spin h-5 w-5 flex-shrink-0" :class="hasText ? 'mr-3 -ml-0.5' : ''" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+    
+    <!-- Left Icon (Primary) -->
+    <component 
+      v-else-if="icon" 
+      :is="icon" 
+      :class="[
+        'h-5 w-5 flex-shrink-0 transition-transform duration-200',
+        hasText ? 'mr-3 -ml-0.5' : '',
+        computedIconClass
+      ]" 
+    />
+    
+    <!-- Content (Slot) -->
+    <span v-if="hasText" class="truncate" :class="[block ? 'flex-1' : '']">
+      <slot />
+    </span>
+
+    <!-- Right Icon (Trailing) -->
+    <component 
+      v-if="trailingIcon" 
+      :is="trailingIcon" 
+      :class="[
+        'h-5 w-5 flex-shrink-0 transition-transform duration-200 opacity-70 group-hover:opacity-100',
+        hasText ? 'ml-3 -mr-0.5' : '',
+        computedIconClass
+      ]" 
+    />
   </component>
 </template>
 
-<script setup>
-import { computed } from 'vue';
+<script setup lang="ts">
+import { computed, useSlots } from 'vue';
 import { useRouter } from 'vue-router';
 
 const props = defineProps({
   icon: {
-    type: [Object, Function], // Component
-    required: true
+    type: [Object, Function],
+    default: null
+  },
+  trailingIcon: {
+    type: [Object, Function],
+    default: null
   },
   to: {
     type: [String, Object],
@@ -34,26 +71,62 @@ const props = defineProps({
     default: null
   },
   target: {
-      type: String,
-      default: null
+    type: String,
+    default: null
   },
   variant: {
     type: String,
     default: 'default',
-    validator: (value) => ['default', 'primary', 'secondary', 'accent', 'neutral', 'ghost', 'outline', 'danger', 'purple', 'emerald', 'gray', 'indigo', 'amber', 'rose', 'sky', 'cyan'].includes(value)
+  },
+  align: {
+    type: String,
+    default: 'left',
+    validator: (v: unknown) => ['left', 'center', 'right'].includes(v as string)
   },
   block: {
-      type: Boolean,
-      default: false
+    type: Boolean,
+    default: false
+  },
+  disabled: {
+    type: Boolean,
+    default: false
+  },
+  loading: {
+    type: Boolean,
+    default: false
+  },
+  active: {
+    type: Boolean,
+    default: true
   }
 });
 
-defineEmits(['click']);
-
+const emit = defineEmits(['click']);
 const router = useRouter();
+const slots = useSlots();
 
-const tag = computed(() => {
-  if (props.to && props.target) return 'a'; // Use 'a' tag for external/new-tab router links
+const hasText = computed(() => !!slots.default);
+
+const computedAlignClass = computed(() => {
+  if (!props.block) return 'justify-center';
+  switch (props.align) {
+    case 'center': return 'justify-center text-center';
+    case 'right': return 'justify-end text-right';
+    case 'left':
+    default: return 'justify-start text-left';
+  }
+});
+
+const handleClick = (event: MouseEvent) => {
+  if (props.disabled || props.loading) {
+    event.preventDefault();
+    return;
+  }
+  emit('click', event);
+};
+
+const resolvedTag = computed(() => {
+  if (props.to && props.target) return 'a';
   if (props.to) return 'router-link';
   if (props.href) return 'a';
   return 'button';
@@ -61,33 +134,52 @@ const tag = computed(() => {
 
 const resolvedHref = computed(() => {
   if (props.to && props.target) {
-    return router.resolve(props.to).href;
+    try { return router.resolve(props.to).href; } catch (e) { return props.to; }
   }
   return props.href;
 });
 
-const variantClass = computed(() => {
+const computedVariantClass = computed(() => {
   switch (props.variant) {
-    case 'primary': return 'bg-indigo-600 text-white ring-indigo-600 hover:bg-indigo-500 shadow-sm transition-all duration-200';
-    case 'secondary': return 'bg-purple-600 text-white ring-purple-600 hover:bg-purple-500 shadow-sm transition-all duration-200';
-    case 'accent': return 'bg-teal-600 text-white ring-teal-600 hover:bg-teal-500 shadow-sm transition-all duration-200';
-    case 'neutral': return 'bg-gray-900 text-white ring-gray-900 hover:bg-gray-800 shadow-sm transition-all duration-200';
-    case 'ghost': return 'bg-transparent text-gray-900 ring-transparent hover:bg-gray-50 transition-all duration-200';
-    case 'outline': return 'bg-transparent text-gray-900 ring-gray-300 hover:bg-gray-50 transition-all duration-200';
-    case 'danger': return 'bg-red-600 text-white ring-red-600 hover:bg-red-500 shadow-sm transition-all duration-200';
+    case 'primary': return 'bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-600 shadow-sm border border-transparent';
+    case 'secondary': return 'bg-purple-600 text-white hover:bg-purple-700 focus:ring-purple-600 shadow-sm border border-transparent';
+    case 'accent': return 'bg-teal-600 text-white hover:bg-teal-700 focus:ring-teal-600 shadow-sm border border-transparent';
+    case 'neutral': return 'bg-gray-900 text-white hover:bg-gray-800 focus:ring-gray-900 shadow-sm border border-transparent';
+    case 'danger': return 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-600 shadow-sm border border-transparent';
     
-    // Custom colors matching original design (with improved contrast/hover)
-    case 'purple': return 'bg-purple-500 text-white ring-purple-500 hover:bg-purple-600 shadow-md hover:shadow-lg transition-all duration-200';
-    case 'emerald': return 'bg-emerald-500 text-white ring-emerald-500 hover:bg-emerald-600 shadow-md hover:shadow-lg transition-all duration-200';
-    case 'gray': return 'bg-gray-500 text-white ring-gray-500 hover:bg-gray-600 shadow-md hover:shadow-lg transition-all duration-200';
-    case 'indigo': return 'bg-indigo-500 text-white ring-indigo-500 hover:bg-indigo-600 shadow-md hover:shadow-lg transition-all duration-200';
-    case 'amber': return 'bg-amber-500 text-white ring-amber-500 hover:bg-amber-600 shadow-md hover:shadow-lg transition-all duration-200';
-    case 'rose': return 'bg-rose-500 text-white ring-rose-500 hover:bg-rose-600 shadow-md hover:shadow-lg transition-all duration-200';
-    case 'sky': return 'bg-sky-500 text-white ring-sky-500 hover:bg-sky-600 shadow-md hover:shadow-lg transition-all duration-200';
-    case 'cyan': return 'bg-cyan-500 text-white ring-cyan-500 hover:bg-cyan-600 shadow-md hover:shadow-lg transition-all duration-200';
+    // Soft background variants for modern subtle UI
+    case 'soft-primary': return 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-800 focus:ring-indigo-500 border border-transparent';
+    case 'soft-danger': return 'bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 focus:ring-red-500 border border-transparent';
+    case 'soft-success': return 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 focus:ring-emerald-500 border border-transparent';
+
+    case 'ghost': return 'bg-transparent text-gray-700 hover:bg-gray-100 hover:text-gray-900 focus:ring-gray-500 border border-transparent';
+    case 'outline': return 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus:ring-gray-500 shadow-sm';
     
-    // Default white style requested
-    default: return 'bg-white text-gray-900 ring-gray-300 hover:bg-gray-50 shadow-sm hover:shadow transition-all duration-200';
+    // Custom colors matching original design
+    case 'purple': return 'bg-purple-600 text-white hover:bg-purple-700 focus:ring-purple-600 shadow-sm border border-transparent';
+    case 'fuchsia': return 'bg-fuchsia-600 text-white hover:bg-fuchsia-700 focus:ring-fuchsia-600 shadow-sm border border-transparent';
+    case 'pink': return 'bg-pink-600 text-white hover:bg-pink-700 focus:ring-pink-600 shadow-sm border border-transparent';
+    case 'rose': return 'bg-rose-600 text-white hover:bg-rose-700 focus:ring-rose-600 shadow-sm border border-transparent';
+    case 'orange': return 'bg-orange-500 text-white hover:bg-orange-600 focus:ring-orange-500 shadow-sm border border-transparent';
+    case 'amber': return 'bg-amber-500 text-white hover:bg-amber-600 focus:ring-amber-500 shadow-sm border border-transparent';
+    case 'emerald': return 'bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-emerald-600 shadow-sm border border-transparent';
+    case 'green': return 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-600 shadow-sm border border-transparent';
+    case 'teal': return 'bg-teal-600 text-white hover:bg-teal-700 focus:ring-teal-600 shadow-sm border border-transparent';
+    case 'cyan': return 'bg-cyan-600 text-white hover:bg-cyan-700 focus:ring-cyan-600 shadow-sm border border-transparent';
+    case 'sky': return 'bg-sky-500 text-white hover:bg-sky-600 focus:ring-sky-500 shadow-sm border border-transparent';
+    case 'blue': return 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-600 shadow-sm border border-transparent';
+    case 'indigo': return 'bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-600 shadow-sm border border-transparent';
+    case 'violet': return 'bg-violet-600 text-white hover:bg-violet-700 focus:ring-violet-600 shadow-sm border border-transparent';
+    case 'gray': return 'bg-gray-600 text-white hover:bg-gray-700 focus:ring-gray-600 shadow-sm border border-transparent';
+    
+    // Default outline-like style as fallback
+    default: return 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:text-gray-900 focus:ring-gray-500 shadow-sm';
   }
+});
+
+const computedIconClass = computed(() => {
+  if (['ghost', 'outline', 'default'].includes(props.variant)) return 'text-gray-400 group-hover:text-gray-500';
+  if (props.variant.startsWith('soft-')) return ''; // use text color inherit via CSS
+  return 'text-white/80 group-hover:text-white';
 });
 </script>

@@ -32,7 +32,7 @@
     </div>
 
     <transition name="slide" mode="out-in">
-      <div v-if="currentEvent.isAd" key="ad-slide" class="flex flex-col lg:flex-row w-full h-full relative z-10 items-center justify-center">
+      <div v-if="isAdSlide" key="ad-slide" class="flex flex-col lg:flex-row w-full h-full relative z-10 items-center justify-center">
          <div class="flex flex-col items-center justify-center p-12 text-center max-w-5xl mx-auto">
              <h1 class="text-7xl lg:text-9xl font-black mb-12 text-gray-900 tracking-tight">Calend'INT</h1>
              <p class="text-4xl lg:text-5xl font-medium text-gray-700 mb-16 leading-normal">
@@ -56,13 +56,13 @@
          </div>
       </div>
 
-      <div v-else :key="currentEvent.id" class="flex flex-col lg:flex-row w-full h-full relative z-10">
+      <div v-else-if="eventSlide" :key="eventSlide.id" class="flex flex-col lg:flex-row w-full h-full relative z-10">
         
         <!-- Poster Side (Left) -->
         <div class="w-full lg:w-1/2 h-1/2 lg:h-full flex items-center justify-center p-8 lg:p-12 relative">
            <img
-             v-if="currentEvent.poster_file || currentEvent.poster_url || currentEvent.video_file || currentEvent.video_url"
-             :src="resolveMediaUrl(currentEvent.poster_file, 960) ?? currentEvent.poster_url ?? undefined"
+             v-if="eventSlide.poster_file || eventSlide.poster_url || eventSlide.video_file || eventSlide.video_url"
+             :src="resolveMediaUrl(eventSlide.poster_file, 960) ?? eventSlide.poster_url ?? undefined"
              class="max-w-full max-h-full w-auto h-auto object-contain shadow-2xl rounded-3xl ring-4 ring-white/50"
              alt="Event Poster"
            >
@@ -79,20 +79,20 @@
           <div class="mb-8 flex flex-wrap gap-4 items-center">
              <div class="inline-flex items-center bg-white shadow-xl rounded-full px-6 py-3 border border-gray-100 transform transition-transform duration-500 hover:scale-105">
                 <img
-                  v-if="currentEvent.organization?.logo_file || currentEvent.organization?.logo_url"
-                  :src="resolveMediaUrl(currentEvent.organization?.logo_file, 64) ?? currentEvent.organization?.logo_url"
+                  v-if="eventSlide.organization?.logo_file || eventSlide.organization?.logo_url"
+                  :src="resolveMediaUrl(eventSlide.organization?.logo_file, 64) ?? eventSlide.organization?.logo_url ?? undefined"
                   class="w-12 h-12 rounded-full mr-2 object-cover"
                   alt="Org Logo"
                 />
-                <span class="text-2xl font-bold tracking-wide text-gray-900">{{ currentEvent.organization?.name }}</span>
+                <span class="text-2xl font-bold tracking-wide text-gray-900">{{ eventSlide.organization?.name }}</span>
              </div>
 
-             <div v-for="guest in currentEvent.guest_organizations" :key="guest.id"
+             <div v-for="guest in eventSlide.guest_organizations" :key="guest.id"
                   class="inline-flex items-center bg-white/90 shadow-lg rounded-full px-4 py-2 border border-gray-100/50 transform transition-transform duration-500 hover:scale-105"
              >
                 <img
                   v-if="guest.logo_file || guest.logo_url"
-                  :src="resolveMediaUrl(guest.logo_file, 64) ?? guest.logo_url"
+                  :src="resolveMediaUrl(guest.logo_file, 64) ?? guest.logo_url ?? undefined"
                   class="w-8 h-8 rounded-full mr-2 object-cover"
                   alt="Guest Logo"
                 />
@@ -102,7 +102,7 @@
 
           <!-- Title -->
           <h1 class="text-6xl lg:text-8xl font-black mb-8 leading-tight tracking-tight font-display text-gray-900 drop-shadow-sm">
-            {{ currentEvent.title }}
+            {{ eventSlide.title }}
           </h1>
 
           <!-- Details Grid -->
@@ -112,15 +112,15 @@
             <div class="flex items-center space-x-6 bg-white/60 backdrop-blur-md rounded-2xl p-6 border border-white/40 shadow-sm">
                  <ClockIcon class="w-10 h-10" />
               <div>
-                <div class="font-bold text-gray-900">{{ formatEventDate(currentEvent.start_time) }}</div>
-                <div class="text-gray-600 text-xl mt-1">{{ formatEventTime(currentEvent.start_time) }} - {{ formatEventTime(currentEvent.end_time) }}</div>
+                <div class="font-bold text-gray-900">{{ formatEventDate(eventSlide.start_time) }}</div>
+                <div class="text-gray-600 text-xl mt-1">{{ formatEventTime(eventSlide.start_time) }} - {{ formatEventTime(eventSlide.end_time) }}</div>
               </div>
             </div>
 
             <!-- Location -->
             <div class="flex items-center space-x-6 bg-white/60 backdrop-blur-md rounded-2xl p-6 border border-white/40 shadow-sm">
                  <MapPinIcon class="w-10 h-10" />
-                <div class="font-bold text-gray-900">{{ currentEvent.location || 'Lieu non spécifié' }}</div>
+                <div class="font-bold text-gray-900">{{ eventSlide.location || 'Lieu non spécifié' }}</div>
             </div>
 
           </div>
@@ -142,7 +142,7 @@
 
            <!-- Description (Truncated if too long) -->
           <div class="mt-6 text-xl lg:text-2xl text-gray-600 line-clamp-6 max-w-2xl leading-relaxed">
-            {{ currentEvent.description }}
+            {{ eventSlide.description }}
           </div>
 
         </div>
@@ -152,9 +152,10 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import api from '../utils/api'
+import { api } from '@/api'
+import type { EventRead } from '@/api/types'
 import { getEventGradient } from '../utils/colorUtils'
 import { formatLocalDate } from '../utils/dateUtils'
 import { ClockIcon, MapPinIcon } from '@heroicons/vue/24/outline'
@@ -162,20 +163,22 @@ import QRCodeVue3 from 'qrcode-vue3'
 import { resolveMediaUrl } from '../utils/media.js'
 
 const loading = ref(true)
-const events = ref([])
+const events = ref<EventRead[]>([])
 const currentIndex = ref(0)
 const progress = ref(0)
-let slideTimer = null
-let progressTimer = null
-let refreshTimer = null
+let slideTimer: ReturnType<typeof setTimeout> | undefined
+let progressTimer: ReturnType<typeof setInterval> | undefined
+let refreshTimer: ReturnType<typeof setInterval> | undefined
 
 const DURATION_MS = 10000 // 10 seconds
 const UPDATE_INTERVAL_MS = 100
 
 const REFRESH_INTERVAL_MS = 15 * 60 * 1000 // 15 minutes
 
-const currentEvent = computed(() => {
-  if (events.value.length === 0) return {}
+type WallSlide = EventRead | { isAd: true }
+
+const currentEvent = computed<WallSlide | null>(() => {
+  if (events.value.length === 0) return null
   // If index is equal to length, it's the ad slide
   if (currentIndex.value === events.value.length) {
     return { isAd: true }
@@ -183,46 +186,47 @@ const currentEvent = computed(() => {
   return events.value[currentIndex.value]
 })
 
+const isAdSlide = computed(() => currentEvent.value !== null && 'isAd' in currentEvent.value)
+const eventSlide = computed<EventRead | null>(() => {
+  if (!currentEvent.value || 'isAd' in currentEvent.value) return null
+  return currentEvent.value
+})
+
 const currentEventBg = computed(() => {
-  if (currentEvent.value.isAd) return '#ffffff' // White background for ad
-  if (!currentEvent.value?.organization) return '#f3f4f6' // gray-100 default
+  if (isAdSlide.value) return '#ffffff' // White background for ad
+  if (!eventSlide.value?.organization) return '#f3f4f6' // gray-100 default
   // Use gradient
-  return getEventGradient(currentEvent.value.organization, currentEvent.value.guest_organizations)
+  return getEventGradient(eventSlide.value.organization, eventSlide.value.guest_organizations)
 })
 
 const displayedReactions = computed(() => {
-  if (!currentEvent.value.reactions) return []
+  if (!eventSlide.value?.reactions) return []
   // Sort by count desc
-  const sorted = [...currentEvent.value.reactions].sort((a, b) => b.count - a.count)
+  const sorted = [...eventSlide.value.reactions].sort((a, b) => b.count - a.count)
   // Take top 5
   return sorted.slice(0, 5)
 })
 
 const hiddenReactionsCount = computed(() => {
-  if (!currentEvent.value.reactions) return 0
-  return Math.max(0, currentEvent.value.reactions.length - 5)
+  if (!eventSlide.value?.reactions) return 0
+  return Math.max(0, eventSlide.value.reactions.length - 5)
 })
 
 const currentEventBubbleColor = computed(() => {
-  if (currentEvent.value.isAd) return '#e0e7ff' // Light indigo for ad bubbles
-  if (!currentEvent.value?.organization) return '#e5e7eb'
+  if (isAdSlide.value) return '#e0e7ff' // Light indigo for ad bubbles
+  if (!eventSlide.value?.organization) return '#e5e7eb'
   // Use a normal/vibrant shade for bubbles
-  return currentEvent.value.organization.color_secondary || '#e5e7eb'
+  return eventSlide.value.organization.color_secondary || '#e5e7eb'
 })
 
 const fetchEvents = async () => {
   try {
-    const response = await api.get('/events/', { 
-        params: { 
-            size: 100,
-            upcoming: true
-        } 
-    })
+    const response = await api.events.list_events({ size: 100, upcoming: true })
     const now = new Date()
     const threeDaysLater = new Date(now)
     threeDaysLater.setDate(now.getDate() + 3)
 
-    events.value = response.data.items.filter(event => {
+    events.value = response.items.filter((event) => {
       const startTime = new Date(event.start_time)
       const endTime = new Date(event.end_time)
       
@@ -233,7 +237,7 @@ const fetchEvents = async () => {
       const isNotOver = endTime > now
       
       return isInWindow && isNotOver
-    }).sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
+    }).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
     
     // If current index is out of bounds after refresh, reset it
     if (currentIndex.value > events.value.length) {
@@ -254,8 +258,8 @@ const fetchEvents = async () => {
 const startSlideshow = () => {
     if (events.value.length === 0) return
 
-    clearTimeout(slideTimer)
-    clearInterval(progressTimer)
+    if (slideTimer) clearTimeout(slideTimer)
+    if (progressTimer) clearInterval(progressTimer)
 
     progress.value = 0
     let elapsed = 0
@@ -264,8 +268,8 @@ const startSlideshow = () => {
     // If currentEvent is Ad (isAd=true) or not featured, use standard duration.
     // If featured, use double.
     const getDuration = () => {
-        if (currentEvent.value.isAd) return DURATION_MS
-        return currentEvent.value.is_featured ? DURATION_MS * 2 : DURATION_MS
+      if (isAdSlide.value) return DURATION_MS
+      return eventSlide.value?.is_featured ? DURATION_MS * 2 : DURATION_MS
     }
 
     let currentDuration = getDuration()
@@ -288,11 +292,11 @@ const nextSlide = () => {
     currentIndex.value = (currentIndex.value + 1) % (events.value.length + 1)
 }
 
-const formatEventDate = (dateStr) => {
+const formatEventDate = (dateStr: string) => {
     return formatLocalDate(dateStr, { weekday: 'long', day: 'numeric', month: 'long' })
 }
 
-const formatEventTime = (dateStr) => {
+const formatEventTime = (dateStr: string) => {
     return formatLocalDate(dateStr, { hour: '2-digit', minute: '2-digit' })
 }
 
@@ -302,9 +306,9 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-    clearTimeout(slideTimer) // Changed from clearInterval
-    clearInterval(progressTimer)
-    clearInterval(refreshTimer)
+  if (slideTimer) clearTimeout(slideTimer) // Changed from clearInterval
+  if (progressTimer) clearInterval(progressTimer)
+  if (refreshTimer) clearInterval(refreshTimer)
 })
 </script>
 

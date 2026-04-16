@@ -191,10 +191,12 @@ def visit_short_link(short_id: str, session: Session = Depends(get_session)):
     app_base_url = os.getenv("APP_BASE_URL", "https://cal.minet.net")
     redirect_url = f"{app_base_url}"
 
-    if link.action_type in [ShortLinkActionType.VIEW, ShortLinkActionType.COUNTDOWN]:
+    if link.action_type in [ShortLinkActionType.VIEW, ShortLinkActionType.COUNTDOWN, ShortLinkActionType.PAYMENT]:
         if link.item_type == ShortLinkType.EVENT:
             if link.action_type == ShortLinkActionType.COUNTDOWN:
                 redirect_url = f"{app_base_url}/events/{link.item_id}/countdown"
+            elif link.action_type == ShortLinkActionType.PAYMENT:
+                redirect_url = f"{app_base_url}/events/{link.item_id}?action=pay"
             else:
                 redirect_url = f"{app_base_url}/events/{link.item_id}"
 

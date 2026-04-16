@@ -17,7 +17,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 
 const props = defineProps({
@@ -36,7 +36,7 @@ const props = defineProps({
   size: {
     type: String,
     default: 'md',
-    validator: (value) => ['xs', 'sm', 'md', 'lg', 'xl', '2xl'].includes(value)
+    validator: (value: unknown) => ['xs', 'sm', 'md', 'lg', 'xl', '2xl'].includes(value as string)
   }
 })
 
@@ -58,7 +58,7 @@ const sizeClass = computed(() => {
     xl: 'h-16 w-16',
     '2xl': 'h-24 w-24'
   }
-  return sizes[props.size]
+  return sizes[props.size as keyof typeof sizes]
 })
 
 const textSizeClass = computed(() => {
@@ -70,6 +70,6 @@ const textSizeClass = computed(() => {
     xl: 'text-xl',
     '2xl': 'text-3xl'
   }
-  return sizes[props.size]
+  return sizes[props.size as keyof typeof sizes]
 })
 </script>

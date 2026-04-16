@@ -20,7 +20,7 @@
               <div class="flex-shrink-0 h-10 w-10">
                 <img 
                   v-if="org.logo_file || org.logo_url"
-                  :src="resolveMediaUrl(org.logo_file, 64) ?? org.logo_url"
+                  :src="(resolveMediaUrl(org.logo_file, 64) ?? org.logo_url) ?? undefined"
                   :alt="org.name" 
                   class="h-10 w-10 rounded-full object-cover bg-white"
                 />
@@ -62,14 +62,15 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch } from 'vue'
 import { CheckIcon } from '@heroicons/vue/24/solid'
-import { resolveMediaUrl } from '../utils/media.js'
+import { resolveMediaUrl } from '../utils/media'
+import type { OrganizationRead } from '@/api/types'
 
 const props = defineProps({
   organizations: {
-    type: Array,
+    type: Array as () => OrganizationRead[],
     required: true
   },
   modelValue: {
@@ -98,14 +99,14 @@ watch(() => props.modelValue, (newValue) => {
   selectedId.value = newValue
 })
 
-const isSelected = (id) => {
+const isSelected = (id: string) => {
   if (props.multiple) {
     return Array.isArray(selectedId.value) && selectedId.value.includes(id)
   }
   return selectedId.value === id
 }
 
-const selectOrganization = (org) => {
+const selectOrganization = (org: OrganizationRead) => {
   if (props.multiple) {
     let newVal = Array.isArray(selectedId.value) ? [...selectedId.value] : []
     const index = newVal.indexOf(org.id)

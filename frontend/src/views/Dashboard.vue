@@ -119,7 +119,7 @@
                     <div class="flex -space-x-1.5 shrink-0" v-if="(event.guest_organizations && event.guest_organizations.length > 0) || event.organization?.logo_file || event.organization?.logo_url">
                          <img 
                            v-if="event.organization?.logo_file || event.organization?.logo_url"
-                           :src="resolveMediaUrl(event.organization?.logo_file, 32) ?? event.organization?.logo_url"
+                           :src="(resolveMediaUrl(event.organization?.logo_file, 32) ?? event.organization?.logo_url) ?? undefined"
                            class="h-4 w-4 rounded-full ring-1 ring-white object-cover bg-white"
                            :title="event.organization?.name"
                          />
@@ -129,7 +129,7 @@
                          >
                            <img  
                              v-if="guest.logo_file || guest.logo_url"
-                             :src="resolveMediaUrl(guest.logo_file, 32) ?? guest.logo_url"
+                             :src="(resolveMediaUrl(guest.logo_file, 32) ?? guest.logo_url) ?? undefined"
                              class="h-4 w-4 rounded-full ring-1 ring-white object-cover bg-white"
                              :title="guest.name"
                            />
@@ -213,7 +213,7 @@
                                <div class="flex -space-x-1.5 shrink-0" v-if="(event.guest_organizations && event.guest_organizations.length > 0) || event.organization?.logo_file || event.organization?.logo_url">
                                     <img 
                                       v-if="event.organization?.logo_file || event.organization?.logo_url"
-                                      :src="resolveMediaUrl(event.organization?.logo_file, 32) ?? event.organization?.logo_url"
+                                      :src="(resolveMediaUrl(event.organization?.logo_file, 32) ?? event.organization?.logo_url) ?? undefined"
                                       class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
                                       :title="event.organization?.name"
                                     />
@@ -223,7 +223,7 @@
                                     >
                                       <img  
                                         v-if="guest.logo_file || guest.logo_url"
-                                        :src="resolveMediaUrl(guest.logo_file, 32) ?? guest.logo_url"
+                                        :src="(resolveMediaUrl(guest.logo_file, 32) ?? guest.logo_url) ?? undefined"
                                         class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
                                         :title="guest.name"
                                       />
@@ -262,7 +262,7 @@
                            <div class="flex -space-x-1.5">
                               <img 
                                 v-if="event.organization?.logo_file || event.organization?.logo_url"
-                                :src="resolveMediaUrl(event.organization?.logo_file, 32) ?? event.organization?.logo_url"
+                                :src="(resolveMediaUrl(event.organization?.logo_file, 32) ?? event.organization?.logo_url) ?? undefined"
                                 class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
                                 :title="event.organization?.name"
                               />
@@ -272,7 +272,7 @@
                               >
                                 <img  
                                   v-if="guest.logo_file || guest.logo_url"
-                                  :src="resolveMediaUrl(guest.logo_file, 32) ?? guest.logo_url"
+                                  :src="(resolveMediaUrl(guest.logo_file, 32) ?? guest.logo_url) ?? undefined"
                                   class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
                                   :title="guest.name"
                                 />
@@ -283,7 +283,7 @@
                            <div class="inline-flex items-center rounded-full bg-white/60 px-1.5 py-0.5 backdrop-blur-sm">
                               <img 
                                 v-if="event.organization?.logo_file || event.organization?.logo_url"
-                                :src="resolveMediaUrl(event.organization?.logo_file, 32) ?? event.organization?.logo_url" 
+                                :src="(resolveMediaUrl(event.organization?.logo_file, 32) ?? event.organization?.logo_url) ?? undefined" 
                                 class="mr-1 h-3 w-3 rounded-full object-cover"
                               />
                               <span class="text-[10px] font-medium leading-none truncate max-w-[100px]" 
@@ -329,20 +329,29 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
-import { formatLocalDate } from '../utils/dateUtils'
 import { PlusIcon, CalendarIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, MapPinIcon } from '@heroicons/vue/24/outline'
-import api from '../utils/api'
-import { resolveMediaUrl } from '../utils/media.js'
+import { api } from '@/api'
+import { resolveMediaUrl } from '../utils/media'
+import type { EventRead, MembershipWithOrganization } from '@/api/types'
+
+type CalendarEvent = EventRead & {
+  isMultiDay: boolean
+  isPlaceholder?: boolean
+  visualSpan?: number
+  isFirstSegment?: boolean
+  isLastSegment?: boolean
+  isSegmentStart?: boolean
+  isSegmentEnd?: boolean
+}
 
 const viewType = ref('week') // 'month' or 'week'
-const { user, initialize, setToken, isSuperAdmin, isAuthenticated } = useAuth()
+const { initialize, setToken, isSuperAdmin, isAuthenticated } = useAuth()
 const currentDate = ref(new Date())
-const events = ref([])
-const userMemberships = ref([])
+const events = ref<EventRead[]>([])
+const userMemberships = ref<MembershipWithOrganization[]>([])
 const loading = ref(false)
 
 const toggleView = () => {
@@ -395,7 +404,7 @@ const goToToday = () => {
   }
 }
 
-const weekScrollContainer = ref(null)
+const weekScrollContainer = ref<HTMLElement | null>(null)
 
 const scrollToToday = () => {
   if (!weekScrollContainer.value) return
@@ -420,7 +429,7 @@ const scrollToToday = () => {
   }
 }
 
-const getWeekStart = (date) => {
+const getWeekStart = (date: Date | string) => {
   const d = new Date(date)
   const day = d.getDay()
   const diff = d.getDate() - day + (day === 0 ? -6 : 1) // Adjust when day is Sunday
@@ -476,13 +485,13 @@ const weekDays = computed(() => {
   return days
 })
 
-const toLocalISOString = (date) => {
-  const options = { year: 'numeric', month: '2-digit', day: '2-digit' }
+const toLocalISOString = (date: Date) => {
+  const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: '2-digit', day: '2-digit' }
   const formatted = new Intl.DateTimeFormat('fr-FR', options).format(date)
   return formatted
 }
 
-const createDayObject = (date, isCurrentMonth) => {
+const createDayObject = (date: Date, isCurrentMonth: boolean) => {
   const dateStr = toLocalISOString(date)
   const isToday = dateStr === toLocalISOString(new Date())
   
@@ -495,12 +504,12 @@ const createDayObject = (date, isCurrentMonth) => {
   }
 }
 
-const getEventsForDate = (dateStr) => {
-  return processedEventsMap.value[dateStr] || []
+const getEventsForDate = (dateStr: string): CalendarEvent[] => {
+  return (processedEventsMap.value as Record<string, CalendarEvent[]>)[dateStr] || []
 }
 
 const processedEventsMap = computed(() => {
-  const map = {}
+  const map: Record<string, CalendarEvent[]> = {}
   
   // Sort events globally first: Long events, then Time, then Duration
   const sortedEvents = [...events.value].sort((a, b) => {
@@ -509,11 +518,11 @@ const processedEventsMap = computed(() => {
     if (aLong && !bLong) return -1
     if (!aLong && bLong) return 1
     
-    const timeDiff = new Date(a.start_time) - new Date(b.start_time)
+    const timeDiff = new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
     if (timeDiff !== 0) return timeDiff
-    
-    return (new Date(b.end_time || b.start_time) - new Date(b.start_time)) - 
-           (new Date(a.end_time || a.start_time) - new Date(a.start_time))
+
+    return (new Date(b.end_time || b.start_time).getTime() - new Date(b.start_time).getTime()) -
+           (new Date(a.end_time || a.start_time).getTime() - new Date(a.start_time).getTime())
   })
   
   sortedEvents.forEach(originalEvent => {
@@ -559,7 +568,7 @@ const processedEventsMap = computed(() => {
       // Calculate remaining days in the event
       // Difference in days + 1
       const msPerDay = 24 * 60 * 60 * 1000
-      const daysLeftInEvent = Math.ceil((endDay - current) / msPerDay) + 1
+      const daysLeftInEvent = Math.ceil((endDay.getTime() - current.getTime()) / msPerDay) + 1
       
       // Calculate visual span (capped by week end)
       const visualSpan = isSegmentStart ? Math.min(daysInWeek, daysLeftInEvent) : 0
@@ -588,18 +597,18 @@ const processedEventsMap = computed(() => {
   return map
 })
 
-const isLongEvent = (event) => {
+const isLongEvent = (event: EventRead) => {
   if (!event.end_time) return false
   const start = new Date(event.start_time)
   const end = new Date(event.end_time)
-  return (end - start) > (24 * 60 * 60 * 1000)
+  return (end.getTime() - start.getTime()) > (24 * 60 * 60 * 1000)
 }
 
-const formatTime = (dateStr) => {
+const formatTime = (dateStr: string) => {
   return new Date(dateStr).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 
-const getEventTitle = (event) => {
+const getEventTitle = (event: EventRead) => {
   if (event.visibility === 'public_rejected') return `Refusé : ${event.title}`
   if (event.visibility === 'public_pending') return `En attente : ${event.title}`
   if (event.visibility === 'private') return `Privé : ${event.title}`
@@ -645,23 +654,21 @@ const loadEvents = async () => {
         end_date = weekEnd.toISOString()
     }
 
-    const response = await api.get('/events/', {
-        params: {
-            size: 512,
-            start_date: start_date,
-            end_date: end_date,
-            upcoming: false, // Disable default upcoming filter to see past events in current view
-            limit: 1000 // Increase limit to ensure we get all events for the month
-        }
+    const response = await api.events.list_events({
+        size: 512,
+        start_date: start_date,
+        end_date: end_date,
+        upcoming: false,
+        limit: 1000,
     })
-    events.value = response.data.items
-    
+    events.value = response.items
+
     // If authenticated, also load draft events where user has permission
     if (localStorage.getItem('auth_token')) {
       try {
-        const draftsResponse = await api.get('/events/drafts')
+        const drafts = await api.events.get_drafts()
         // Merge draft events into the main events array
-        events.value = [...events.value, ...draftsResponse.data]
+        events.value = [...events.value, ...drafts]
       } catch (error) {
         // Silently fail if drafts endpoint errors (user may not have permissions)
         console.debug('Could not load draft events:', error)
@@ -676,8 +683,7 @@ const loadEvents = async () => {
 
 const loadUserMemberships = async () => {
   try {
-    const response = await api.get('/users/me/memberships')
-    userMemberships.value = response.data
+    userMemberships.value = await api.users.get_user_memberships()
   } catch (error) {
     console.error('Failed to load user memberships:', error)
   }
@@ -717,9 +723,9 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
 })
 
-const handleKeydown = (e) => {
+const handleKeydown = (e: KeyboardEvent) => {
   // Ignore if user is typing in an input
-  if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return
+  if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement | null)?.tagName ?? '')) return
   
   if (e.key === 'ArrowLeft') {
     previousPeriod()

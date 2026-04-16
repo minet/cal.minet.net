@@ -18,9 +18,14 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 import MemberCard from './MemberCard.vue'
+
+type Block =
+  | { type: 'text'; content: string }
+  | { type: 'member'; member: any }
+  | { type: 'image'; alt: string; url: string }
 
 const props = defineProps({
   description: {
@@ -28,19 +33,19 @@ const props = defineProps({
     default: ''
   },
   members: {
-    type: Array,
+    type: Array as () => Array<{ user_id: string; full_name?: string | null; [key: string]: any }>,
     default: () => []
   },
   // Only images whose URL is in this list will be rendered
   allowedImageUrls: {
-    type: Array,
+    type: Array as () => string[],
     default: () => []
   }
 })
 
 // Build a lookup for members by user_id and full_name
 const memberByUserId = computed(() => {
-  const map = {}
+  const map: Record<string, any> = {}
   for (const m of props.members) {
     map[m.user_id] = m
   }
@@ -48,7 +53,7 @@ const memberByUserId = computed(() => {
 })
 
 const memberByName = computed(() => {
-  const map = {}
+  const map: Record<string, any> = {}
   for (const m of props.members) {
     if (m.full_name) {
       map[m.full_name.toLowerCase()] = m
@@ -64,8 +69,8 @@ const blocks = computed(() => {
   if (!props.description) return []
 
   const lines = props.description.split('\n')
-  const result = []
-  let textBuffer = []
+  const result: Block[] = []
+  let textBuffer: string[] = []
 
   const flushText = () => {
     if (textBuffer.length > 0) {
@@ -111,7 +116,7 @@ const blocks = computed(() => {
 })
 
 // Very lightweight markdown renderer for text blocks
-function renderMarkdown(text) {
+function renderMarkdown(text: string) {
   if (!text) return ''
   return text
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')

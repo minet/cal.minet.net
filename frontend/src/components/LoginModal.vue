@@ -41,7 +41,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { UserIcon } from '@heroicons/vue/24/outline'
 import { useRouter, useRoute } from 'vue-router'
 

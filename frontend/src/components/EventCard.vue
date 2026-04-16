@@ -173,7 +173,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { formatLocalDate } from '../utils/dateUtils'
@@ -181,7 +181,7 @@ import { resolveMediaUrl } from '../utils/media.js'
 
 import ReactionList from './ReactionList.vue'
 import MediaImage from './MediaImage.vue'
-import api from '../utils/api'
+import { api } from '@/api'
 import { getEventGradient } from '../utils/colorUtils'
 
 const props = defineProps({
@@ -193,15 +193,15 @@ const props = defineProps({
 
 const refreshReactions = async () => {
   try {
-    const response = await api.get(`/events/${props.event.id}`)
-    props.event.reactions = response.data.reactions
+    const response = await api.events.get_event(props.event.id)
+    props.event.reactions = response.reactions
   } catch (error) {
     console.error('Failed to refresh reactions', error)
   }
 }
 
 const router = useRouter()
-const videoEl = ref(null)
+const videoEl = ref<HTMLVideoElement | null>(null)
 
 const playVideo = () => {
   videoEl.value?.play()
@@ -237,7 +237,7 @@ const formattedTime = computed(() => {
 const firstLineDescription = computed(() => {
   if (!props.event.description) return ''
   // Split by newline and take the first non-empty line
-  const lines = props.event.description.split('\n').filter(line => line.trim() !== '')
+  const lines = props.event.description.split('\n').filter((line: string) => line.trim() !== '')
   return lines.length > 0 ? lines[0] : ''
 })
 </script>

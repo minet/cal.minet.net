@@ -104,22 +104,33 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { reactive, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import ImageUpload from '../components/ImageUpload.vue'
 import Dropdown from '../components/Dropdown.vue'
-import api from '../utils/api'
+import { api } from '@/api'
+import { OrganizationType } from '@/api/types'
+import type { OrganizationRead } from '@/api/types'
 
 const router = useRouter()
 const { user } = useAuth()
 
-const form = reactive({
+const form = reactive<{
+  name: string
+  slug: string
+  description: string
+  type: OrganizationType
+  logo_url: string | null
+  logo_file_id: string | null
+  parent_id: string | null
+  delete_after: string | null
+}>({
   name: '',
   slug: '',
   description: '',
-  type: 'association',
+  type: OrganizationType.ASSOCIATION,
   logo_url: null,
   logo_file_id: null,
   parent_id: null,
@@ -128,7 +139,7 @@ const form = reactive({
 
 const enableDeleteAfter = ref(false)
 
-const parentOrganizations = ref([])
+const parentOrganizations = ref<OrganizationRead[]>([])
 const error = ref('')
 const loading = ref(false)
 
@@ -139,8 +150,7 @@ const loadParentOrganizations = async () => {
   }
 
   try {
-    const response = await api.get('/organizations/')
-    parentOrganizations.value = response.data
+    parentOrganizations.value = await api.organizations.list_organizations()
   } catch (err) {
     console.error('Failed to load parent organizations:', err)
   }
@@ -154,20 +164,18 @@ const createOrg = async () => {
     // Generate slug from name
     form.slug = form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
     
-    // Check if delete_after is disabled
-    const { logo_url, ...formWithoutUrl } = form
-    const payload = { ...formWithoutUrl }
-    if (!enableDeleteAfter.value) {
-      payload.delete_after = null
-    } else {
-      payload.delete_after = form.delete_after ? new Date(form.delete_after).toISOString() : null
-    }
-    
-    await api.post('/organizations/', payload)
+    await api.organizations.create_organization({
+      name: form.name,
+      slug: form.slug || undefined,
+      description: form.description || undefined,
+      type: form.type,
+      parent_id: form.parent_id ?? undefined,
+      logo_file_id: form.logo_file_id ?? undefined,
+    })
     router.push('/organizations')
   } catch (err) {
     console.error('Failed to create organization:', err)
-    error.value = err.response?.data?.detail || 'Échec de la création de l\'organisation'
+    error.value = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Échec de la création de l\'organisation'
   } finally {
     loading.value = false
   }

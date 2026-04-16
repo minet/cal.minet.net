@@ -63,10 +63,10 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 import { XMarkIcon, FilmIcon } from '@heroicons/vue/24/outline'
-import api from '../utils/api'
+import { api } from '@/api'
 
 const props = defineProps({
   modelValue: {
@@ -81,7 +81,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'update:storedFileId'])
 
-const fileInput = ref(null)
+const fileInput = ref<HTMLInputElement | null>(null)
 const dragover = ref(false)
 const uploading = ref(false)
 const uploadProgress = ref(0)
@@ -91,14 +91,14 @@ const triggerFileInput = () => {
   fileInput.value?.click()
 }
 
-const handleFileChange = async (event) => {
-  const file = event.target.files[0]
+const handleFileChange = async (event: Event) => {
+  const file = (event.target as HTMLInputElement).files?.[0]
   if (file) await uploadFile(file)
 }
 
-const handleDrop = async (event) => {
+const handleDrop = async (event: DragEvent) => {
   dragover.value = false
-  const file = event.dataTransfer.files[0]
+  const file = event.dataTransfer?.files[0]
   if (file && file.type.startsWith('video/')) {
     await uploadFile(file)
   } else {
@@ -106,7 +106,7 @@ const handleDrop = async (event) => {
   }
 }
 
-const uploadFile = async (file) => {
+const uploadFile = async (file: File) => {
   error.value = ''
   uploading.value = true
   uploadProgress.value = 0
@@ -115,18 +115,15 @@ const uploadFile = async (file) => {
     const formData = new FormData()
     formData.append('file', file)
 
-    const response = await api.post('/upload/video', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      onUploadProgress: (progressEvent) => {
-        uploadProgress.value = Math.round((progressEvent.loaded * 100) / progressEvent.total)
-      }
+    const response = await api.upload.upload_video(formData, (pct) => {
+      uploadProgress.value = pct
     })
 
-    emit('update:modelValue', response.data.url)
-    emit('update:storedFileId', response.data.stored_file_id)
-  } catch (err) {
+    emit('update:modelValue', response.url)
+    emit('update:storedFileId', response.stored_file_id)
+  } catch (err: unknown) {
     console.error('Upload failed:', err)
-    error.value = err.response?.data?.detail || 'Échec de l\'upload'
+    error.value = (err as any).response?.data?.detail || 'Échec de l\'upload'
   } finally {
     uploading.value = false
   }

@@ -19,50 +19,50 @@
     </div>
 
     <!-- Content State -->
-    <div class="w-full max-w-md bg-white rounded-lg shadow-lg overflow-hidden" v-else>
+    <div class="w-full max-w-md bg-white rounded-lg shadow-lg overflow-hidden" v-else-if="info">
       <div class="px-6 py-8 text-center">
         <div 
           class="mx-auto flex h-16 w-16 items-center justify-center rounded-full mb-6 overflow-hidden"
           :class="!info.color_secondary ? 'bg-indigo-100' : ''"
-          :style="{ backgroundColor: info.color_secondary || null }"
+          :style="{ backgroundColor: info.color_secondary ?? undefined }"
         >
            <!-- Logo if available -->
-           <img v-if="info.logo_file || info.logo_url" :src="resolveMediaUrl(info.logo_file, 64) ?? info.logo_url" :alt="info.title" class="h-full w-full object-cover" />
+           <img v-if="info.logo_file || info.logo_url" :src="(resolveMediaUrl(info.logo_file, 64) ?? info.logo_url) ?? undefined" :alt="info.title" class="h-full w-full object-cover" />
            <!-- Icon fallback based on type -->
-           <CalendarIcon 
-             v-else-if="info.item_type === 'event'" 
-             class="h-8 w-8" 
+           <CalendarIcon
+             v-else-if="info.item_type === 'EVENT'"
+             class="h-8 w-8"
              :class="!info.color_primary ? 'text-indigo-600' : ''"
-             :style="{ color: info.color_primary || null }"
+             :style="{ color: info.color_primary ?? undefined }"
            />
-           <BuildingOfficeIcon 
-             v-else-if="info.item_type === 'organization'" 
-             class="h-8 w-8" 
+           <BuildingOfficeIcon
+             v-else-if="info.item_type === 'ORGANIZATION'"
+             class="h-8 w-8"
              :class="!info.color_primary ? 'text-indigo-600' : ''"
-             :style="{ color: info.color_primary || null }"
+             :style="{ color: info.color_primary ?? undefined }"
            />
-           <TagIcon 
-             v-else 
-             class="h-8 w-8" 
+           <TagIcon
+             v-else
+             class="h-8 w-8"
              :class="!info.color_primary ? 'text-indigo-600' : ''"
-             :style="{ color: info.color_primary || null }"
+             :style="{ color: info.color_primary ?? undefined }"
            />
         </div>
 
-        <div v-if="info.item_type === 'event'">
+        <div v-if="info.item_type === 'EVENT'">
            <h2 class="text-2xl font-bold text-gray-900 mb-2">Ajouter l'événement</h2>
            <p class="text-gray-600 mb-6">
               Voulez-vous ajouter cet événement à votre calendrier&nbsp;?<br/>
               Cela ajoutera automatiquement une réaction 👍 de votre part sur l'événement.
            </p>
         </div>
-        <div v-else-if="info.item_type === 'organization'">
+        <div v-else-if="info.item_type === 'ORGANIZATION'">
            <h2 class="text-2xl font-bold text-gray-900 mb-2">S'abonner à l'organisation</h2>
            <p class="text-gray-600 mb-6">
               Tous les événements de cette organisation seront ajoutés automatiquement à votre calendrier.
            </p>
         </div>
-         <div v-else-if="info.item_type === 'tag'">
+         <div v-else-if="info.item_type === 'TAG'">
            <h2 class="text-2xl font-bold text-gray-900 mb-2">S'abonner au tag</h2>
            <p class="text-gray-600 mb-6">
               Les événements de l'organisation associés à ce tag seront ajoutés automatiquement à votre calendrier.
@@ -77,7 +77,7 @@
              <h3 
                class="text-lg font-semibold mb-1" 
                :class="!customTitleColor ? 'text-indigo-600' : ''"
-               :style="{ color: customTitleColor }"
+               :style="{ color: customTitleColor ?? undefined }"
              >
                 {{ info.title }}
              </h3>
@@ -102,10 +102,10 @@
         </div>
 
         <div class="mt-8 text-sm text-gray-500 space-y-2 border-t border-gray-100 pt-6">
-           <p v-if="info.item_type === 'event'">
+           <p v-if="info.item_type === 'EVENT'">
              Vous pouvez synchroniser votre calendrier sur votre téléphone via <router-link to="/profile/add_calendar" class="text-indigo-600 hover:text-indigo-500 hover:underline">Mon profil</router-link>.
            </p>
-           <p v-if="info.item_type === 'organization' || info.item_type === 'tag'">
+           <p v-if="info.item_type === 'ORGANIZATION' || info.item_type === 'TAG'">
              Gérez vos abonnements sur <router-link to="/subscriptions" class="text-indigo-600 hover:text-indigo-500 hover:underline">Mes abonnements</router-link>.
              <br/>
              Activez la synchronisation mobile via <router-link to="/profile/add_calendar" class="text-indigo-600 hover:text-indigo-500 hover:underline">Mon profil</router-link>.
@@ -122,11 +122,12 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuth } from '../composables/useAuth';
-import api from '../utils/api';
+import { api } from '@/api'
+import type { ShortLinkInfo } from '@/api/types'
 import { resolveMediaUrl } from '../utils/media.js';
 import { 
     ExclamationTriangleIcon, 
@@ -141,17 +142,17 @@ const router = useRouter();
 const { isAuthenticated } = useAuth();
 
 const loading = ref(true);
-const error = ref(null);
-const info = ref(null);
+const error = ref<string | null>(null);
+const info = ref<ShortLinkInfo | null>(null);
 const confirming = ref(false);
 const showLoginModal = ref(false);
 const loginDescription = ref("Vous devez être connecté pour vous abonner ou ajouter cet événement à votre calendrier.");
 
-const shortId = route.params.shortId;
+const shortId = route.params.shortId as string;
 
 const customTitleColor = computed(() => {
   if (!info.value) return null;
-  if (info.value.item_type === 'tag' && info.value.tag_color) {
+  if (info.value.item_type === 'TAG' && info.value.tag_color) {
       return info.value.tag_color;
   }
   if (info.value.color_primary) {
@@ -162,20 +163,15 @@ const customTitleColor = computed(() => {
 
 const fetchInfo = async () => {
   try {
-    const response = await api.get(`/short-links/info/${shortId}`);
-    info.value = response.data;
+    info.value = await api.short_links.get_short_link_info(shortId);
   } catch (err) {
     console.error(err);
-    if (err.response && err.response.status === 403) {
-      // Show login modal instead of error message
+    const errRes = (err as { response?: { status?: number } })?.response
+    if (errRes?.status === 403) {
       loginDescription.value = "Ce contenu est privé. Veuillez vous connecter pour y accéder.";
       showLoginModal.value = true;
-      // Also set error just in case modal is closed? Or keep error clear?
-      // Since modal covers interaction, maybe fine. 
-      // User sees loading then modal? 
-      // Or error below modal?
       error.value = "Accès refusé. Connexion requise.";
-    } else if (err.response && err.response.status === 404) {
+    } else if (errRes?.status === 404) {
       error.value = "Lien invalide ou expiré.";
     } else {
       error.value = "Une erreur est survenue lors du chargement des informations.";
@@ -191,15 +187,16 @@ const confirm = async () => {
         showLoginModal.value = true;
         return;
     }
+    if (!info.value) return;
     confirming.value = true;
     try {
-        await api.post(`/short-links/confirm/${shortId}`);
+        await api.short_links.confirm_short_link(shortId);
         // Redirect to the item
-        if (info.value.item_type === 'event') {
+        if (info.value.item_type === 'EVENT') {
             router.push(`/events/${info.value.item_id}`);
-        } else if (info.value.item_type === 'organization') {
+        } else if (info.value.item_type === 'ORGANIZATION') {
             router.push(`/organizations/${info.value.item_id}`);
-        } else if (info.value.item_type === 'tag') {
+        } else if (info.value.item_type === 'TAG') {
             router.push('/subscriptions');
         } else {
             router.push('/');

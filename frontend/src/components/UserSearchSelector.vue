@@ -33,7 +33,7 @@
         class="w-full text-left px-4 py-3 hover:bg-gray-50 cursor-pointer flex items-center space-x-3"
       >
         <div class="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-          <img v-if="user.profile_picture_file || user.profile_picture_url" :src="resolveMediaUrl(user.profile_picture_file, 64) ?? user.profile_picture_url" :alt="getFullName(user)" class="h-full w-full object-cover" />
+          <img v-if="user.profile_picture_file || user.profile_picture_url" :src="(resolveMediaUrl(user.profile_picture_file, 64) ?? user.profile_picture_url) ?? undefined" :alt="getFullName(user)" class="h-full w-full object-cover" />
           <span v-else class="text-gray-600 font-medium text-sm">{{ getInitials(user) }}</span>
         </div>
         <div class="flex-1 min-w-0">
@@ -45,11 +45,20 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import TextInput from './TextInput.vue'
-import api from '../utils/api'
-import { resolveMediaUrl } from '../utils/media.js'
+import { api } from '@/api'
+import { resolveMediaUrl } from '../utils/media'
+import type { StoredFileRead } from '@/api/types'
+
+interface UserSearchExtended {
+  id: string
+  email: string
+  full_name: string | null
+  profile_picture_url?: string | null
+  profile_picture_file?: StoredFileRead | null
+}
 
 const props = defineProps({
   placeholder: {
@@ -57,7 +66,7 @@ const props = defineProps({
     default: 'Rechercher un utilisateur...'
   },
   filter: {
-    type: Function,
+    type: Function as unknown as () => ((u: UserSearchExtended) => boolean) | null,
     default: null
   }
 })
@@ -65,24 +74,24 @@ const props = defineProps({
 const emit = defineEmits(['select'])
 
 const searchQuery = ref('')
-const searchResults = ref([])
+const searchResults = ref<UserSearchExtended[]>([])
 const loading = ref(false)
 const showDropdown = ref(false)
-let debounceTimeout = null
+let debounceTimeout: ReturnType<typeof setTimeout> | undefined = undefined
 
 const filteredResults = computed(() => {
   if (!props.filter) return searchResults.value
   return searchResults.value.filter(props.filter)
 })
 
-const getFullName = (user) => {
+const getFullName = (user: UserSearchExtended) => {
   if (user.full_name) {
     return user.full_name
   }
   return user.email || 'Inconnu'
 }
 
-const getInitials = (user) => {
+const getInitials = (user: UserSearchExtended) => {
   const name = getFullName(user)
   if (!name) return '?'
   return name
@@ -113,8 +122,7 @@ const searchUsers = async () => {
   
   loading.value = true
   try {
-    const response = await api.get(`/users/search?q=${encodeURIComponent(searchQuery.value)}`)
-    searchResults.value = response.data
+    searchResults.value = (await api.users.search_users(searchQuery.value)) as UserSearchExtended[]
   } catch (error) {
     console.error('Failed to search users:', error)
     searchResults.value = []
@@ -123,7 +131,7 @@ const searchUsers = async () => {
   }
 }
 
-const selectUser = (user) => {
+const selectUser = (user: UserSearchExtended) => {
   emit('select', user)
   searchQuery.value = ''
   searchResults.value = []
@@ -131,8 +139,8 @@ const selectUser = (user) => {
 }
 
 // Close dropdown when clicking outside
-const handleClickOutside = (event) => {
-  if (!event.target.closest('.relative')) {
+const handleClickOutside = (event: MouseEvent) => {
+  if (!(event.target as HTMLElement).closest('.relative')) {
     showDropdown.value = false
   }
 }

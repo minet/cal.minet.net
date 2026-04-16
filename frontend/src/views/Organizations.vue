@@ -28,7 +28,7 @@
                 class="h-12 w-12 flex-none rounded-full flex items-center justify-center overflow-hidden"
                 :style="{ backgroundColor: org.color_secondary || '#f3f4f6' }"
               >
-                <img class="h-full w-full object-cover" :src="resolveMediaUrl(org.logo_file, 64) ?? org.logo_url" :alt="org.name" />
+                <img class="h-full w-full object-cover" :src="(resolveMediaUrl(org.logo_file, 64) ?? org.logo_url) ?? undefined" :alt="org.name" />
               </div>
               <div 
                 v-else 
@@ -58,16 +58,17 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useAuth } from '../composables/useAuth'
-import api from '../utils/api'
+import { api } from '@/api'
+import type { OrganizationRead } from '@/api/types'
 import { BuildingOfficeIcon } from '@heroicons/vue/24/outline'
 import SubscribeButton from '../components/SubscribeButton.vue'
 import { resolveMediaUrl } from '../utils/media.js'
 
 const { user } = useAuth()
-const organizations = ref([])
+const organizations = ref<OrganizationRead[]>([])
 const loading = ref(false)
 
 const isSuperAdmin = computed(() => user.value?.is_superadmin)
@@ -75,8 +76,7 @@ const isSuperAdmin = computed(() => user.value?.is_superadmin)
 const loadOrganizations = async () => {
   loading.value = true
   try {
-    const response = await api.get('/organizations/')
-    organizations.value = response.data
+    organizations.value = await api.organizations.list_organizations()
   } catch (error) {
     console.error('Failed to load organizations:', error)
   } finally {

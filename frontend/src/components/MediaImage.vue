@@ -10,13 +10,14 @@
   />
 </template>
 
-<script setup>
-import { computed } from 'vue'
-import { resolveMediaUrl, buildSrcset } from '../utils/media.js'
+<script setup lang="ts">
+import { computed, type PropType } from 'vue'
+import { resolveMediaUrl, buildSrcset } from '../utils/media'
+import type { StoredFileRead } from '../api/types'
 
 const props = defineProps({
-  storedFile: { type: Object, default: null },
-  fallbackUrl: { type: String, default: null },
+  storedFile: { type: Object as () => StoredFileRead | null, default: null },
+  fallbackUrl: { type: String as PropType<string | null>, default: null },
   displayWidth: { type: Number, default: 640 },
   alt: { type: String, default: '' },
   imgClass: { type: String, default: '' },

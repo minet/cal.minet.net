@@ -31,12 +31,19 @@
   </div>
 </template>
 
-<script setup>
-import { computed } from 'vue'
+<script setup lang="ts">
+import { computed, type PropType } from 'vue'
+
+interface DropdownOption {
+  value: string | number | boolean | null
+  label: string
+  description?: string
+  disabled?: boolean
+}
 
 const props = defineProps({
   modelValue: {
-    type: [String, Number, Boolean],
+    type: [String, Number, Boolean] as PropType<string | number | boolean | null>,
     default: ''
   },
   label: {
@@ -44,7 +51,7 @@ const props = defineProps({
     default: ''
   },
   options: {
-    type: Array,
+    type: Array as () => DropdownOption[],
     required: true,
     // Format: [{ value: 'val', label: 'Label', description: 'Optional description', disabled: false }]
   },
@@ -87,20 +94,20 @@ const stringValue = computed(() => {
 })
 
 // Get string value for option
-const getOptionStringValue = (option) => {
+const getOptionStringValue = (option: DropdownOption) => {
   if (option.value === null) return '__NULL__'
   if (option.value === true) return '__TRUE__'
   if (option.value === false) return '__FALSE__'
   return String(option.value)
 }
 
-const getOptionKey = (option) => {
+const getOptionKey = (option: DropdownOption) => {
   return getOptionStringValue(option)
 }
 
 // Convert string back to original type
-const handleChange = (event) => {
-  const stringVal = event.target.value
+const handleChange = (event: Event) => {
+  const stringVal = (event.target as HTMLSelectElement).value
   
   if (stringVal === '__NULL__') {
     emit('update:modelValue', null)
@@ -116,7 +123,7 @@ const handleChange = (event) => {
   }
   
   // Try to find the original value from options
-  const option = props.options.find(opt => getOptionStringValue(opt) === stringVal)
+  const option = props.options.find((opt: DropdownOption) => getOptionStringValue(opt) === stringVal) as DropdownOption | undefined
   if (option) {
     emit('update:modelValue', option.value)
   } else {

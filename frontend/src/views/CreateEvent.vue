@@ -240,10 +240,109 @@
           </div>
         </div>
 
+        <!-- Payment Form (HelloAsso) — shown if org has HelloAsso connected and user can propose forms -->
+        <div v-if="helloassoConnected" class="border-t border-gray-900/10 pt-8 mt-2">
+          <div class="flex items-center gap-2 mb-1">
+            <h2 class="text-base font-semibold leading-7 text-gray-900">Formulaire de paiement HelloAsso</h2>
+            <span class="text-xs text-gray-500 font-normal">(optionnel)</span>
+          </div>
+          <p class="text-sm text-gray-500 mb-4">
+            Proposez un formulaire de paiement. Un administrateur de l'organisation parente devra l'approuver avant qu'il soit visible.
+          </p>
+          <div class="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-6">
+            <div class="sm:col-span-4">
+              <label class="block text-sm font-medium leading-6 text-gray-900">Nom de l'article</label>
+              <input
+                v-model="paymentForm.item_name"
+                type="text"
+                placeholder="ex: Billet d'entrée, Adhésion..."
+                class="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+              />
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-sm font-medium leading-6 text-gray-900">Prix de base (€)</label>
+              <input
+                v-model.number="paymentForm.amount_euros"
+                type="number"
+                min="0.01"
+                step="0.01"
+                placeholder="ex: 5.00"
+                class="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+              />
+            </div>
+
+            <!-- Options -->
+            <div class="sm:col-span-6">
+              <label class="block text-sm font-medium leading-6 text-gray-900 mb-2">
+                Options payantes
+                <span class="text-xs font-normal text-gray-500 ml-1">(s'ajoutent au prix de base)</span>
+              </label>
+              <div class="space-y-4">
+                <div
+                  v-for="(opt, idx) in paymentForm.options"
+                  :key="idx"
+                  class="flex flex-col gap-2 p-3 border border-gray-100 rounded-lg bg-gray-50"
+                >
+                  <div class="flex items-center gap-3">
+                    <input
+                      v-model="opt.name"
+                      type="text"
+                      placeholder="ex: Option alcool, Repas végétarien..."
+                      class="flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                    />
+                    <div class="flex items-center gap-1">
+                      <span class="text-sm text-gray-500">+/-</span>
+                      <input
+                        v-model.number="opt.amount_euros"
+                        type="number"
+                        step="0.01"
+                        placeholder="2.00"
+                        class="w-24 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                      />
+                      <span class="text-sm text-gray-500">€</span>
+                    </div>
+                    <button
+                      type="button"
+                      @click="removePaymentOption(idx)"
+                      class="text-red-500 hover:text-red-700"
+                    >
+                      <XMarkIcon class="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  <!-- Private Option Config -->
+                  <div class="flex items-center gap-2">
+                    <input type="checkbox" v-model="opt.is_private" :id="'create-priv-' + idx" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" />
+                    <label :for="'create-priv-' + idx" class="text-sm text-gray-600">Option privée (réservée à certaines personnes)</label>
+                  </div>
+
+                  <div v-if="opt.is_private" class="mt-2">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Personnes autorisées (Collez une liste de noms ou emails, un par ligne)</label>
+                    <textarea 
+                      v-model="opt.allowed_user_names" 
+                      rows="3" 
+                      placeholder="Jean Dupont&#10;jean.dupont@telecom-sudparis.eu"
+                      class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                    ></textarea>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  @click="addPaymentOption"
+                  class="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700"
+                >
+                  <PlusIcon class="h-4 w-4" />
+                  Ajouter une option
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="mt-6 flex flex-col-reverse sm:flex-row items-center justify-end gap-x-6 gap-y-3 sm:gap-y-0">
           <router-link to="/" class="w-full text-center sm:w-auto text-sm font-semibold leading-6 text-gray-900">Annuler</router-link>
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             :disabled="loading || !form.organization_id"
             class="w-full sm:w-auto rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50"
           >
@@ -276,7 +375,7 @@
               class="h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-white font-bold text-xs"
               :style="{ backgroundColor: evt.organization?.color_secondary || '#f3f4f6' }"
             >
-              <img v-if="evt.organization?.logo_file || evt.organization?.logo_url" :src="resolveMediaUrl(evt.organization.logo_file, 64) ?? evt.organization.logo_url" class="h-full w-full object-cover rounded-full" />
+              <img v-if="evt.organization?.logo_file || evt.organization?.logo_url" :src="resolveMediaUrl(evt.organization?.logo_file, 64) ?? evt.organization?.logo_url ?? undefined" class="h-full w-full object-cover rounded-full" />
               <span v-else :style="{ color: evt.organization?.color_primary || '#4f46e5' }">{{ evt.organization?.name?.charAt(0) }}</span>
             </div>
             <div>
@@ -294,11 +393,12 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 
-import api from '../utils/api'
+import { api } from '@/api'
+import type { OrganizationRead, EventRead } from '@/api/types'
 import { useAuth } from '../composables/useAuth'
 import { localToUtc } from '../utils/dateUtils'
 import OrganizationSelector from '../components/OrganizationSelector.vue'
@@ -308,12 +408,44 @@ import CollapsibleCard from '../components/CollapsibleCard.vue'
 import VisibilitySelector from '../components/VisibilitySelector.vue'
 import TagSelector from '../components/TagSelector.vue'
 import { PlusIcon, XMarkIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
-import { resolveMediaUrl } from '../utils/media.js'
+import { resolveMediaUrl } from '../utils/media'
 import DateTimeDurationPicker from '../components/DateTimeDurationPicker.vue'
 
 const router = useRouter()
 
-const form = ref({
+interface EventLink {
+  name: string
+  url: string
+  order?: number
+}
+
+interface PaymentOption {
+  name: string
+  amount_euros: number | string
+  is_private?: boolean
+  allowed_user_names?: string
+}
+
+
+const form = ref<{
+  organization_id: string
+  title: string
+  description: string
+  start_time: string
+  end_time: string
+  location: string
+  location_url: string
+  poster_url: string
+  video_url: string
+  poster_file_id: string | null
+  video_file_id: string | null
+  visibility: string
+  hide_details: boolean
+  group_id: string | null
+  tag_ids: string[]
+  links: EventLink[]
+  guest_organization_ids: string[]
+}>({
   organization_id: '',
   title: '',
   description: '',
@@ -326,7 +458,6 @@ const form = ref({
   poster_file_id: null,
   video_file_id: null,
   visibility: 'public_pending',
-
   hide_details: false,
   group_id: null,
   tag_ids: [],
@@ -334,18 +465,20 @@ const form = ref({
   guest_organization_ids: []
 })
 
-const userOrganizations = ref([])
+const userOrganizations = ref<OrganizationRead[]>([])
 const error = ref('')
 const loading = ref(false)
-const allOrganizations = ref([])
+const helloassoConnected = ref(false)
+const paymentForm = ref<{ item_name: string; amount_euros: number | string; options: PaymentOption[] }>({ item_name: '', amount_euros: '', options: [] })
+const allOrganizations = ref<OrganizationRead[]>([])
 const isGuestOrgsOpen = ref(false)
 const { user, isSuperAdmin } = useAuth()
 
-const overlappingEvents = ref([])
+const overlappingEvents = ref<EventRead[]>([])
 const showOverlapModal = ref(false)
-let overlapCheckTimeout = null
+let overlapCheckTimeout: ReturnType<typeof setTimeout> | undefined = undefined
 
-const formatOverlapDate = (dateStr) => {
+const formatOverlapDate = (dateStr: string) => {
   if (!dateStr) return ''
   return new Date(dateStr).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
@@ -358,8 +491,7 @@ const checkOverlaps = async () => {
   try {
     const startUtc = localToUtc(form.value.start_time)
     const endUtc = localToUtc(form.value.end_time)
-    const res = await api.get('/events/overlapping-check', { params: { start_time: startUtc, end_time: endUtc } })
-    overlappingEvents.value = res.data
+    overlappingEvents.value = await api.events.overlapping_check({ start_time: startUtc, end_time: endUtc })
   } catch (e) {
     overlappingEvents.value = []
   }
@@ -367,7 +499,7 @@ const checkOverlaps = async () => {
 
 const showAllForSuperAdmin = ref(false)
 const superAdminSearchQuery = ref('')
-const superAdminSearchInput = ref(null)
+const superAdminSearchInput = ref<HTMLInputElement | null>(null)
 
 const displayedOrganizations = computed(() => {
     if (showAllForSuperAdmin.value) {
@@ -394,7 +526,7 @@ const toggleSuperAdminMode = async () => {
 
 // Guest Orgs Search
 const guestOrgSearchQuery = ref('')
-const guestOrgSearchInput = ref(null)
+const guestOrgSearchInput = ref<HTMLInputElement | null>(null)
 
 const displayedGuestOrganizations = computed(() => {
     if (!guestOrgSearchQuery.value) return allOrganizations.value
@@ -414,7 +546,7 @@ watch(isGuestOrgsOpen, (isOpen) => {
 // timeForm removed as it is handled in component
 
 // Helper to format date for datetime-local input
-const formatDateTimeLocal = (date) => {
+const formatDateTimeLocal = (date: Date) => {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
@@ -432,18 +564,27 @@ watch([() => form.value.start_time, () => form.value.end_time], () => {
 })
 
 // Watch for changes in organization_id to reset group_id and tag_ids
-watch(() => form.value.organization_id, (newOrgId) => {
+watch(() => form.value.organization_id, async (newOrgId) => {
   if (!newOrgId) {
     form.value.group_id = null
     form.value.tag_ids = []
+    helloassoConnected.value = false
+    return
+  }
+  // Check if the selected org (or its parent) has HelloAsso connected
+  try {
+    const res = await api.helloasso.helloasso_status(newOrgId)
+    helloassoConnected.value = res.connected
+  } catch {
+    helloassoConnected.value = false
   }
 })
 
 const loadUserOrganizations = async () => {
   try {
-    const response = await api.get('/users/me/memberships')
+    const memberships = await api.users.get_user_memberships()
     // Filter to only show organizations where user can create events (admin or member)
-    userOrganizations.value = response.data
+    userOrganizations.value = memberships
       .filter(m => m.role === 'org_admin' || m.role === 'org_member')
       .map(m => m.organization)
       .filter(org => org !== null)
@@ -459,23 +600,44 @@ const loadUserOrganizations = async () => {
 
 const loadAllOrganizations = async () => {
     try {
-        const response = await api.get('/organizations/')
-        allOrganizations.value = response.data
+        allOrganizations.value = await api.organizations.list_organizations()
     } catch (err) {
          console.error('Failed to load all organizations:', err)
     }
+}
+
+const addPaymentOption = () => {
+  paymentForm.value.options.push({ name: '', amount_euros: '' })
+}
+
+const removePaymentOption = (idx: number) => {
+  paymentForm.value.options.splice(idx, 1)
 }
 
 const addLink = () => {
   form.value.links.push({ name: '', url: '', order: form.value.links.length + 1 })
 }
 
-const removeLink = (index) => {
+const removeLink = (index: number) => {
   form.value.links.splice(index, 1)
   // Update order for remaining links
   form.value.links.forEach((link, idx) => {
     link.order = idx + 1
   })
+}
+
+const resolveUserNames = async (namesStr: string, eventId: string) => {
+  if (!namesStr || !namesStr.trim()) return []
+  const queries = namesStr.split('\n').map((n: string) => n.trim()).filter(Boolean)
+  if (!queries.length) return []
+  
+  try {
+    const res = await api.helloasso.bulk_resolve_attendees(eventId, { queries })
+    return res.filter(r => r.user_id).map(r => r.user_id).filter((id): id is string => id !== null)
+  } catch (err) {
+    console.error('Bulk resolve failed:', err)
+    return []
+  }
 }
 
 const createEvent = async () => {
@@ -494,18 +656,57 @@ const createEvent = async () => {
       video_file_id: form.value.video_file_id || undefined,
       organization_id: form.value.organization_id,
       visibility: form.value.visibility,
-      group_id: form.value.group_id,
+      group_id: form.value.group_id ?? undefined,
       tag_ids: form.value.tag_ids,
       hide_details: form.value.hide_details,
-      links: form.value.links.filter(link => link.name && link.url),
+      links: form.value.links.filter(link => link.name && link.url).map(({ name, url }) => ({ name, url })),
       guest_organization_ids: form.value.guest_organization_ids
     }
 
-    const response = await api.post('/events/', eventData)
-    router.push(`/events/${response.data.id}`)
+    const response = await api.events.create_event(eventData)
+    const eventId = response.id
+
+    // Submit payment form proposal if filled in
+    if (
+      helloassoConnected.value &&
+      paymentForm.value.item_name &&
+      Number(paymentForm.value.amount_euros) > 0
+    ) {
+      try {
+        const optionsToSave = []
+        for (const o of paymentForm.value.options) {
+          if (!o.name || o.amount_euros === '' || o.amount_euros === null) continue
+          
+          let finalUserIds: string[] = []
+          if (o.is_private && o.allowed_user_names) {
+            finalUserIds = await resolveUserNames(o.allowed_user_names, eventId)
+          }
+          
+          optionsToSave.push({
+            name: o.name,
+            price_cents: Math.round(Number(o.amount_euros) * 100),
+            is_private: o.is_private || false,
+            allowed_user_ids: finalUserIds
+          })
+        }
+
+        await api.helloasso.create_payment_form(eventId, {
+          item_name: paymentForm.value.item_name,
+          total_amount_cents: Math.round(Number(paymentForm.value.amount_euros) * 100),
+          options: optionsToSave,
+        })
+      } catch (payErr) {
+        console.error('Payment form submission failed:', payErr)
+        error.value = 'Événement créé mais la proposition de formulaire de paiement a échoué.'
+        router.push(`/events/${eventId}`)
+        return
+      }
+    }
+
+    router.push(`/events/${eventId}`)
   } catch (err) {
     console.error('Failed to create event:', err)
-    error.value = err.response?.data?.detail || 'Échec de la création de l\'événement'
+    error.value = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Échec de la création de l\'événement'
   } finally {
     loading.value = false
   }
@@ -534,10 +735,10 @@ onMounted(() => {
           video_url: duplicateData.video_url || duplicateData.video_file?.url || '',
           poster_file_id: duplicateData.poster_file?.id || null,
           video_file_id: duplicateData.video_file?.id || null,
-          tag_ids: duplicateData.tags?.map(t => t.id) || [],
-          guest_organization_ids: duplicateData.guest_organizations?.map(g => g.id) || [],
+          tag_ids: duplicateData.tags?.map((t: { id: string }) => t.id) || [],
+          guest_organization_ids: duplicateData.guest_organizations?.map((g: { id: string }) => g.id) || [],
           hide_details: duplicateData.hide_details,
-          links: duplicateData.links && duplicateData.links.length > 0 ? duplicateData.links.map(l => ({
+          links: duplicateData.links && duplicateData.links.length > 0 ? duplicateData.links.map((l: { url: string; label?: string; type?: string }) => ({
               url: l.url,
               label: l.label,
               type: l.type

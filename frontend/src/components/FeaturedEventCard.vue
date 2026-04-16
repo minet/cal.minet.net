@@ -55,7 +55,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { MapPinIcon } from '@heroicons/vue/24/outline'
@@ -68,7 +68,7 @@ const props = defineProps({
 })
 
 const router = useRouter()
-const videoEl = ref(null)
+const videoEl = ref<HTMLVideoElement | null>(null)
 
 // Evaluated once — these don't change during a session
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches

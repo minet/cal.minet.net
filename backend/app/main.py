@@ -5,6 +5,11 @@ import os
 import time
 
 from dotenv import load_dotenv
+
+# Must run before any app module is imported so os.getenv() calls in those
+# modules see the values from the .env file.
+load_dotenv()
+
 from fastapi import FastAPI
 from sqlalchemy.exc import OperationalError
 from sqlmodel import Session
@@ -16,6 +21,7 @@ from app.api import (
     cas,
     events,
     groups,
+    helloasso,
     ics,
     notifications,
     organization_images,
@@ -32,9 +38,6 @@ from app.database import create_db_and_tables
 from app.database import engine
 from app.migration_runner import run_migrations
 
-
-# Load environment variables
-load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -107,6 +110,8 @@ app.include_router(organization_links.router, tags=["organization-links"])
 app.include_router(organization_images.router, tags=["organization-images"])
 app.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 app.include_router(short_links.router, prefix="/short-links", tags=["short-links"])
+app.include_router(helloasso.router, prefix="/helloasso", tags=["helloasso"])
+app.include_router(helloasso.webhooks_router, prefix="/webhooks", tags=["webhooks"])
 
 @app.get("/")
 def read_root():

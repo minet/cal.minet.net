@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Formulaire de paiement approuvé</h2>
+
+<p>Bonjour {{ user_name }},</p>
+
+<p>Votre formulaire de paiement HelloAsso pour l'événement suivant a été <strong>approuvé</strong> et est maintenant visible publiquement.</p>
+
+<div class="event-details">
+    <div class="event-title">{{ event_title }}</div>
+    <div>Article : {{ item_name }}</div>
+</div>
+
+<p>Les participants peuvent désormais accéder au formulaire de paiement depuis la page de l'événement.</p>
+
+<div style="text-align: center;">
+    <a href="{{ event_url }}" class="button">Voir l'événement</a>
+</div>
+{% endblock %}

@@ -1,31 +1,21 @@
 <template>
-  <div>
-    <ActionPanelButton
-        :block="block"
-        :variant="variant"
-        :icon="ShareIcon"
-        @click="openModal"
-    >
-      Partager
-    </ActionPanelButton>
+  <TransitionRoot as="template" :show="isOpen">
+    <Dialog as="div" class="relative z-50" @close="closeModal">
+      <TransitionChild as="template" enter="ease-out duration-300" enter-from="opacity-0" enter-to="opacity-100" leave="ease-in duration-200" leave-from="opacity-100" leave-to="opacity-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+      </TransitionChild>
 
-    <TransitionRoot as="template" :show="isOpen">
-      <Dialog as="div" class="relative z-50" @close="closeModal">
-        <TransitionChild as="template" enter="ease-out duration-300" enter-from="opacity-0" enter-to="opacity-100" leave="ease-in duration-200" leave-from="opacity-100" leave-to="opacity-0">
-          <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
-        </TransitionChild>
-
-        <div class="fixed inset-0 z-10 overflow-y-auto">
-          <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-            <TransitionChild as="template" enter="ease-out duration-300" enter-from="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" enter-to="opacity-100 translate-y-0 sm:scale-100" leave="ease-in duration-200" leave-from="opacity-100 translate-y-0 sm:scale-100" leave-to="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
-              <DialogPanel class="relative transform rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
-                <div>
-                  <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100">
-                    <ShareIcon class="h-6 w-6 text-indigo-600" aria-hidden="true" />
-                  </div>
-                  <div class="mt-3 text-center sm:mt-5">
-                    <DialogTitle as="h3" class="text-base font-semibold leading-6 text-gray-900">Partager</DialogTitle>
-                    <div class="mt-4 space-y-4">
+      <div class="fixed inset-0 z-10 overflow-y-auto">
+        <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+          <TransitionChild as="template" enter="ease-out duration-300" enter-from="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" enter-to="opacity-100 translate-y-0 sm:scale-100" leave="ease-in duration-200" leave-from="opacity-100 translate-y-0 sm:scale-100" leave-to="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
+            <DialogPanel class="relative transform rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
+              <div>
+                <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100">
+                  <ShareIcon class="h-6 w-6 text-indigo-600" aria-hidden="true" />
+                </div>
+                <div class="mt-3 text-center sm:mt-5">
+                  <DialogTitle as="h3" class="text-base font-semibold leading-6 text-gray-900">Partager</DialogTitle>
+                  <div class="mt-4 space-y-4">
                       
                       <!-- View Link -->
                       <div v-if="itemType !== 'tag'" class="bg-gray-50 rounded-lg p-3 text-left border border-gray-100">
@@ -146,6 +136,47 @@
                                </div>
                            </div>
                             <button v-else @click="generateLink('countdown')" class="mt-1 w-full flex items-center justify-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-rose-700 bg-rose-100 hover:bg-rose-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500" :disabled="loading">
+                                Générer
+                            </button>
+                      </div>
+
+                      <!-- Payment Link -->
+                       <div v-if="itemType === 'event'" class="bg-gray-50 rounded-lg p-3 text-left border border-gray-100">
+                           <div class="flex items-center justify-between mb-2">
+                               <div class="flex items-center">
+                                    <CreditCardIcon class="h-4 w-4 text-green-500 mr-2" />
+                                    <span class="text-sm font-medium text-gray-900">Lien de paiement</span>
+                               </div>
+                           </div>
+                           
+                           <div v-if="paymentLink" class="relative flex items-center">
+                              <input 
+                                type="text" 
+                                :value="paymentLink" 
+                                class="block w-full rounded-md border-0 py-1.5 pr-32 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-green-600 sm:text-xs sm:leading-6 bg-white"
+                                readonly 
+                                @click="copy(paymentLink)" 
+                              />
+                               <div class="absolute right-1 top-1 bottom-1 flex gap-1">
+                                <button 
+                                    class="px-2.5 bg-green-50 text-green-700 hover:bg-green-100 rounded text-xs font-semibold transition-colors flex items-center"
+                                    @click="openQrPreview('payment')"
+                                    title="QR Code"
+                                >
+                                    <QrCodeIcon class="h-4 w-4" />
+                                </button>
+                                <button 
+                                    class="px-2.5 bg-green-50 text-green-700 hover:bg-green-100 rounded text-xs font-semibold transition-colors flex items-center" 
+                                    @click="copy(paymentLink)"
+                                >
+                                 <span v-if="copied === paymentLink" class="flex items-center">
+                                    <CheckIcon class="h-3 w-3 mr-1" /> Copié
+                                 </span>
+                                 <span v-else>Copier</span>
+                               </button>
+                               </div>
+                           </div>
+                            <button v-else @click="generateLink('payment')" class="mt-1 w-full flex items-center justify-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500" :disabled="loading">
                                 Générer
                             </button>
                       </div>
@@ -343,12 +374,11 @@
             </div>
         </Dialog>
     </TransitionRoot>
-  </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue';
-import api from '../utils/api';
+import { api } from '@/api'
 import { resolveMediaUrl } from '../utils/media.js';
 import ActionPanelButton from './ActionPanelButton.vue';
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot, Listbox, ListboxButton, ListboxLabel, ListboxOption, ListboxOptions, Switch, SwitchGroup, SwitchLabel } from '@headlessui/vue'
@@ -361,12 +391,20 @@ import {
     CheckIcon,
     QrCodeIcon,
     ArrowDownTrayIcon,
-    ChevronUpDownIcon
+    ChevronUpDownIcon,
+    CreditCardIcon
 } from '@heroicons/vue/24/outline';
 import QRCodeVue3 from 'qrcode-vue3';
 import { computed } from 'vue';
+import type { OrganizationRead } from '@/api/types'
+import { ShortLinkType, ShortLinkActionType } from '@/api/types'
+import { type PropType } from 'vue'
 
 const props = defineProps({
+    isOpen: {
+        type: Boolean,
+        required: true
+    },
     itemId: {
         type: String,
         required: true
@@ -384,25 +422,27 @@ const props = defineProps({
         default: 'default'
     },
     organization: {
-        type: Object,
+        type: Object as PropType<OrganizationRead | null>,
         default: null
     },
     guestOrganizations: {
-        type: Array,
+        type: Array as () => OrganizationRead[],
         default: () => []
     }
 });
 
-const isOpen = ref(false);
+const emit = defineEmits(['close']);
+
 const loading = ref(false);
-const viewLink = ref(null);
-const subscribeLink = ref(null);
-const countdownLink = ref(null);
-const copied = ref(null);
+const viewLink = ref<string | null>(null);
+const subscribeLink = ref<string | null>(null);
+const countdownLink = ref<string | null>(null);
+const paymentLink = ref<string | null>(null);
+const copied = ref<string | null>(null);
 
 const qrPreviewOpen = ref(false);
-const qrLinkType = ref(null); // 'view', 'subscribe', 'countdown'
-const qrLinkUrl = ref(null);
+const qrLinkType = ref<string | null>(null); // 'view', 'subscribe', 'countdown', 'payment'
+const qrLinkUrl = ref<string | null>(null);
 const qrcodeComponent = ref(null);
 
 const includeLogo = ref(true);
@@ -412,14 +452,14 @@ const qrFormat = ref('png');
 const qrDotType = ref('square');
 
 const openModal = () => {
-    isOpen.value = true;
+    // Only used if triggered externally, or kept for ref compat
 }
 
 const closeModal = () => {
-    isOpen.value = false;
+    emit('close');
 }
 
-const openQrPreview = async (type) => {
+const openQrPreview = async (type: string) => {
     qrLinkType.value = type;
     
     // Ensure link exists
@@ -427,12 +467,14 @@ const openQrPreview = async (type) => {
     if (type === 'view') url = viewLink.value;
     else if (type === 'subscribe') url = subscribeLink.value;
     else if (type === 'countdown') url = countdownLink.value;
+    else if (type === 'payment') url = paymentLink.value;
 
     if (!url) {
         await generateLink(type);
         if (type === 'view') url = viewLink.value;
         else if (type === 'subscribe') url = subscribeLink.value;
         else if (type === 'countdown') url = countdownLink.value;
+        else if (type === 'payment') url = paymentLink.value;
     }
     
     qrLinkUrl.value = url;
@@ -446,7 +488,7 @@ const closeQrPreview = () => {
 const downloadQr = () => {
     const downloadButton = document.querySelector('.hidden-dl-btn');
     if (downloadButton) {
-        downloadButton.click();
+        (downloadButton as HTMLElement).click();
     } else {
         console.error('Download button not found');
     }
@@ -474,8 +516,8 @@ const qrOptions = computed(() => {
     return {
         width: qrResolution.value,
         height: qrResolution.value,
-        value: qrLinkUrl.value,
-        image: (includeLogo.value && (props.organization?.logo_file || props.organization?.logo_url)) ? (resolveMediaUrl(props.organization.logo_file, 256) ?? props.organization.logo_url) : undefined,
+        value: qrLinkUrl.value ?? '',
+        image: (includeLogo.value && (props.organization?.logo_file || props.organization?.logo_url)) ? (resolveMediaUrl(props.organization.logo_file, 256) ?? props.organization.logo_url ?? undefined) : undefined,
         qrOptions: { typeNumber: 0, mode: 'Byte', errorCorrectionLevel: 'H' },
         imageOptions: { hideBackgroundDots: true, imageSize: 0.4, margin: 5 },
         dotsOptions: {
@@ -497,18 +539,19 @@ const qrOptions = computed(() => {
 });
 
 
-const generateLink = async (actionType) => {
+const generateLink = async (actionType: string) => {
     loading.value = true;
     try {
-        const response = await api.post('/short-links/', {
-            item_type: props.itemType,
+        const response = await api.short_links.create_short_link({
+            item_type: props.itemType.toUpperCase() as ShortLinkType,
             item_id: props.itemId,
-            action_type: actionType
+            action_type: actionType.toUpperCase() as ShortLinkActionType
         });
-        
-        if (actionType === 'view') viewLink.value = response.data.url;
-        else if (actionType === 'subscribe') subscribeLink.value = response.data.url;
-        else if (actionType === 'countdown') countdownLink.value = response.data.url;
+
+        if (actionType === 'view') viewLink.value = response.url;
+        else if (actionType === 'subscribe') subscribeLink.value = response.url;
+        else if (actionType === 'countdown') countdownLink.value = response.url;
+        else if (actionType === 'payment') paymentLink.value = response.url;
         
     } catch (err) {
         console.error(err);
@@ -518,7 +561,7 @@ const generateLink = async (actionType) => {
     }
 };
 
-const copy = (text) => {
+const copy = (text: string) => {
     navigator.clipboard.writeText(text);
     copied.value = text;
     setTimeout(() => {

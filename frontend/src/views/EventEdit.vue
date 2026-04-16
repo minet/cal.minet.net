@@ -17,7 +17,7 @@
         <p class="text-sm text-red-800">{{ error }}</p>
       </div>
       
-      <form v-if="eventLoaded" @submit.prevent="updateEvent">
+      <form v-if="eventLoaded" @submit.prevent="onSubmit">
         <div class="space-y-12">
           <div class="border-b border-gray-900/10 pb-12">
             <!-- Organization Selector (Hidden) -->
@@ -238,6 +238,175 @@
           </div>
         </div>
 
+        <!-- Payment Form (HelloAsso) -->
+        <div v-if="(helloassoConnected && canManagePayments) || existingPaymentForm" class="border-t border-gray-900/10 pt-8 mt-8">
+          <div class="flex items-center gap-2 mb-1">
+            <h2 class="text-base font-semibold leading-7 text-gray-900">Formulaire de paiement HelloAsso</h2>
+          </div>
+
+          <!-- Existing form: show status + link to dashboard -->
+          <template v-if="existingPaymentForm">
+            <div class="flex items-center gap-3 p-3 rounded-lg mb-4"
+              :class="{
+                'bg-amber-50': existingPaymentForm.status === 'pending',
+                'bg-green-50': existingPaymentForm.status === 'approved',
+                'bg-red-50': existingPaymentForm.status === 'rejected',
+              }"
+            >
+              <div>
+                <p class="text-sm font-medium"
+                  :class="{
+                    'text-amber-800': existingPaymentForm.status === 'pending',
+                    'text-green-800': existingPaymentForm.status === 'approved',
+                    'text-red-800': existingPaymentForm.status === 'rejected',
+                  }"
+                >
+                  {{ existingPaymentForm.status === 'pending' ? 'En attente de validation'
+                    : existingPaymentForm.status === 'approved' ? 'Approuvé — paiements actifs'
+                    : 'Refusé' }}
+                </p>
+                <p class="text-xs text-gray-500 mt-0.5">
+                  {{ existingPaymentForm.item_name }} — {{ (existingPaymentForm.total_amount_cents / 100).toFixed(2) }}&nbsp;€
+                  <template v-if="existingPaymentForm.options?.length">
+                    + {{ existingPaymentForm.options.length }} option(s)
+                  </template>
+                </p>
+                <p v-if="existingPaymentForm.status === 'approved'" class="text-xs text-gray-500 mt-0.5">
+                  {{ existingPaymentForm.completed_count }} / {{ existingPaymentForm.entry_count }} paiement(s) complété(s)
+                </p>
+              </div>
+              <router-link to="/payments" class="ml-auto text-xs text-indigo-600 hover:underline whitespace-nowrap">
+                Gérer →
+              </router-link>
+            </div>
+
+            <!-- Edit options (available for non-rejected forms) -->
+            <div v-if="existingPaymentForm.status !== 'rejected' && canManagePayments" class="space-y-3">
+              <p class="text-xs text-gray-500">Modifier les options payantes :</p>
+              <div class="space-y-4">
+                <div v-for="(opt, idx) in paymentFormEdit.options" :key="idx" class="flex flex-col gap-2 p-3 border border-gray-100 rounded-lg bg-gray-50">
+                  <div class="flex items-center gap-3">
+                    <input
+                      v-model="opt.name"
+                      type="text"
+                      placeholder="ex: Option alcool..."
+                      class="flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                    />
+                    <div class="flex items-center gap-1">
+                      <span class="text-sm text-gray-500">+/-</span>
+                      <input
+                        v-model.number="opt.amount_euros"
+                        type="number" step="0.01" placeholder="2.00"
+                        class="w-24 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                      />
+                      <span class="text-sm text-gray-500">€</span>
+                    </div>
+                    <button type="button" @click="paymentFormEdit.options.splice(idx, 1)" class="text-red-500 hover:text-red-700">
+                      <XMarkIcon class="h-4 w-4" />
+                    </button>
+                  </div>
+                  
+                  <!-- Private Option Config -->
+                  <div class="flex items-center gap-2">
+                    <input type="checkbox" v-model="opt.is_private" :id="'edit-priv-' + idx" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" />
+                    <label :for="'edit-priv-' + idx" class="text-sm text-gray-600">Option privée (réservée à certaines personnes)</label>
+                  </div>
+                  
+                  <div v-if="opt.is_private" class="mt-2">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Personnes autorisées (Collez une liste de noms ou emails, un par ligne)</label>
+                    <textarea 
+                      v-model="opt.allowed_user_names" 
+                      rows="3" 
+                      placeholder="Jean Dupont&#10;jean.dupont@telecom-sudparis.eu"
+                      class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                    ></textarea>
+                    <p class="text-xs text-gray-500 mt-1">Actuellement {{ opt.allowed_user_ids?.length || 0 }} personne(s) autorisée(s). Ajoutez-en de nouvelles ci-dessus.</p>
+                  </div>
+                </div>
+                <button type="button" @click="paymentFormEdit.options.push({ name: '', amount_euros: '', is_private: false, allowed_user_names: '', allowed_user_ids: [] })"
+                  class="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700">
+                  <PlusIcon class="h-4 w-4" />
+                  Ajouter une option
+                </button>
+              </div>
+              <button
+                type="button"
+                @click="savePaymentFormOptions"
+                :disabled="savingPaymentForm"
+                class="mt-2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+              >
+                {{ savingPaymentForm ? 'Enregistrement…' : 'Enregistrer les options' }}
+              </button>
+            </div>
+          </template>
+
+          <!-- No form yet: propose one -->
+          <template v-else-if="helloassoConnected && canManagePayments">
+            <p class="text-sm text-gray-500 mb-4">
+              Proposez un formulaire de paiement. Un administrateur de l'organisation parente devra l'approuver.
+            </p>
+            <div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-6">
+              <div class="sm:col-span-4">
+                <label class="block text-sm font-medium leading-6 text-gray-900">Nom de l'article</label>
+                <input v-model="newPaymentForm.item_name" type="text" placeholder="ex: Billet d'entrée..."
+                  class="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" />
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block text-sm font-medium leading-6 text-gray-900">Prix de base (€)</label>
+                <input v-model.number="newPaymentForm.amount_euros" type="number" min="0.01" step="0.01" placeholder="5.00"
+                  class="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" />
+              </div>
+              <div class="sm:col-span-6">
+                <label class="block text-sm font-medium leading-6 text-gray-900 mb-2">Options payantes <span class="text-xs font-normal text-gray-500">(optionnel)</span></label>
+                <div class="space-y-4">
+                  <div v-for="(opt, idx) in newPaymentForm.options" :key="idx" class="flex flex-col gap-2 p-3 border border-gray-100 rounded-lg bg-gray-50">
+                    <div class="flex items-center gap-3">
+                      <input v-model="opt.name" type="text" placeholder="ex: Option alcool..."
+                        class="flex-1 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" />
+                      <div class="flex items-center gap-1">
+                        <span class="text-sm text-gray-500">+/-</span>
+                        <input v-model.number="opt.amount_euros" type="number" step="0.01" placeholder="2.00"
+                          class="w-24 rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" />
+                        <span class="text-sm text-gray-500">€</span>
+                      </div>
+                      <button type="button" @click="newPaymentForm.options.splice(idx, 1)" class="text-red-500 hover:text-red-700">
+                        <XMarkIcon class="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <!-- Private Option Config -->
+                    <div class="flex items-center gap-2">
+                      <input type="checkbox" v-model="opt.is_private" :id="'new-priv-' + idx" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" />
+                      <label :for="'new-priv-' + idx" class="text-sm text-gray-600">Option privée (réservée à certaines personnes)</label>
+                    </div>
+                    
+                    <div v-if="opt.is_private" class="mt-2">
+                      <label class="block text-xs font-medium text-gray-700 mb-1">Personnes autorisées (Collez une liste de noms ou emails, un par ligne)</label>
+                      <textarea 
+                        v-model="opt.allowed_user_names" 
+                        rows="3" 
+                        placeholder="Jean Dupont&#10;jean.dupont@telecom-sudparis.eu"
+                        class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                      ></textarea>
+                    </div>
+                  </div>
+                  <button type="button" @click="newPaymentForm.options.push({ name: '', amount_euros: '', is_private: false, allowed_user_names: '', allowed_user_ids: [] })"
+                    class="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700">
+                    <PlusIcon class="h-4 w-4" />
+                    Ajouter une option
+                  </button>
+                </div>
+              </div>
+              <div class="sm:col-span-6">
+                <button type="button" @click="submitNewPaymentForm" :disabled="!newPaymentForm.item_name || !newPaymentForm.amount_euros || savingPaymentForm"
+                  class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">
+                  {{ savingPaymentForm ? 'Envoi…' : 'Proposer ce formulaire' }}
+                </button>
+              </div>
+            </div>
+          </template>
+        </div>
+
         <div class="mt-6 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-y-6 sm:gap-y-0">
           <button 
             type="button" 
@@ -285,7 +454,7 @@
               class="h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-white font-bold text-xs"
               :style="{ backgroundColor: evt.organization?.color_secondary || '#f3f4f6' }"
             >
-              <img v-if="evt.organization?.logo_file || evt.organization?.logo_url" :src="resolveMediaUrl(evt.organization.logo_file, 64) ?? evt.organization.logo_url" class="h-full w-full object-cover rounded-full" />
+                <img v-if="evt.organization?.logo_file || evt.organization?.logo_url" :src="resolveMediaUrl(evt.organization.logo_file, 64) ?? evt.organization.logo_url ?? undefined" class="h-full w-full object-cover rounded-full" />
               <span v-else :style="{ color: evt.organization?.color_primary || '#4f46e5' }">{{ evt.organization?.name?.charAt(0) }}</span>
             </div>
             <div>
@@ -303,11 +472,11 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
-import { formatLocalDate, localToUtc, utcToLocal } from '../utils/dateUtils'
+import { localToUtc } from '../utils/dateUtils'
 import OrganizationSelector from '../components/OrganizationSelector.vue'
 import ImageUpload from '../components/ImageUpload.vue'
 import VideoUpload from '../components/VideoUpload.vue'
@@ -316,33 +485,76 @@ import VisibilitySelector from '../components/VisibilitySelector.vue'
 import TagSelector from '../components/TagSelector.vue'
 import DateTimeDurationPicker from '../components/DateTimeDurationPicker.vue'
 import { PlusIcon, XMarkIcon, PaperAirplaneIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
-import api from '../utils/api'
+import { api } from '@/api'
+import type {
+  EventRead,
+  EventVisibility,
+  OrganizationRead,
+  OverlappingCheckParams,
+  PaymentFormRead,
+  UpdateEvent,
+} from '@/api/types'
 import { resolveMediaUrl } from '../utils/media.js'
 
 const router = useRouter()
 const route = useRoute()
-const { user, isSuperAdmin } = useAuth()
-const eventId = route.params.id
+const { isSuperAdmin } = useAuth()
+const eventId = String(route.params.id)
 
-const form = ref({
+type EventLinkForm = {
+  name: string
+  url: string
+  order: number
+}
+
+type PaymentOptionForm = {
+  name: string
+  amount_euros: number | ''
+  is_private: boolean
+  allowed_user_names: string
+  allowed_user_ids: string[]
+}
+
+type EventEditForm = {
+  title: string
+  description: string
+  start_time: string
+  end_time: string
+  location: string
+  location_url: string
+  poster_url: string | undefined
+  video_url: string | undefined
+  poster_file_id: string | null
+  video_file_id: string | null
+  organization_id: string
+  visibility: EventVisibility | string
+  hide_details: boolean
+  rejection_message: string | undefined
+  group_id: string | undefined
+  tag_ids: string[]
+  links: EventLinkForm[]
+  guest_organization_ids: string[]
+  featured: number
+}
+
+const form = ref<EventEditForm>({
   title: '',
   description: '',
   start_time: '',
   end_time: '',
   location: '',
   location_url: '',
-  poster_url: null,
-  video_url: null,
+  poster_url: undefined,
+  video_url: undefined,
   poster_file_id: null,
   video_file_id: null,
   organization_id: '',
   visibility: 'public_pending',
 
   hide_details: false,
-  rejection_message: null,
-  group_id: null,
+  rejection_message: undefined,
+  group_id: undefined,
   tag_ids: [],
-  links: [],
   links: [],
   guest_organization_ids: [],
   featured: 0
@@ -350,27 +562,44 @@ const form = ref({
 
 // timeForm removed as it is handled in component
 
-const userOrganizations = ref([])
-const allOrganizations = ref([])
-const showAllOrgs = ref(false)
+const userOrganizations = ref<OrganizationRead[]>([])
+const allOrganizations = ref<OrganizationRead[]>([])
 const eventLoaded = ref(false)
 const error = ref('')
 const loading = ref(false)
-const originalOrgId = ref(null) 
-const originalVisibility = ref(null)
-const originalStartTime = ref(null)
-const originalEndTime = ref(null)
-const currentOrganization = ref(null)
+const helloassoConnected = ref(false)
+const canManagePayments = ref(false)
+const existingPaymentForm = ref<PaymentFormRead | null>(null)
+const savingPaymentForm = ref(false)
+// For editing options on an existing form
+const paymentFormEdit = ref<{ options: PaymentOptionForm[] }>({ options: [] })
+// For creating a new payment form
+const newPaymentForm = ref<{ item_name: string; amount_euros: number | ''; options: PaymentOptionForm[] }>({
+  item_name: '',
+  amount_euros: '',
+  options: []
+})
+const originalVisibility = ref<EventVisibility | null>(null)
+const originalStartTime = ref<string | undefined>(undefined)
+const originalEndTime = ref<string | undefined>(undefined)
+const currentOrganization = ref<OrganizationRead | null>(null)
 const isGuestOrgsOpen = ref(false)
 
-const overlappingEvents = ref([])
+const overlappingEvents = ref<EventRead[]>([])
 const showOverlapModal = ref(false)
-let overlapCheckTimeout = null
+let overlapCheckTimeout: ReturnType<typeof setTimeout> | undefined
 
-const formatOverlapDate = (dateStr) => {
+const formatOverlapDate = (dateStr: string | null | undefined) => {
   if (!dateStr) return ''
   return new Date(dateStr).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
+
+const getErrorDetail = (err: unknown, fallback: string) => {
+  const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+  return detail || fallback
+}
+
+const onSubmit = () => updateEvent()
 
 const checkOverlaps = async () => {
   if (!form.value.start_time || !form.value.end_time) {
@@ -380,10 +609,9 @@ const checkOverlaps = async () => {
   try {
     const startUtc = localToUtc(form.value.start_time)
     const endUtc = localToUtc(form.value.end_time)
-    const params = { start_time: startUtc, end_time: endUtc }
+    const params: OverlappingCheckParams = { start_time: startUtc, end_time: endUtc }
     if (eventId) params.exclude_event_id = eventId
-    const res = await api.get('/events/overlapping-check', { params })
-    overlappingEvents.value = res.data
+    overlappingEvents.value = await api.events.overlapping_check(params)
   } catch (e) {
     overlappingEvents.value = []
   }
@@ -412,7 +640,7 @@ const isDateModified = computed(() => {
   if (!originalStartTime.value || !originalEndTime.value) return false
   
   // Helper to get time value safely
-  const getTime = (val) => {
+  const getTime = (val: string | undefined) => {
     if (!val) return 0
     return new Date(val).getTime()
   }
@@ -442,7 +670,7 @@ const saveButtonLabel = computed(() => {
 })
 
 // Helper to format date for datetime-local input
-const formatDateTimeLocal = (date) => {
+const formatDateTimeLocal = (date: Date) => {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
@@ -454,35 +682,35 @@ const formatDateTimeLocal = (date) => {
 const loadEvent = async () => {
   loading.value = true
   try {
-    const response = await api.get(`/events/${eventId}`)
-    const event = response.data
+    const event = await api.events.get_event(eventId)
     
     // Convert UTC dates to local datetime-local format
     const startLocal = new Date(event.start_time)
     const endLocal = new Date(event.end_time)
     
     form.value = {
-      organization_id: event.organization?.id || event.organization_id,
+        organization_id: event.organization?.id || '',
       title: event.title,
       description: event.description || '',
       start_time: formatDateTimeLocal(startLocal),
       end_time: formatDateTimeLocal(endLocal),
       location: event.location || '',
       location_url: event.location_url || '',
-      poster_url: event.poster_url || event.poster_file?.url || '',
-      video_url: event.video_url || event.video_file?.url || '',
+      poster_url: event.poster_url || event.poster_file?.url || undefined,
+      video_url: event.video_url || event.video_file?.url || undefined,
       poster_file_id: event.poster_file?.id || null,
       video_file_id: event.video_file?.id || null,
       visibility: event.visibility || 'public_pending',
 
       hide_details: event.hide_details || false,
-      rejection_message: event.rejection_message || null,
-      group_id: event.group?.id || null,
+      rejection_message: event.rejection_message || undefined,
+      group_id: event.group?.id || undefined,
       tag_ids: event.tags?.map(t => t.id) || [],
-      tag_ids: event.tags?.map(t => t.id) || [],
-      links: event.event_links || [],
-      tag_ids: event.tags?.map(t => t.id) || [],
-      links: event.event_links || [],
+      links: (event.event_links || []).map(link => ({
+        name: link.name,
+        url: link.url,
+        order: link.order,
+      })),
       guest_organization_ids: event.guest_organizations?.map(o => o.id) || [],
       featured: event.featured || 0
     }
@@ -497,7 +725,6 @@ const loadEvent = async () => {
     timeForm.value.durationMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
     */
     
-    originalOrgId.value = event.organization_id
     originalVisibility.value = event.visibility
     originalStartTime.value = formatDateTimeLocal(startLocal)
     originalEndTime.value = formatDateTimeLocal(endLocal)
@@ -508,9 +735,9 @@ const loadEvent = async () => {
     if (form.value.guest_organization_ids.length > 0) {
         isGuestOrgsOpen.value = true
     }
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Failed to load event:', err)
-    error.value = err.response?.data?.detail || 'Échec du chargement de l\'événement'
+    error.value = getErrorDetail(err, 'Échec du chargement de l\'événement')
   } finally {
     loading.value = false
   }
@@ -518,18 +745,21 @@ const loadEvent = async () => {
 
 const loadUserOrganizations = async () => {
   try {
-    const response = await api.get('/users/me/memberships')
-    userOrganizations.value = response.data
+    const memberships = await api.users.get_user_memberships()
+    userOrganizations.value = memberships
       .filter(m => m.role === 'org_admin' || m.role === 'org_member')
       .map(m => m.organization)
-      .filter(org => org !== null)
+      .filter((org): org is OrganizationRead => org !== null)
     
     // If superadmin, also ensure the current event's org is in the list even if not a member
     if (isSuperAdmin.value && form.value.organization_id) {
        // Check if current org is in list
        const found = userOrganizations.value.find(o => o.id === form.value.organization_id)
        if (!found) {
-         userOrganizations.value.push({ id: form.value.organization_id })
+         const orgFromAll = allOrganizations.value.find(o => o.id === form.value.organization_id)
+         if (orgFromAll) {
+           userOrganizations.value.push(orgFromAll)
+         }
        }
     }
   } catch (err) {
@@ -540,10 +770,7 @@ const loadUserOrganizations = async () => {
 const loadAllOrganizations = async () => {
   try {
     loading.value = true
-    loading.value = true
-    const response = await api.get('/organizations/')
-    allOrganizations.value = response.data
-    showAllOrgs.value = true
+    allOrganizations.value = await api.organizations.list_organizations()
   } catch (err) {
     console.error('Failed to load all organizations:', err)
   } finally {
@@ -558,7 +785,7 @@ const addLink = () => {
   // }
 }
 
-const removeLink = (index) => {
+const removeLink = (index: number) => {
   form.value.links.splice(index, 1)
   form.value.links.forEach((link, idx) => {
     link.order = idx + 1
@@ -570,18 +797,18 @@ const updateEvent = async (shouldRedirect = true) => {
   error.value = ''
   
   try {
-    const eventData = {
+    const eventData: UpdateEvent = {
       title: form.value.title,
       description: form.value.description,
       start_time: localToUtc(form.value.start_time),
       end_time: localToUtc(form.value.end_time),
       location: form.value.location,
       location_url: form.value.location_url,
-      poster_file_id: form.value.poster_file_id ?? null,
-      video_file_id: form.value.video_file_id ?? null,
-      visibility: form.value.visibility,
+      poster_file_id: form.value.poster_file_id ?? undefined,
+      video_file_id: form.value.video_file_id ?? undefined,
+      visibility: String(form.value.visibility),
       hide_details: form.value.hide_details,
-      group_id: form.value.group_id,
+      group_id: form.value.group_id ?? undefined,
       tag_ids: form.value.tag_ids,
       guest_organization_ids: form.value.guest_organization_ids,
       links: form.value.links.filter(link => link.name && link.url),
@@ -596,11 +823,11 @@ const updateEvent = async (shouldRedirect = true) => {
       eventData.visibility = 'public_pending'
     }
 
-    await api.put(`/events/${eventId}`, eventData)
+    await api.events.update_event(eventId, eventData)
 
     // Handle explicit rejection flow
     if (isSuperAdmin.value && targetVisibility === 'public_rejected') {
-      await api.post(`/events/${eventId}/reject`, {
+      await api.events.reject_event(eventId, {
         message: message || 'Refusé par un administrateur'
       })
     }
@@ -608,9 +835,9 @@ const updateEvent = async (shouldRedirect = true) => {
     if (shouldRedirect) {
       router.push(`/events/${eventId}`)
     }
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Failed to update event:', err)
-    error.value = err.response?.data?.detail || 'Échec de la mise à jour de l\'événement'
+    error.value = getErrorDetail(err, 'Échec de la mise à jour de l\'événement')
     throw err // Re-throw to handle in saveAndResubmit
   } finally {
     if (shouldRedirect) {
@@ -628,24 +855,149 @@ const deleteEvent = async () => {
 
   loading.value = true
   try {
-    await api.delete(`/events/${eventId}`)
+    await api.events.delete_event(eventId)
     router.push('/')
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Failed to delete event:', err)
-    error.value = err.response?.data?.detail || 'Échec de la suppression de l\'événement'
+    error.value = getErrorDetail(err, 'Échec de la suppression de l\'événement')
     loading.value = false
   }
 }
 
 // Watch dates to check overlapping events (debounced)
 watch([() => form.value.start_time, () => form.value.end_time], () => {
-  clearTimeout(overlapCheckTimeout)
+  if (overlapCheckTimeout) {
+    clearTimeout(overlapCheckTimeout)
+  }
   overlapCheckTimeout = setTimeout(checkOverlaps, 600)
 })
 
-onMounted(() => {
+const loadPaymentForm = async () => {
+  try {
+    const form = await api.helloasso.get_payment_form(eventId)
+    existingPaymentForm.value = form
+    // Seed edit state from existing options
+    paymentFormEdit.value.options = (form.options || []).map(o => ({
+      name: o.name,
+      amount_euros: o.price_cents / 100,
+      is_private: o.is_private || false,
+      allowed_user_ids: o.allowed_user_ids || [],
+      allowed_user_names: '', // We don't have the names back, so this starts empty. It's only for appending.
+    }))
+  } catch (err: unknown) {
+    const status = (err as { response?: { status?: number } }).response?.status
+    if (status !== 404) {
+      console.error('Failed to load payment form:', err)
+    }
+    existingPaymentForm.value = null
+  }
+}
+
+const loadHelloAssoStatus = async (orgId: string) => {
+  if (!orgId) { helloassoConnected.value = false; canManagePayments.value = false; return }
+  try {
+    const status = await api.helloasso.helloasso_status(orgId)
+    helloassoConnected.value = status.connected
+    canManagePayments.value = status.can_manage_payment_forms
+  } catch {
+    helloassoConnected.value = false
+    canManagePayments.value = false
+  }
+}
+
+const resolveUserNames = async (namesStr: string) => {
+  if (!namesStr || !namesStr.trim()) return []
+  const queries = namesStr.split('\n').map(n => n.trim()).filter(Boolean)
+  if (!queries.length) return []
+  
+  try {
+    const res = await api.helloasso.bulk_resolve_attendees(eventId, { queries })
+    return res
+      .map(r => r.user_id)
+      .filter((id): id is string => Boolean(id))
+  } catch (err) {
+    console.error('Bulk resolve failed:', err)
+    return []
+  }
+}
+
+const savePaymentFormOptions = async () => {
+  savingPaymentForm.value = true
+  try {
+    const optionsToSave = []
+    for (const o of paymentFormEdit.value.options) {
+      if (!o.name || o.amount_euros === '' || o.amount_euros === null) continue
+      
+      let finalUserIds = [...(o.allowed_user_ids || [])]
+      if (o.is_private && o.allowed_user_names) {
+        const resolvedIds = await resolveUserNames(o.allowed_user_names)
+        finalUserIds = [...new Set([...finalUserIds, ...resolvedIds])]
+      }
+      
+      optionsToSave.push({
+        name: o.name,
+        price_cents: Math.round(o.amount_euros * 100),
+        is_private: o.is_private || false,
+        allowed_user_ids: finalUserIds
+      })
+    }
+
+    const updated = await api.helloasso.update_payment_form(eventId, { options: optionsToSave })
+    existingPaymentForm.value = updated
+    paymentFormEdit.value.options = (updated.options || []).map(o => ({
+      name: o.name,
+      amount_euros: o.price_cents / 100,
+      is_private: o.is_private || false,
+      allowed_user_ids: o.allowed_user_ids || [],
+      allowed_user_names: '',
+    }))
+  } catch (err: unknown) {
+    error.value = getErrorDetail(err, 'Impossible de mettre à jour les options')
+  } finally {
+    savingPaymentForm.value = false
+  }
+}
+
+const submitNewPaymentForm = async () => {
+  if (!newPaymentForm.value.item_name || !newPaymentForm.value.amount_euros) return
+  savingPaymentForm.value = true
+  try {
+    const optionsToSave = []
+    for (const o of newPaymentForm.value.options) {
+      if (!o.name || o.amount_euros === '' || o.amount_euros === null) continue
+      
+      let finalUserIds: string[] = []
+      if (o.is_private && o.allowed_user_names) {
+        finalUserIds = await resolveUserNames(o.allowed_user_names)
+      }
+      
+      optionsToSave.push({
+        name: o.name,
+        price_cents: Math.round(o.amount_euros * 100),
+        is_private: o.is_private || false,
+        allowed_user_ids: finalUserIds
+      })
+    }
+
+    const created = await api.helloasso.create_payment_form(eventId, {
+      item_name: newPaymentForm.value.item_name,
+      total_amount_cents: Math.round(newPaymentForm.value.amount_euros * 100),
+      options: optionsToSave,
+    })
+    existingPaymentForm.value = created
+    newPaymentForm.value = { item_name: '', amount_euros: '', options: [] }
+  } catch (err: unknown) {
+    error.value = getErrorDetail(err, 'Impossible de proposer le formulaire')
+  } finally {
+    savingPaymentForm.value = false
+  }
+}
+
+onMounted(async () => {
   loadUserOrganizations()
   loadAllOrganizations()
-  loadEvent()
+  await loadEvent()
+  loadPaymentForm()
+  loadHelloAssoStatus(form.value.organization_id)
 })
 </script>

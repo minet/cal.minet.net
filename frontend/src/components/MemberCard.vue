@@ -33,7 +33,7 @@
   </router-link>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import UserAvatar from './UserAvatar.vue'
 import { LinkIcon, PhoneIcon } from '@heroicons/vue/24/outline'
 import { getSocialIcon } from '../utils/social'
@@ -47,7 +47,7 @@ defineProps({
   }
 })
 
-function openLink(url) {
+function openLink(url: string) {
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 </script>

@@ -107,7 +107,7 @@
         <!-- Poster / Video -->
         <div v-if="event.video_file || event.video_url" class="bg-white shadow-sm rounded-lg overflow-hidden">
           <video
-          :src="event.video_file?.url ?? event.video_url"
+          :src="(event.video_file?.url ?? event.video_url) ?? undefined"
           :poster="resolveMediaUrl(event.poster_file, 960) ?? event.poster_url ?? undefined"
           controls
           class="w-full object-cover"
@@ -133,12 +133,21 @@
       <!-- Sidebar -->
       <div class="space-y-6">
         <ActionPanel title="Actions">
-             <ShareButton 
+             <ActionPanelButton
               v-if="event && user"
+              :icon="ShareIcon"
+              @click="showShareModal = true"
+              variant="indigo"
+             >
+                Partager
+             </ActionPanelButton>
+             
+             <ShareButton 
+                v-if="event && user"
+                :is-open="showShareModal"
+                @close="showShareModal = false"
                 :item-id="event.id" 
                 item-type="event" 
-                :block="true" 
-                variant="indigo" 
                 :organization="event.organization"
                 :guest-organizations="event.guest_organizations"
              />
@@ -147,7 +156,7 @@
               v-if="canEdit"
               :icon="FaceSmileIcon"
               @click="showReactionModal = true"
-              variant="amber"
+              variant="violet"
               class="w-full"
             >
               Réactions
@@ -157,17 +166,27 @@
               v-if="canEdit"
               :to="`/events/${event.id}/edit`"
               :icon="PencilIcon"
-              variant="sky"
+              variant="purple"
               class="w-full"
             >
               Modifier
+            </ActionPanelButton>
+
+            <ActionPanelButton
+              v-if="paymentForm?.status === 'approved' && canEdit"
+              :to="`/events/${event.id}/validation`"
+              :icon="TicketIcon"
+              variant="fuchsia"
+              class="w-full"
+            >
+              Validation
             </ActionPanelButton>
             
             <ActionPanelButton
                v-if="canEdit"
                :icon="DocumentDuplicateIcon"
                @click="duplicateEvent"
-               variant="cyan"
+               variant="pink"
                class="w-full"
             >
               Dupliquer
@@ -183,6 +202,116 @@
               Compte à rebours
             </ActionPanelButton>
         </ActionPanel>
+
+        <!-- HelloAsso Payment Form -->
+        <div v-if="paymentForm" class="shadow-sm rounded-lg overflow-hidden">
+          <!-- Paid ticket -->
+          <template v-if="myEntry?.completed">
+            <div class="bg-green-50 border-2 border-green-200 p-6">
+              <div class="flex items-center gap-2 mb-4">
+                <TicketIcon class="h-5 w-5 text-green-600" />
+                <span class="text-base font-bold text-green-800">Billet confirmé</span>
+              </div>
+              
+              <div class="space-y-1">
+                <p class="text-sm text-gray-800 font-semibold">{{ myEntry.item_name }}</p>
+                <div v-if="myEntry.selected_options?.length" class="space-y-0.5">
+                  <p v-for="opt in myEntry.selected_options" :key="opt.name" class="text-xs text-gray-600">
+                    + {{ opt.name }} ({{ opt.price_cents < 0 ? '-' : '+' }}{{ Math.abs(opt.price_cents / 100).toFixed(2) }}&nbsp;€)
+                  </p>
+                </div>
+              </div>
+
+              <div class="mt-4 pt-4 border-t border-green-200 flex items-center justify-between">
+                <span class="text-xs font-medium text-green-700 uppercase tracking-wider">Total payé</span>
+                <span class="text-lg font-bold text-green-700">{{ (myEntry.amount_cents / 100).toFixed(2) }}&nbsp;€</span>
+              </div>
+
+              <router-link to="/my-payments" class="mt-4 block text-center text-xs font-semibold text-green-700 hover:text-green-900 underline transition-colors">
+                Voir mes paiements
+              </router-link>
+            </div>
+          </template>
+
+          <!-- Approved: show options + pay button -->
+          <div v-else-if="paymentForm.status === 'approved'" class="bg-white p-6">
+            <h3 class="text-sm font-medium text-gray-900 mb-4 flex items-center gap-2">
+              <CreditCardIcon class="h-4 w-4 text-green-600" />
+              Paiement
+            </h3>
+            
+            <p class="text-sm text-gray-700 font-medium">{{ paymentForm.item_name }}</p>
+
+            <!-- Options -->
+            <div v-if="paymentForm.options?.length" class="mt-3 space-y-2">
+              <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">Options</p>
+              <template v-for="(opt, idx) in paymentForm.options" :key="idx">
+                <label
+                  v-if="!opt.is_private || (user && opt.allowed_user_ids?.includes(user.id))"
+                  class="flex items-center gap-3 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    :value="String(opt.id)"
+                    v-model="selectedOptionIds"
+                    class="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                  />
+                  <span class="text-sm text-gray-700">{{ opt.name }}</span>
+                  <span class="ml-auto text-sm text-gray-500">{{ opt.price_cents < 0 ? '-' : '+' }}{{ Math.abs(opt.price_cents / 100).toFixed(2) }}&nbsp;€</span>
+                </label>
+              </template>
+            </div>
+
+            <!-- Total -->
+            <div class="mt-3 flex items-center justify-between text-sm">
+              <span class="text-gray-500">Total</span>
+              <span class="font-semibold text-gray-900">{{ paymentTotal.toFixed(2) }}&nbsp;€</span>
+            </div>
+
+            <div v-if="!paymentForm.is_open" class="mt-3 text-xs text-amber-700 bg-amber-50 rounded p-2 text-center">
+              Les paiements sont temporairement fermés.
+            </div>
+
+            <!-- Not yet paid -->
+            <template v-else>
+              <button
+                @click="initiatePayment"
+                :disabled="initiatingPayment"
+                class="mt-3 flex items-center justify-center gap-2 w-full rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500 disabled:opacity-50 transition-colors"
+              >
+                <CreditCardIcon class="h-4 w-4" />
+                {{ initiatingPayment ? 'Redirection…' : "S'inscrire / Payer" }}
+              </button>
+              <p v-if="paymentError" class="mt-2 text-xs text-red-600 text-center">{{ paymentError }}</p>
+            </template>
+          </div>
+
+          <!-- Pending: show info for org members -->
+          <div v-else-if="paymentForm.status === 'pending' && canEdit" class="bg-white p-6">
+            <h3 class="text-sm font-medium text-gray-900 mb-4 flex items-center gap-2">
+              <CreditCardIcon class="h-4 w-4 text-green-600" />
+              Paiement
+            </h3>
+            <p class="text-sm text-gray-500 italic">
+              Le formulaire de paiement est en attente de validation par l'organisation parente.
+            </p>
+            <p class="text-xs text-gray-400 mt-1">
+              {{ paymentForm.item_name }} — {{ (paymentForm.total_amount_cents / 100).toFixed(2) }}&nbsp;€
+            </p>
+          </div>
+
+          <!-- Rejected: show rejection message for org members -->
+          <div v-else-if="paymentForm.status === 'rejected' && canEdit" class="bg-white p-6">
+            <h3 class="text-sm font-medium text-gray-900 mb-4 flex items-center gap-2">
+              <CreditCardIcon class="h-4 w-4 text-green-600" />
+              Paiement
+            </h3>
+            <p class="text-sm text-red-600 font-medium mb-1">Formulaire refusé</p>
+            <p v-if="paymentForm.rejection_message" class="text-sm text-gray-600">
+              {{ paymentForm.rejection_message }}
+            </p>
+          </div>
+        </div>
 
         <!-- Date & Time -->
         <div class="bg-white shadow-sm rounded-lg p-6">
@@ -251,11 +380,12 @@
           <p class="text-xs text-gray-500 mt-1">Événement privé, visible uniquement par les membres du groupe sélectionné.</p>
         </div>
         
-        <OrganizationCard 
-          :organization="event.organization" 
+        <OrganizationCard
+          v-if="event.organization"
+          :organization="event.organization"
           :show-type="true"
           :no-border="true"
-          class="shadow-sm bg-white rounded-lg" 
+          class="shadow-sm bg-white rounded-lg"
         />
         
         <!-- Guest Organizations -->
@@ -299,15 +429,24 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
-import api from '../utils/api'
+import { api } from '@/api'
+import type {
+  EventRead,
+  MembershipWithOrganization,
+  MyPaymentEntryRead,
+  PaymentFormRead,
+  SubscriptionOrgEntry,
+  SubscriptionTagEntry,
+  TagRead,
+} from '@/api/types'
 import { getSocialIcon, isHelloAsso } from '../utils/social'
-import { 
-  ClockIcon, 
-  MapPinIcon, 
+import {
+  ClockIcon,
+  MapPinIcon,
   PencilIcon,
   BellIcon,
   BellSlashIcon,
@@ -318,7 +457,9 @@ import {
   InformationCircleIcon,
   DocumentDuplicateIcon,
   LinkIcon,
-  CreditCardIcon
+  CreditCardIcon,
+  TicketIcon,
+  ShareIcon,
 } from '@heroicons/vue/24/outline'
 import { formatLocalDate } from '../utils/dateUtils'
 import TagBadge from '../components/TagBadge.vue'
@@ -336,39 +477,46 @@ import { resolveMediaUrl } from '../utils/media.js'
 const route = useRoute()
 const router = useRouter()
 const { user } = useAuth()
-const event = ref(null)
-const userMemberships = ref([])
-const subscriptions = ref([])
+const event = ref<EventRead | null>(null)
+const paymentForm = ref<PaymentFormRead | null>(null)
+const myEntry = ref<MyPaymentEntryRead | null>(null)
+const initiatingPayment = ref(false)
+const paymentError = ref('')
+const selectedOptionIds = ref<string[]>([])
+const userMemberships = ref<MembershipWithOrganization[]>([])
+const subscriptions = ref<(SubscriptionOrgEntry | SubscriptionTagEntry)[]>([])
 const loading = ref(true)
 const showReactionModal = ref(false)
+const showShareModal = ref(false)
 
 const canEdit = computed(() => {
   if (!event.value || !user.value) return false
-  
+
   // Superadmin can edit anything
   if (user.value.is_superadmin) return true
-  
+
   // Check if user is admin or member of the event's organization
-  return userMemberships.value.some(m => 
-    m.organization_id === event.value.organization.id && 
+  const orgId = event.value.organization?.id
+  return userMemberships.value.some(m =>
+    m.organization_id === orgId &&
     (m.role === 'org_admin' || m.role === 'org_member')
   )
 })
 
-const formatDateTime = (dateString) => {
+const formatDateTime = (dateString: string) => {
   return formatLocalDate(dateString, { dateStyle: 'full', timeStyle: 'short' })
 }
 
 const getDuration = () => {
   if (!event.value) return ''
-  
+
   const start = new Date(event.value.start_time)
   const end = new Date(event.value.end_time)
-  const diffMs = end - start
-  
+  const diffMs = end.getTime() - start.getTime()
+
   const hours = Math.floor(diffMs / (1000 * 60 * 60))
   const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
-  
+
   if (hours > 0) {
     return `${hours}h${minutes > 0 ? ` ${minutes}min` : ''}`
   }
@@ -377,8 +525,7 @@ const getDuration = () => {
 
 const loadEvent = async () => {
   try {
-    const response = await api.get(`/events/${route.params.id}`)
-    event.value = response.data
+    event.value = await api.events.get_event(String(route.params.id))
   } catch (error) {
     console.error('Failed to load event:', error)
   } finally {
@@ -386,10 +533,68 @@ const loadEvent = async () => {
   }
 }
 
+const paymentTotal = computed(() => {
+  if (!paymentForm.value) return 0
+  const base = paymentForm.value.total_amount_cents / 100
+  const optionById = Object.fromEntries((paymentForm.value.options || []).map(o => [String(o.id), o]))
+  const extra = selectedOptionIds.value.reduce((sum, optId) => {
+    const opt = optionById[String(optId)]
+    return sum + (opt ? opt.price_cents / 100 : 0)
+  }, 0)
+  return base + extra
+})
+
+const initiatePayment = async () => {
+  initiatingPayment.value = true
+  paymentError.value = ''
+  try {
+    const res = await api.helloasso.initiate_payment(String(route.params.id), {
+      selected_option_ids: selectedOptionIds.value,
+    })
+    window.location.href = res.redirect_url
+  } catch (err: unknown) {
+    const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+    paymentError.value = detail || 'Impossible d\'initier le paiement'
+    initiatingPayment.value = false
+  }
+}
+
+const loadPaymentForm = async () => {
+  try {
+    paymentForm.value = await api.helloasso.get_payment_form(String(route.params.id))
+
+    // Auto-select private options the user is allowed to see
+    if (paymentForm.value?.options && user.value) {
+      const currentUser = user.value
+      paymentForm.value.options.forEach((opt) => {
+        if (opt.is_private && opt.allowed_user_ids?.includes(currentUser.id)) {
+          const optId = String(opt.id)
+          if (!selectedOptionIds.value.includes(optId)) {
+            selectedOptionIds.value.push(optId)
+          }
+        }
+      })
+    }
+  } catch (err: unknown) {
+    const status = (err as { response?: { status?: number } }).response?.status
+    if (status !== 404) {
+      console.error('Failed to load payment form:', err)
+    }
+    paymentForm.value = null
+  }
+}
+
+const loadMyEntry = async () => {
+  try {
+    myEntry.value = await api.helloasso.get_my_entry(String(route.params.id))
+  } catch {
+    myEntry.value = null
+  }
+}
+
 const loadUserMemberships = async () => {
   try {
-    const response = await api.get('/users/me/memberships')
-    userMemberships.value = response.data
+    userMemberships.value = await api.users.get_user_memberships()
   } catch (error) {
     console.error('Failed to load memberships:', error)
   }
@@ -397,10 +602,10 @@ const loadUserMemberships = async () => {
 
 const loadSubscriptions = async () => {
   try {
-    const response = await api.get('/subscriptions/me')
+    const response = await api.subscriptions.get_my_subscriptions()
     subscriptions.value = [
-      ...response.data.organizations,
-      ...response.data.tags
+      ...response.organizations,
+      ...response.tags
     ]
   } catch (error) {
     console.error('Failed to load subscriptions:', error)
@@ -409,23 +614,20 @@ const loadSubscriptions = async () => {
 
 import { askPermissionAndSubscribe } from '../utils/push'
 
-const isSubscribedToTag = (tagId) => {
-  return subscriptions.value.some(sub => sub.tag?.id === tagId)
+const isSubscribedToTag = (tagId: string) => {
+  return subscriptions.value.some(sub => (sub as SubscriptionTagEntry).tag?.id === tagId)
 }
 
-const toggleTagSubscription = async (tag) => {
-  const subscription = subscriptions.value.find(sub => sub.tag?.id === tag.id)
-  
+const toggleTagSubscription = async (tag: TagRead) => {
+  const subscription = subscriptions.value.find(sub => (sub as SubscriptionTagEntry).tag?.id === tag.id)
+
   try {
     if (subscription) {
-      await api.delete(`/subscriptions/tags/${tag.id}`)
-      subscriptions.value = subscriptions.value.filter(sub => sub.tag?.id !== tag.id)
+      await api.subscriptions.unsubscribe_from_tag(tag.id)
+      subscriptions.value = subscriptions.value.filter(sub => (sub as SubscriptionTagEntry).tag?.id !== tag.id)
     } else {
-      const response = await api.post(`/subscriptions/tags/${tag.id}`)
-      subscriptions.value.push({
-        id: response.data.subscription_id,
-        tag: { id: tag.id }
-      })
+      await api.subscriptions.subscribe_to_tag(tag.id)
+      await loadSubscriptions()
       askPermissionAndSubscribe()
     }
   } catch (error) {
@@ -440,9 +642,29 @@ const duplicateEvent = () => {
   })
 }
 
-onMounted(() => {
+const confirmPaymentIfReturning = async () => {
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('payment') !== 'success') return
+  // Remove the query param from the URL without reloading
+  const cleanUrl = window.location.pathname
+  window.history.replaceState({}, '', cleanUrl)
+  try {
+    const res = await api.helloasso.confirm_payment(String(route.params.id))
+    if (res.completed) {
+      await loadPaymentForm()
+    }
+  } catch (err) {
+    console.warn('Could not confirm payment:', err)
+  }
+}
+
+onMounted(async () => {
   loadEvent()
   loadUserMemberships()
   loadSubscriptions()
+  await loadPaymentForm()
+  await Promise.all([loadMyEntry(), confirmPaymentIfReturning()])
+  // Reload entry in case confirm-payment just completed it
+  await loadMyEntry()
 })
 </script>

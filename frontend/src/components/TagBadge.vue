@@ -11,7 +11,7 @@
     <!-- Left: Organization Logo -->
     <div class="flex-shrink-0 mr-2">
       <div class="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200">
-        <img v-if="organization?.logo_file || organization?.logo_url" :src="resolveMediaUrl(organization.logo_file, 64) ?? organization.logo_url" :alt="organization.name" class="h-full w-full object-cover" />
+        <img v-if="organization?.logo_file || organization?.logo_url" :src="(resolveMediaUrl(organization.logo_file, 64) ?? organization.logo_url) ?? undefined" :alt="organization.name" class="h-full w-full object-cover" />
         <span v-else class="text-xs font-bold text-gray-600">{{ organization?.name?.charAt(0) || '?' }}</span>
       </div>
     </div>
@@ -48,10 +48,12 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 import { BellIcon, BellSlashIcon, ShareIcon } from '@heroicons/vue/24/outline'
 import { resolveMediaUrl } from '../utils/media.js'
+import { type PropType } from 'vue'
+import type { OrganizationRead } from '@/api/types'
 
 const props = defineProps({
   tag: {
@@ -59,7 +61,7 @@ const props = defineProps({
     required: true
   },
   organization: {
-    type: Object,
+    type: Object as PropType<OrganizationRead | null>,
     default: null
   },
   subscribed: {
@@ -80,7 +82,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['click', 'toggle-subscription'])
+const emit = defineEmits(['click', 'toggle-subscription', 'share'])
 
 const style = computed(() => {
   if (props.subscribed) {

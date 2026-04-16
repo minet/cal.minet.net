@@ -45,7 +45,7 @@
                 @click="openUser(user.id)">
                 <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-0">
                   <div class="flex items-center">
-                    <UserAvatar :src="resolveMediaUrl(user.profile_picture_file, 64) ?? user.profile_picture_url" :name="user.full_name || user.email" size="sm"
+                    <UserAvatar :src="(resolveMediaUrl(user.profile_picture_file, 64) ?? user.profile_picture_url) ?? undefined" :name="user.full_name || user.email" size="sm"
                       class="mr-3" />
                     {{ user.full_name || 'Jamais connecté' }}
                   </div>
@@ -139,7 +139,7 @@
                           <div class="relative mt-2">
                             <ComboboxInput
                               class="w-full rounded-md border-0 bg-white py-1.5 pl-3 pr-10 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                              @change="ldapQuery = $event.target.value" :displayValue="(user) => user?.full_name"
+                              @change="ldapQuery = ($event.target as HTMLInputElement).value" :displayValue="(user: unknown) => (user as LDAPUserRead)?.full_name ?? ''"
                               placeholder="Nom, email ou uid..." />
                             <ComboboxButton class="absolute inset-y-0 right-0 flex items-center px-2">
                               <ChevronUpDownIcon class="h-5 w-5 text-gray-400" aria-hidden="true" />
@@ -198,13 +198,14 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import api from '../utils/api'
+import { api } from '@/api'
+import type { UserRead, LDAPUserRead } from '@/api/types'
 import UserAvatar from '../components/UserAvatar.vue'
 import TextInput from '../components/TextInput.vue'
-import { resolveMediaUrl } from '../utils/media.js'
+import { resolveMediaUrl } from '../utils/media'
 import {
   Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot,
   Combobox, ComboboxInput, ComboboxButton, ComboboxOptions, ComboboxOption, ComboboxLabel
@@ -212,7 +213,7 @@ import {
 import { UserPlusIcon, CheckIcon, ChevronUpDownIcon, ChevronLeftIcon, ChevronRightIcon, MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
 
 const router = useRouter()
-const users = ref([])
+const users = ref<UserRead[]>([])
 const page = ref(1)
 const size = ref(20)
 const total = ref(0)
@@ -227,8 +228,8 @@ const inviteForm = ref({
 
 // LDAP Search
 const ldapQuery = ref('')
-const ldapUsers = ref([])
-const selectedLdapUser = ref(null)
+const ldapUsers = ref<LDAPUserRead[]>([])
+const selectedLdapUser = ref<LDAPUserRead | null>(null)
 
 watch(ldapQuery, async (newQuery) => {
   if (newQuery.length < 2) {
@@ -236,14 +237,13 @@ watch(ldapQuery, async (newQuery) => {
     return
   }
   try {
-    const response = await api.get('/admin/ldap/users', { params: { q: newQuery } })
-    ldapUsers.value = response.data
+    ldapUsers.value = await api.admin.search_ldap_users(newQuery)
   } catch (error) {
     console.error('LDAP search error', error)
   }
 })
 
-const onLdapUserSelect = (user) => {
+const onLdapUserSelect = (user: LDAPUserRead | null) => {
   if (user) {
     inviteForm.value.email = user.email
   }
@@ -251,7 +251,7 @@ const onLdapUserSelect = (user) => {
 
 const loadUsers = async () => {
   try {
-    const params = {
+    const params: { page: number; size: number; search?: string } = {
       page: page.value,
       size: size.value
     }
@@ -259,16 +259,16 @@ const loadUsers = async () => {
       params.search = searchQuery.value
     }
 
-    const response = await api.get('/users/', { params })
-    users.value = response.data.items
-    total.value = response.data.total
-    pages.value = response.data.pages
+    const response = await api.users.list_users(params)
+    users.value = response.items
+    total.value = response.total
+    pages.value = response.pages
   } catch (error) {
     console.error('Failed to load users', error)
   }
 }
 
-let searchTimeout = null
+let searchTimeout: ReturnType<typeof setTimeout> | null = null
 watch(searchQuery, () => {
   if (searchTimeout) clearTimeout(searchTimeout)
   searchTimeout = setTimeout(() => {
@@ -277,13 +277,13 @@ watch(searchQuery, () => {
   }, 300)
 })
 
-const changePage = (newPage) => {
+const changePage = (newPage: number) => {
   if (newPage < 1 || newPage > pages.value) return
   page.value = newPage
   loadUsers()
 }
 
-const openUser = (id) => {
+const openUser = (id: string) => {
   router.push(`/users/${id}`)
 }
 
@@ -292,10 +292,10 @@ const inviteUser = async () => {
 
   inviting.value = true
   try {
-    const response = await api.post('/users/invite', inviteForm.value)
+    const response = await api.users.invite_user(inviteForm.value.email)
     showInviteModal.value = false
     // Navigate to the user page
-    router.push(`/users/${response.data.id}`)
+    router.push(`/users/${response.id}`)
   } catch (error) {
     console.error('Failed to invite user', error)
     alert('Erreur lors de l\'invitation')

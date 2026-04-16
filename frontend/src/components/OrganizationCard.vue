@@ -105,7 +105,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 import { BuildingOfficeIcon } from '@heroicons/vue/24/outline'
 import { resolveMediaUrl } from '../utils/media.js'
@@ -134,7 +134,7 @@ const props = defineProps({
   size: {
     type: String,
     default: 'md', // 'sm', 'md', 'lg'
-    validator: (value) => ['sm', 'md', 'lg'].includes(value)
+    validator: (value: unknown) => ['sm', 'md', 'lg'].includes(value as string)
   }
 })
 
@@ -146,7 +146,7 @@ const typeLabels = {
   gate: 'GATE'
 }
 
-const typeLabel = computed(() => typeLabels[props.organization.type] || props.organization.type)
+const typeLabel = computed(() => typeLabels[props.organization.type as keyof typeof typeLabels] || props.organization.type)
 
 const cardClasses = computed(() => {
   const base = 'rounded-lg'
@@ -158,7 +158,7 @@ const cardClasses = computed(() => {
   }
   const hover = props.clickable ? 'hover:bg-gray-50 transition-colors' : ''
   
-  return [base, border, padding[props.size], hover].join(' ')
+  return [base, border, padding[props.size as keyof typeof padding], hover].join(' ')
 })
 
 const logoContainerClasses = computed(() => {
@@ -168,7 +168,7 @@ const logoContainerClasses = computed(() => {
     lg: 'h-16 w-16'
   }
   
-  return `flex-shrink-0 ${sizes[props.size]} rounded flex items-center justify-center overflow-hidden`
+  return `flex-shrink-0 ${sizes[props.size as keyof typeof sizes]} rounded flex items-center justify-center overflow-hidden`
 })
 
 const logoIconClasses = computed(() => {
@@ -178,7 +178,7 @@ const logoIconClasses = computed(() => {
     lg: 'h-9 w-9'
   }
   
-  return sizes[props.size]
+  return sizes[props.size as keyof typeof sizes]
 })
 
 
@@ -190,7 +190,7 @@ const nameClasses = computed(() => {
     lg: 'text-lg font-bold'
   }
   
-  return `${sizes[props.size]} text-gray-900`
+  return `${sizes[props.size as keyof typeof sizes]} text-gray-900`
 })
 
 const typeBadgeClasses = computed(() => {
@@ -200,7 +200,7 @@ const typeBadgeClasses = computed(() => {
     lg: 'text-sm px-2 py-1'
   }
   
-  return `${sizes[props.size]} rounded-full bg-indigo-100 text-indigo-700 font-medium`
+  return `${sizes[props.size as keyof typeof sizes]} rounded-full bg-indigo-100 text-indigo-700 font-medium`
 })
 
 const parentTextClasses = computed(() => {
@@ -210,6 +210,6 @@ const parentTextClasses = computed(() => {
     lg: 'text-sm'
   }
   
-  return `${sizes[props.size]} text-gray-500`
+  return `${sizes[props.size as keyof typeof sizes]} text-gray-500`
 })
 </script>

@@ -296,11 +296,15 @@ def export_events(
     start_date = start_date.astimezone(timezone.utc)
     end_date = end_date.astimezone(timezone.utc)
 
-    query = select(Event).where(
-        Event.visibility == EventVisibility.PUBLIC_APPROVED,
-        Event.start_time >= start_date,
-        Event.start_time <= end_date
-    ).order_by(Event.start_time.asc())
+    query = (
+        select(Event)
+        .where(
+            Event.visibility == EventVisibility.PUBLIC_APPROVED,
+            Event.start_time >= start_date,
+            Event.start_time <= end_date,
+        )
+        .order_by(Event.start_time.asc())
+    )  # pyright: ignore[reportAttributeAccessIssue]
 
     events = session.exec(query).all()
 
@@ -310,10 +314,14 @@ def export_events(
 
     # Date Style
     ds = DateStyle(name="MyDateStyle")
-    ds.addElement(Day(style="long")); ds.addElement(NumberText(text="/"))
-    ds.addElement(Month(style="long")); ds.addElement(NumberText(text="/"))
-    ds.addElement(Year(style="long")); ds.addElement(NumberText(text=" "))
-    ds.addElement(Hours(style="long")); ds.addElement(NumberText(text=":"))
+    ds.addElement(Day(style="long"))
+    ds.addElement(NumberText(text="/"))
+    ds.addElement(Month(style="long"))
+    ds.addElement(NumberText(text="/"))
+    ds.addElement(Year(style="long"))
+    ds.addElement(NumberText(text=" "))
+    ds.addElement(Hours(style="long"))
+    ds.addElement(NumberText(text=":"))
     ds.addElement(Minutes(style="long"))
     doc.styles.addElement(ds)
 
@@ -329,15 +337,24 @@ def export_events(
     doc.styles.addElement(header_style)
 
     color_styles = {}
-    headers = ["Nom de l'événement", "Organisation", "Organisation parente", "Créateur", "Lieu", "Début", "Fin", "Durée"]
-    
+    headers = [
+        "Nom de l'événement",
+        "Organisation",
+        "Organisation parente",
+        "Créateur",
+        "Lieu",
+        "Début",
+        "Fin",
+        "Durée",
+    ]
+
     # Pre-calculate column widths (max characters)
     # Initialize with header lengths
     col_max_len = [len(h) for h in headers]
-    
+
     app_base_url = os.getenv("APP_BASE_URL", "https://cal.minet.net")
     tz = _app_tz()
-    
+
     # Build data list first to calculate widths
     rows_data = []
     for event in events:
@@ -346,15 +363,15 @@ def export_events(
         org_name = org.name if org else ""
         creator = session.get(User, event.created_by_id)
         creator_name = creator.full_name if creator else "Inconnu"
-        
+
         start_local = event.start_time.astimezone(tz)
         end_local = event.end_time.astimezone(tz)
-        
+
         duration = event.end_time - event.start_time
         h, rem = divmod(duration.total_seconds(), 3600)
         m, _ = divmod(rem, 60)
         duration_str = f"{int(h)}h{int(m):02d}"
-        
+
         row = {
             "title": event.title,
             "org": org_name,
@@ -367,23 +384,23 @@ def export_events(
             "bg_color": (org.color_secondary or "#ffffff") if org else "#ffffff",
             "event_url": f"{app_base_url}/events/{event.id}",
             "org_url": f"{app_base_url}/organizations/{event.organization_id}",
-            "creator_url": f"{app_base_url}/users/{event.created_by_id}"
+            "creator_url": f"{app_base_url}/users/{event.created_by_id}",
         }
         rows_data.append(row)
-        
+
         # Update max lengths
         col_max_len[0] = max(col_max_len[0], len(row["title"]))
         col_max_len[1] = max(col_max_len[1], len(row["org"]))
         col_max_len[2] = max(col_max_len[2], len(row["parent_org"]))
         col_max_len[3] = max(col_max_len[3], len(row["creator"]))
         col_max_len[4] = max(col_max_len[4], len(row["location"]))
-        col_max_len[5] = 16 # DD/MM/YYYY HH:MM
+        col_max_len[5] = 16  # DD/MM/YYYY HH:MM
         col_max_len[6] = 16
         col_max_len[7] = max(col_max_len[7], len(row["duration"]))
 
     # Apply column widths (approx 0.18cm per char)
     for i, max_len in enumerate(col_max_len):
-        width_cm = max(2.5, max_len * 0.18) # Min width 2.5cm
+        width_cm = max(2.5, max_len * 0.18)  # Min width 2.5cm
         c_style = Style(name=f"ColStyle{i}", family="table-column")
         c_style.addElement(TableColumnProperties(columnwidth=f"{width_cm:.2f}cm"))
         doc.automaticstyles.addElement(c_style)
@@ -399,7 +416,11 @@ def export_events(
 
     # Data Rows
     for row in rows_data:
-        bg = row["bg_color"] if row["bg_color"].startswith("#") else f"#{row['bg_color']}"
+        bg = (
+            row["bg_color"]
+            if row["bg_color"].startswith("#")
+            else f"#{row['bg_color']}"
+        )
         b_name = f"Style_{bg.replace('#', '')}"
         d_name = f"DateStyle_{bg.replace('#', '')}"
 
@@ -416,33 +437,56 @@ def export_events(
         table.addElement(tr)
 
         # 1. Title (Hyperlink black)
-        tc = TableCell(stylename=b_name); p = P(); p.addElement(A(href=row["event_url"], text=row["title"], stylename=link_style))
-        tc.addElement(p); tr.addElement(tc)
+        tc = TableCell(stylename=b_name)
+        p = P()
+        p.addElement(A(href=row["event_url"], text=row["title"], stylename=link_style))
+        tc.addElement(p)
+        tr.addElement(tc)
 
         # 2. Org (Hyperlink black)
-        tc = TableCell(stylename=b_name); p = P(); p.addElement(A(href=row["org_url"], text=row["org"], stylename=link_style))
-        tc.addElement(p); tr.addElement(tc)
+        tc = TableCell(stylename=b_name)
+        p = P()
+        p.addElement(A(href=row["org_url"], text=row["org"], stylename=link_style))
+        tc.addElement(p)
+        tr.addElement(tc)
 
         # 3. Parent Org
-        tc = TableCell(stylename=b_name); tc.addElement(P(text=row["parent_org"])); tr.addElement(tc)
+        tc = TableCell(stylename=b_name)
+        tc.addElement(P(text=row["parent_org"]))
+        tr.addElement(tc)
 
         # 4. Creator (Hyperlink black)
-        tc = TableCell(stylename=b_name); p = P(); p.addElement(A(href=row["creator_url"], text=row["creator"], stylename=link_style))
-        tc.addElement(p); tr.addElement(tc)
+        tc = TableCell(stylename=b_name)
+        p = P()
+        p.addElement(
+            A(href=row["creator_url"], text=row["creator"], stylename=link_style)
+        )
+        tc.addElement(p)
+        tr.addElement(tc)
 
         # 5. Location
-        tc = TableCell(stylename=b_name); tc.addElement(P(text=row["location"])); tr.addElement(tc)
+        tc = TableCell(stylename=b_name)
+        tc.addElement(P(text=row["location"]))
+        tr.addElement(tc)
 
         # 6. Start
-        tc = TableCell(stylename=d_name, valuetype="date", datevalue=row["start"].isoformat())
-        tc.addElement(P(text=row["start"].strftime("%d/%m/%Y %H:%M"))); tr.addElement(tc)
+        tc = TableCell(
+            stylename=d_name, valuetype="date", datevalue=row["start"].isoformat()
+        )
+        tc.addElement(P(text=row["start"].strftime("%d/%m/%Y %H:%M")))
+        tr.addElement(tc)
 
         # 7. End
-        tc = TableCell(stylename=d_name, valuetype="date", datevalue=row["end"].isoformat())
-        tc.addElement(P(text=row["end"].strftime("%d/%m/%Y %H:%M"))); tr.addElement(tc)
+        tc = TableCell(
+            stylename=d_name, valuetype="date", datevalue=row["end"].isoformat()
+        )
+        tc.addElement(P(text=row["end"].strftime("%d/%m/%Y %H:%M")))
+        tr.addElement(tc)
 
         # 8. Duration
-        tc = TableCell(stylename=b_name); tc.addElement(P(text=row["duration"])); tr.addElement(tc)
+        tc = TableCell(stylename=b_name)
+        tc.addElement(P(text=row["duration"]))
+        tr.addElement(tc)
 
     output = io.BytesIO()
     doc.save(output)
@@ -452,7 +496,9 @@ def export_events(
         output,
         media_type="application/vnd.oasis.opendocument.spreadsheet",
     )
-    response.headers["Content-Disposition"] = f"attachment; filename=events_export_{start_date.date()}_{end_date.date()}.ods"
+    response.headers["Content-Disposition"] = (
+        f"attachment; filename=events_export_{start_date.date()}_{end_date.date()}.ods"
+    )
     return response
 
 
@@ -719,7 +765,9 @@ def check_overlapping_events(
     query = select(Event).where(
         Event.start_time < end_time,
         Event.end_time > start_time,
-        Event.visibility.in_([EventVisibility.PUBLIC_APPROVED, EventVisibility.PUBLIC_PENDING]),
+        Event.visibility.in_(
+            [EventVisibility.PUBLIC_APPROVED, EventVisibility.PUBLIC_PENDING]
+        ),
     )
 
     if exclude_event_id:

@@ -30,7 +30,7 @@
               <div class="col-span-full">
                 <label for="description" class="block text-sm font-medium leading-6 text-gray-900">Description</label>
                 <div class="mt-2">
-                  <OrgDescriptionEditor v-model="form.description" :organization-id="route.params.id" :members="members"
+                  <OrgDescriptionEditor v-model="form.description" :organization-id="route.params.id as string" :members="members"
                     @images-updated="orgImages = $event" />
                 </div>
               </div>
@@ -235,27 +235,41 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { reactive, ref, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import ImageUpload from '../components/ImageUpload.vue'
 import Dropdown from '../components/Dropdown.vue'
 import OrgDescriptionEditor from '../components/OrgDescriptionEditor.vue'
-import api from '../utils/api'
+import { api } from '@/api'
+import { OrganizationType } from '@/api/types'
+import type { OrganizationRead, OrganizationImageRead, OrgMember, OrganizationLinkRead } from '@/api/types'
 import { getSaturation, generateColorVariant } from '../utils/colorUtils'
 import { TrashIcon, PlusIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 
 const router = useRouter()
 const route = useRoute()
 const { user } = useAuth()
-const organization = ref(null)
-const parentOrganizations = ref([])
-const form = reactive({
+const organization = ref<OrganizationRead | null>(null)
+const parentOrganizations = ref<OrganizationRead[]>([])
+const form = reactive<{
+  name: string
+  slug: string
+  description: string
+  type: OrganizationType
+  logo_url: string | null
+  logo_file_id: string | null
+  parent_id: string | null
+  delete_after: string | null
+  color_primary: string
+  color_secondary: string
+  color_dark: string
+}>({
   name: '',
   slug: '',
   description: '',
-  type: 'association',
+  type: OrganizationType.ASSOCIATION,
   logo_url: null,
   logo_file_id: null,
   parent_id: null,
@@ -267,10 +281,10 @@ const form = reactive({
 const enableDeleteAfter = ref(false)
 const error = ref('')
 const loading = ref(false)
-const links = ref([])
-const deletedLinkIds = ref([])
-const members = ref([])
-const orgImages = ref([])
+const links = ref<Array<{ id?: string; name: string; url: string; order: number }>>([])
+const deletedLinkIds = ref<string[]>([])
+const members = ref<OrgMember[]>([])
+const orgImages = ref<OrganizationImageRead[]>([])
 
 const showDeleteModal1 = ref(false)
 const showDeleteModal2 = ref(false)
@@ -294,7 +308,7 @@ const addLink = () => {
   links.value.push({ name: '', url: '', order: links.value.length + 1 })
 }
 
-const removeLink = (index) => {
+const removeLink = (index: number) => {
   const link = links.value[index]
   if (link.id) {
     deletedLinkIds.value.push(link.id)
@@ -305,16 +319,17 @@ const removeLink = (index) => {
 const loadParentOrganizations = async () => {
   try {
     // Load memberships where user is ORG_ADMIN
-    const response = await api.get('/users/me/memberships')
-    parentOrganizations.value = response.data
+    const memberships = await api.users.get_user_memberships()
+    const orgId = route.params.id as string
+    parentOrganizations.value = memberships
       .filter(m => m.role === 'org_admin')
       .map(m => m.organization)
-      .filter(org => org !== null && org.id !== route.params.id) // Exclude current org
+      .filter((org): org is OrganizationRead => org !== null && org.id !== orgId)
 
     // If user is superadmin, load all organizations
     if (user.value?.is_superadmin) {
-      const allOrgsResponse = await api.get('/organizations/')
-      parentOrganizations.value = allOrgsResponse.data.filter(org => org.id !== route.params.id)
+      const allOrgs = await api.organizations.list_organizations()
+      parentOrganizations.value = allOrgs.filter(org => org.id !== orgId)
     }
   } catch (err) {
     console.error('Failed to load parent organizations:', err)
@@ -323,14 +338,13 @@ const loadParentOrganizations = async () => {
 
 const loadOrganization = async () => {
   try {
-    const response = await api.get(`/organizations/${route.params.id}`)
-    organization.value = response.data
+    organization.value = await api.organizations.get_organization(route.params.id as string)
 
     // Pre-fill form
     form.name = organization.value.name
-    form.slug = organization.value.slug
+    form.slug = organization.value.slug || ''
     form.description = organization.value.description || ''
-    form.type = organization.value.type || 'association'
+    form.type = organization.value.type || OrganizationType.ASSOCIATION
     form.logo_url = organization.value.logo_url
     form.logo_file_id = organization.value.logo_file?.id || null
     form.parent_id = organization.value.parent_id
@@ -350,17 +364,16 @@ const loadOrganization = async () => {
     }
 
     // Load members for description editor
-    const membersRes = await api.get(`/organizations/${route.params.id}/members`)
-    members.value = membersRes.data
+    members.value = await api.organizations.get_organization_members(route.params.id as string)
 
     // Check permissions
-    const permResponse = await api.get(`/organizations/${route.params.id}/can-edit`)
-    if (!permResponse.data.can_edit) {
+    const permResponse = await api.organizations.can_edit_organization(route.params.id as string)
+    if (!permResponse.can_edit) {
       error.value = "Vous n'avez pas la permission de modifier cette organisation"
     }
   } catch (err) {
     console.error('Failed to load organization:', err)
-    error.value = err.response?.data?.detail || 'Échec du chargement de l\'organisation'
+    error.value = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Échec du chargement de l\'organisation'
   }
 }
 
@@ -370,13 +383,15 @@ const updateOrg = async () => {
 
   try {
     // Generate slug from name if changed
-    if (!form.slug || form.slug !== organization.value.slug) {
+    if (!form.slug || form.slug !== organization.value?.slug) {
       form.slug = form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
     }
 
     const { logo_url, ...formWithoutUrl } = form
     const payload = {
-      ...formWithoutUrl
+      ...formWithoutUrl,
+      parent_id: formWithoutUrl.parent_id ?? undefined,
+      logo_file_id: formWithoutUrl.logo_file_id ?? undefined,
     }
 
     if (!enableDeleteAfter.value) {
@@ -385,30 +400,31 @@ const updateOrg = async () => {
       payload.delete_after = form.delete_after ? new Date(form.delete_after).toISOString() : null
     }
 
-    await api.put(`/organizations/${route.params.id}`, payload)
+    const orgId = route.params.id as string
+    await api.organizations.update_organization(orgId, payload)
 
     // Handle links
     // 1. Delete removed links
     for (const id of deletedLinkIds.value) {
-      await api.delete(`/organization-links/${id}`)
+      await api.organization_links.delete_organization_link(id)
     }
 
     // 2. Add/Update links
     for (const [index, link] of links.value.entries()) {
       const linkData = { ...link, order: index + 1 }
       if (link.id) {
-        await api.put(`/organization-links/${link.id}`, linkData)
+        await api.organization_links.update_organization_link(link.id, linkData)
       } else {
         if (link.name && link.url) {
-          await api.post(`/organizations/${route.params.id}/links`, linkData)
+          await api.organization_links.create_organization_link(orgId, linkData)
         }
       }
     }
 
-    router.push(`/organizations/${route.params.id}`)
+    router.push(`/organizations/${orgId}`)
   } catch (err) {
     console.error('Failed to update organization:', err)
-    error.value = err.response?.data?.detail || 'Échec de la mise à jour de l\'organisation'
+    error.value = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Échec de la mise à jour de l\'organisation'
   } finally {
     loading.value = false
   }
@@ -418,11 +434,11 @@ const deleteOrg = async () => {
   isDeleting.value = true
   error.value = ''
   try {
-    await api.delete(`/organizations/${route.params.id}`)
+    await api.organizations.delete_organization(route.params.id as string)
     router.push('/')
   } catch (err) {
     console.error('Failed to delete organization:', err)
-    error.value = err.response?.data?.detail || 'Échec de la suppression de l\'organisation'
+    error.value = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Échec de la suppression de l\'organisation'
   } finally {
     isDeleting.value = false
     showDeleteModal2.value = false

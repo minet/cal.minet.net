@@ -23,6 +23,22 @@ class Role(str, Enum):
     ORG_VIEWER = "org_viewer"
 
 
+class PaymentFormStatus(str, Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class PaymentType(str, Enum):
+    HELLOASSO = "helloasso"
+    CREDIT_CARD = "credit_card"
+    CASH = "cash"
+    CHEQUE = "cheque"
+    EXCHANGE = "exchange"
+    NONE = "none"
+    OTHER = "other"
+
+
 class EventGuestOrganization(SQLModel, table=True):
     event_id: UUID = Field(foreign_key="event.id", primary_key=True)
     organization_id: UUID = Field(foreign_key="organization.id", primary_key=True)
@@ -65,7 +81,9 @@ class User(SQLModel, table=True):
     is_superadmin: bool = Field(default=False)
     exempt_from_rgpd_delete: bool = Field(default=False)
     notification_delay: int = Field(default=45)  # Minutes before event
-    profile_picture_file_id: Optional[UUID] = Field(default=None, foreign_key="storedfile.id")
+    profile_picture_file_id: Optional[UUID] = Field(
+        default=None, foreign_key="storedfile.id"
+    )
 
     memberships: List["Membership"] = Relationship(back_populates="user")
     subscriptions: List["Subscription"] = Relationship(back_populates="user")
@@ -144,6 +162,8 @@ class Membership(SQLModel, table=True):
     role: Role = Field(default=Role.ORG_VIEWER)
     title: Optional[str] = Field(default=None)
     order: int = Field(default=0)
+
+    can_manage_payment_forms: bool = Field(default=False)
 
     user: User = Relationship(back_populates="memberships")
     organization: Organization = Relationship(back_populates="members")
@@ -234,6 +254,7 @@ class Event(SQLModel, table=True):
         back_populates="guest_events", link_model=EventGuestOrganization
     )
     reactions: List["EventReaction"] = Relationship(back_populates="event")
+    payment_forms: List["EventPaymentForm"] = Relationship(back_populates="event")
 
     def to_read_model(
         self, current_user: Optional["User"] = None, session: Optional["Session"] = None
@@ -302,15 +323,16 @@ class LDAPUser(SQLModel, table=True):
 
 
 class ShortLinkType(str, Enum):
-    EVENT = "event"
-    ORGANIZATION = "organization"
-    TAG = "tag"
+    EVENT = "EVENT"
+    ORGANIZATION = "ORGANIZATION"
+    TAG = "TAG"
 
 
 class ShortLinkActionType(str, Enum):
-    VIEW = "view"
-    SUBSCRIBE = "subscribe"
-    COUNTDOWN = "countdown"
+    VIEW = "VIEW"
+    SUBSCRIBE = "SUBSCRIBE"
+    COUNTDOWN = "COUNTDOWN"
+    PAYMENT = "PAYMENT"
 
 
 class ShortLink(SQLModel, table=True):
@@ -323,6 +345,182 @@ class ShortLink(SQLModel, table=True):
     last_used_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     user: Optional[User] = Relationship()
+
+
+class OrganizationHelloAsso(SQLModel, table=True):
+    """Stores per-organization HelloAsso API credentials (encrypted at rest).
+
+    The api_client_secret is Fernet-encrypted and is NEVER returned by the API.
+    Cached access tokens (also encrypted) avoid hitting HelloAsso on every request.
+    """
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(foreign_key="organization.id", unique=True)
+    helloasso_slug: str  # The org's slug on HelloAsso
+    api_client_id: str  # HelloAsso client_id (can be shown to admins)
+    api_client_secret: str  # Fernet-encrypted client_secret — never returned via API
+    # Cached OAuth2 token from client_credentials grant:
+    cached_access_token: Optional[str] = None  # Fernet-encrypted
+    token_expires_at: Optional[datetime] = None
+    connected_by_id: UUID = Field(foreign_key="user.id")
+    connected_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class EventPaymentFormOptionUser(SQLModel, table=True):
+    """Join table: which users may select a specific private option."""
+
+    option_id: UUID = Field(foreign_key="eventpaymentformoption.id", primary_key=True)
+    user_id: UUID = Field(foreign_key="user.id", primary_key=True)
+
+    option: Optional["EventPaymentFormOption"] = Relationship(
+        back_populates="allowed_user_links"
+    )
+    user: Optional["User"] = Relationship()
+
+
+class EventPaymentFormOption(SQLModel, table=True):
+    """A selectable add-on option for a payment form (replaces the JSON options column)."""
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    payment_form_id: UUID = Field(foreign_key="eventpaymentform.id", index=True)
+    name: str
+    price_cents: int
+    is_private: bool = Field(default=False)
+    order: int = Field(default=0)
+
+    payment_form: Optional["EventPaymentForm"] = Relationship(
+        back_populates="form_options"
+    )
+    allowed_user_links: List["EventPaymentFormOptionUser"] = Relationship(
+        back_populates="option",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+
+
+class EventPaymentForm(SQLModel, table=True):
+    """A payment form proposal attached to an event.
+
+    Created by a member with can_manage_payment_forms; must be approved by
+    the parent org admin before HelloAsso is called and the URL is published.
+    """
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    event_id: UUID = Field(foreign_key="event.id", unique=True)
+    requesting_org_id: UUID = Field(foreign_key="organization.id")  # Child org
+    approving_org_id: Optional[UUID] = Field(
+        default=None, foreign_key="organization.id"
+    )  # Parent org
+    total_amount_cents: int
+    item_name: str
+    status: PaymentFormStatus = Field(default=PaymentFormStatus.PENDING)
+    # Whether new payments can be initiated (admins can close/reopen)
+    is_open: bool = Field(default=True)
+    # No HelloAsso URL stored here — checkout intents are created on demand
+    # when each user initiates payment. last_checkout_intent_id is kept for
+    # webhook matching only (the most recently generated intent).
+    last_checkout_intent_id: Optional[str] = None
+    rejection_message: Optional[str] = None
+    payment_completed: bool = Field(
+        default=False
+    )  # Set to True on first completed payment
+    # Baseline counters for entries removed upon user account deletion (RGPD)
+    baseline_total_amount_cents: int = Field(default=0)
+    baseline_participant_count: int = Field(default=0)
+    created_by_id: UUID = Field(foreign_key="user.id")
+    reviewed_by_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    reviewed_at: Optional[datetime] = None
+
+    event: Event = Relationship(back_populates="payment_forms")
+    requesting_org: "Organization" = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[EventPaymentForm.requesting_org_id]"}
+    )
+    approving_org: Optional["Organization"] = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[EventPaymentForm.approving_org_id]"}
+    )
+    created_by: "User" = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[EventPaymentForm.created_by_id]"}
+    )
+    reviewed_by: Optional["User"] = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[EventPaymentForm.reviewed_by_id]"}
+    )
+    form_options: List["EventPaymentFormOption"] = Relationship(
+        back_populates="payment_form",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+    entries: List["EventPaymentEntry"] = Relationship(back_populates="payment_form")
+    billeterie: Optional["PaymentFormBilleterie"] = Relationship(
+        back_populates="payment_form",
+        sa_relationship_kwargs={"uselist": False, "cascade": "all, delete-orphan"},
+    )
+
+
+class EventPaymentEntry(SQLModel, table=True):
+    """Tracks individual per-user payment initiations and completions.
+
+    Created when a user clicks 'Pay' (helloasso type) or added manually by org admins.
+    For manual entries, user_id and checkout_intent_id may be None.
+    """
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    payment_form_id: UUID = Field(foreign_key="eventpaymentform.id", index=True)
+    user_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
+    checkout_intent_id: Optional[str] = Field(default=None, index=True, unique=True)
+    helloasso_payment_id: Optional[str] = Field(default=None, index=True, unique=True)
+    helloasso_order_id: Optional[str] = Field(default=None, index=True, unique=True)
+    completed: bool = Field(default=False)
+    completed_at: Optional[datetime] = None
+    # JSON list of EventPaymentFormOption UUIDs chosen by the payer
+    selected_option_ids: Optional[str] = None
+    amount_cents: int  # base + selected options
+    payment_type: str = Field(default="helloasso")  # PaymentType enum value
+    # For manual entries: name of the attendee (not a registered user)
+    attendee_name: Optional[str] = None
+    # For billeterie imports: JSON list of {"name": str, "amount_cents": int}
+    imported_options: Optional[str] = None
+    # Ticket validation (checked at entrance)
+    validated: bool = Field(default=False)
+    validated_at: Optional[datetime] = None
+    validated_by_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
+    # Cancellation (entry hidden from validation view)
+    cancelled: bool = Field(default=False)
+    cancelled_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    payment_form: EventPaymentForm = Relationship(back_populates="entries")
+    user: Optional["User"] = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[EventPaymentEntry.user_id]"}
+    )
+    validated_by: Optional["User"] = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[EventPaymentEntry.validated_by_id]"}
+    )
+
+
+class PaymentFormBilleterie(SQLModel, table=True):
+    """Links a payment form to a HelloAsso billeterie (ticketing event) for attendee import.
+
+    Only users with can_manage_payment_forms on the org that *directly* has HelloAsso
+    configured can create or remove this link.  The link is restricted to the same
+    org hierarchy: the HA org must be an ancestor-or-equal of the form's requesting org.
+    """
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    payment_form_id: UUID = Field(foreign_key="eventpaymentform.id", unique=True)
+    # FK to OrganizationHelloAsso.id (not organization.id) so cascade-delete works
+    # when the HA integration is removed.
+    helloasso_org_id: UUID = Field(foreign_key="organizationhelloasso.id")
+    helloasso_form_slug: str
+    helloasso_form_title: str
+    helloasso_form_type: str = Field(default="Event")
+    last_imported_at: Optional[datetime] = None
+    created_by_id: UUID = Field(foreign_key="user.id")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    payment_form: "EventPaymentForm" = Relationship(back_populates="billeterie")
+    helloasso_org: Optional["OrganizationHelloAsso"] = Relationship()
+    created_by: Optional["User"] = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[PaymentFormBilleterie.created_by_id]"}
+    )
 
 
 class StoredFile(SQLModel, table=True):
@@ -340,4 +538,3 @@ class StoredFile(SQLModel, table=True):
     file_type: str = Field(default="image")  # "image" or "video"
     variants: Optional[str] = Field(default=None)  # JSON list of variant dicts
     retry_count: int = Field(default=0)
-

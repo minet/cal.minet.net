@@ -62,9 +62,9 @@
         <Dropdown
           v-model="newMemberRole"
           :options="[
-            { value: 'org_viewer', label: 'Lecteur' },
-            { value: 'org_member', label: 'Éditeur' },
-            { value: 'org_admin', label: 'Administrateur' }
+            { value: Role.ORG_VIEWER, label: 'Lecteur' },
+            { value: Role.ORG_MEMBER, label: 'Éditeur' },
+            { value: Role.ORG_ADMIN, label: 'Administrateur' }
           ]"
         />
       </div>
@@ -121,7 +121,7 @@
                  </button>
               </div>
               <div class="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                <img v-if="member.profile_picture_file || member.profile_picture_url" :src="resolveMediaUrl(member.profile_picture_file, 64) ?? member.profile_picture_url" :alt="getFullName(member)" class="h-full w-full object-cover" />
+                <img v-if="member.profile_picture_file || member.profile_picture_url" :src="(resolveMediaUrl(member.profile_picture_file, 64) ?? member.profile_picture_url) ?? undefined" :alt="getFullName(member)" class="h-full w-full object-cover" />
                 <span v-else class="text-gray-600 font-medium text-sm">
                   {{ getInitials(getFullName(member)) }}
                 </span>
@@ -137,7 +137,7 @@
             <div class="mt-2 sm:mt-0 flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
               <input 
                 :value="member.title"
-                @change="updateMemberTitle(member, $event.target.value)"
+                @change="updateMemberTitle(member, ($event.target as HTMLInputElement).value)"
                 type="text" 
                 placeholder="Poste" 
                 class="block w-full sm:w-32 rounded-md border-0 px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
@@ -146,11 +146,24 @@
                 :model-value="member.role"
                 @update:model-value="updateMemberRole(member, $event)"
                 :options="[
-                  { value: 'org_viewer', label: 'Lecteur' },
-                  { value: 'org_member', label: 'Éditeur' },
-                  { value: 'org_admin', label: 'Administrateur' }
+                  { value: Role.ORG_VIEWER, label: 'Lecteur' },
+                  { value: Role.ORG_MEMBER, label: 'Éditeur' },
+                  { value: Role.ORG_ADMIN, label: 'Administrateur' }
                 ]"
               />
+
+              <button
+                v-if="hasHelloAsso"
+                @click="togglePaymentPermission(member)"
+                :title="member.can_manage_payment_forms ? 'Retirer la permission de gestion des paiements' : 'Accorder la permission de gestion des paiements'"
+                class="flex items-center gap-1 text-xs px-2 py-1 rounded-md border transition-colors"
+                :class="member.can_manage_payment_forms
+                  ? 'border-green-400 text-green-700 bg-green-50 hover:bg-green-100'
+                  : 'border-gray-300 text-gray-400 bg-white hover:bg-gray-50'"
+              >
+                <CreditCardIcon class="h-4 w-4" />
+                <span class="hidden lg:inline">Paiements</span>
+              </button>
 
               <button
                 @click="removeMember(member)"
@@ -167,37 +180,40 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
-import { TrashIcon, Bars3Icon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/vue/24/outline'
+import { TrashIcon, Bars3Icon, ChevronUpIcon, ChevronDownIcon, CreditCardIcon } from '@heroicons/vue/24/outline'
 import UserSearchSelector from '../components/UserSearchSelector.vue'
 import Dropdown from '../components/Dropdown.vue'
-import api from '../utils/api'
+import { api } from '@/api'
+import type { OrganizationRead, OrgMember, LDAPUserRead } from '@/api/types'
+import { Role } from '@/api/types'
 import { resolveMediaUrl } from '../utils/media.js'
 
 const route = useRoute()
 const { user } = useAuth()
-const organization = ref(null)
-const members = ref([])
-const selectedUser = ref(null)
-const newMemberRole = ref('org_member')
+const organization = ref<OrganizationRead | null>(null)
+const members = ref<OrgMember[]>([])
+const selectedUser = ref<LDAPUserRead | null>(null)
+const newMemberRole = ref<Role>(Role.ORG_MEMBER)
 const newMemberTitle = ref('')
 const loading = ref(false)
 const loadingMembers = ref(false)
 const error = ref('')
 
 const currentUserId = computed(() => user.value?.id)
+const hasHelloAsso = ref(false)
 
-const dragIndex = ref(null)
+const dragIndex = ref<number | null>(null)
 
-const onDragStart = (index, event) => {
+const onDragStart = (index: number, event: DragEvent) => {
   dragIndex.value = index
-  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer!.effectAllowed = 'move'
 }
 
-const onDrop = async (dropIndex) => {
+const onDrop = async (dropIndex: number) => {
   if (dragIndex.value === null || dragIndex.value === dropIndex) return
   
   const originalMembers = [...members.value]
@@ -208,7 +224,7 @@ const onDrop = async (dropIndex) => {
   await saveOrder(originalMembers)
 }
 
-const moveMember = async (index, direction) => {
+const moveMember = async (index: number, direction: number) => {
   if (index + direction < 0 || index + direction >= members.value.length) return
   
   const originalMembers = [...members.value]
@@ -222,32 +238,30 @@ const moveMember = async (index, direction) => {
   await saveOrder(originalMembers)
 }
 
-const saveOrder = async (originalMembers) => {
+const saveOrder = async (originalMembers: OrgMember[]) => {
   try {
     const membershipIds = members.value.map(m => m.id)
-    await api.post(`/organizations/${route.params.id}/members/reorder`, {
-      membership_ids: membershipIds
-    })
+    await api.organizations.reorder_organization_members(route.params.id as string, membershipIds)
   } catch (err) {
     console.error('Failed to save order:', err)
-    error.value = err.response?.data?.detail || 'Impossible de sauvegarder le nouvel ordre'
-    members.value = originalMembers // Revert on failure
+    error.value = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Impossible de sauvegarder le nouvel ordre'
+    members.value = originalMembers
     await loadMembers()
   }
 }
 
-const getFullName = (member) => {
+const getFullName = (member: OrgMember) => {
   if (member.full_name) {
     return member.full_name
   }
   return member.email || 'Inconnu'
 }
 
-const getInitials = (name) => {
+const getInitials = (name: string) => {
   if (!name) return '?'
   return name
     .split(/\s+/)
-    .map(word => word.charAt(0).toUpperCase())
+    .map((word: string) => word.charAt(0).toUpperCase())
     .slice(0, 2)
     .join('')
 }
@@ -256,19 +270,30 @@ const getInitials = (name) => {
 
 const loadOrganization = async () => {
   try {
-    const response = await api.get(`/organizations/${route.params.id}`)
-    organization.value = response.data
+    organization.value = await api.organizations.get_organization(route.params.id as string)
+    await checkHelloAsso(organization.value)
   } catch (err) {
     console.error('Failed to load organization:', err)
     error.value = 'Impossible de charger l\'organisation'
   }
 }
 
+const checkHelloAsso = async (org: OrganizationRead) => {
+  try {
+    // Check the org itself, and its parent if it has one
+    const ids = [org.id]
+    if (org.parent_id) ids.push(org.parent_id)
+    const results = await Promise.all(ids.map(id => api.helloasso.helloasso_status(id).catch(() => ({ connected: false }))))
+    hasHelloAsso.value = results.some(r => r.connected)
+  } catch {
+    hasHelloAsso.value = false
+  }
+}
+
 const loadMembers = async () => {
   loadingMembers.value = true
   try {
-    const response = await api.get(`/organizations/${route.params.id}/members`)
-    members.value = response.data
+    members.value = await api.organizations.get_organization_members(route.params.id as string)
   } catch (err) {
     console.error('Failed to load members:', err)
     error.value = 'Impossible de charger les membres'
@@ -277,7 +302,7 @@ const loadMembers = async () => {
   }
 }
 
-const onUserSelect = async (user) => {
+const onUserSelect = async (user: LDAPUserRead) => {
   selectedUser.value = user
   await addMember()
 }
@@ -289,63 +314,66 @@ const addMember = async () => {
   error.value = ''
 
   try {
-    await api.post(`/organizations/${route.params.id}/members`, {
-      email: selectedUser.value.email,
-      role: newMemberRole.value,
-      title: newMemberTitle.value || null
-    })
+    await api.organizations.add_organization_member(
+      route.params.id as string,
+      selectedUser.value.email,
+      newMemberRole.value,
+      newMemberTitle.value || undefined
+    )
     
     selectedUser.value = null
-    newMemberRole.value = 'org_member'
+    newMemberRole.value = Role.ORG_MEMBER
     newMemberTitle.value = ''
     await loadMembers()
   } catch (err) {
     console.error('Failed to add member:', err)
-    error.value = err.response?.data?.detail || 'Impossible d\'ajouter le membre'
+    error.value = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Impossible d\'ajouter le membre'
   } finally {
     loading.value = false
   }
 }
 
-const updateMemberRole = async (member, newRole) => {
+const updateMemberRole = async (member: OrgMember, newRole: Role) => {
   try {
-    await api.put(
-      `/organizations/${route.params.id}/members/${member.id}`,
-      null,
-      { params: { role: newRole } }
-    )
+    await api.organizations.update_member_role(route.params.id as string, member.id, { role: newRole })
     await loadMembers()
   } catch (err) {
     console.error('Failed to update role:', err)
-    error.value = err.response?.data?.detail || 'Impossible de modifier le rôle'
+    error.value = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Impossible de modifier le rôle'
   }
 }
 
-const updateMemberTitle = async (member, newTitle) => {
+const updateMemberTitle = async (member: OrgMember, newTitle: string) => {
   try {
-    await api.put(
-      `/organizations/${route.params.id}/members/${member.id}`,
-      null,
-      { params: { title: newTitle || null } }
-    )
+    await api.organizations.update_member_role(route.params.id as string, member.id, { title: newTitle || undefined })
     await loadMembers()
   } catch (err) {
     console.error('Failed to update title:', err)
-    error.value = err.response?.data?.detail || 'Impossible de modifier le poste'
+    error.value = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Impossible de modifier le poste'
   }
 }
 
-const removeMember = async (member) => {
+const togglePaymentPermission = async (member: OrgMember) => {
+  try {
+    await api.organizations.update_member_role(route.params.id as string, member.id, { can_manage_payment_forms: !member.can_manage_payment_forms })
+    await loadMembers()
+  } catch (err) {
+    console.error('Failed to update payment permission:', err)
+    error.value = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Impossible de modifier la permission de paiement'
+  }
+}
+
+const removeMember = async (member: OrgMember) => {
   if (!confirm(`Êtes-vous sûr de vouloir retirer ${member.full_name || member.email} ?`)) {
     return
   }
 
   try {
-    await api.delete(`/organizations/${route.params.id}/members/${member.id}`)
+    await api.organizations.remove_organization_member(route.params.id as string, member.id)
     await loadMembers()
   } catch (err) {
     console.error('Failed to remove member:', err)
-    error.value = err.response?.data?.detail || 'Impossible de retirer le membre'
+    error.value = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Impossible de retirer le membre'
   }
 }
 

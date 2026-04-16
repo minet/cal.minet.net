@@ -27,7 +27,7 @@
                     <ul v-else class="divide-y divide-gray-100 max-h-96 overflow-y-auto mt-4">
                       <li v-for="reaction in reactions" :key="reaction.user.id + reaction.emoji" class="flex items-center justify-between py-3">
                         <div class="flex items-center gap-3">
-                          <UserAvatar :src="resolveMediaUrl(reaction.user.profile_picture_file, 64) ?? reaction.user.profile_picture_url" :name="reaction.user.full_name || reaction.user.email" size="sm" />
+                          <UserAvatar :src="(resolveMediaUrl(reaction.user.profile_picture_file, 64) ?? reaction.user.profile_picture_url) ?? undefined" :name="reaction.user.full_name || ''" size="sm" />
                           <div>
                             <p class="text-sm font-medium text-gray-900">{{ reaction.user.full_name }}</p>
                             <p class="text-xs text-gray-500">{{ formatDate(reaction.created_at) }}</p>
@@ -56,13 +56,14 @@
   </TransitionRoot>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
 import { FaceSmileIcon, XMarkIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import UserAvatar from './UserAvatar.vue'
-import api from '../utils/api'
-import { resolveMediaUrl } from '../utils/media.js'
+import { api } from '@/api'
+import { resolveMediaUrl } from '../utils/media'
+import type { ReactionDetail } from '@/api/types'
 
 const props = defineProps({
   modelValue: Boolean,
@@ -72,7 +73,7 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'change'])
 
 const open = ref(props.modelValue)
-const reactions = ref([])
+const reactions = ref<ReactionDetail[]>([])
 const loading = ref(false)
 
 watch(() => props.modelValue, (val) => {
@@ -86,7 +87,7 @@ watch(open, (val) => {
   emit('update:modelValue', val)
 })
 
-const formatDate = (dateString) => {
+const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString('fr-FR', {
     day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
   })
@@ -95,8 +96,8 @@ const formatDate = (dateString) => {
 const loadReactions = async () => {
   loading.value = true
   try {
-    const response = await api.get(`/events/${props.eventId}/reactions`)
-    reactions.value = response.data
+    if (!props.eventId) return
+    reactions.value = await api.events.get_event_reactions(props.eventId)
   } catch (error) {
     console.error('Failed to load reactions:', error)
   } finally {
@@ -104,11 +105,11 @@ const loadReactions = async () => {
   }
 }
 
-const deleteReaction = async (reaction) => {
+const deleteReaction = async (reaction: ReactionDetail) => {
   if (!confirm(`Supprimer la réaction de ${reaction.user.full_name} ?`)) return
-  
+  if (!props.eventId) return
   try {
-    await api.delete(`/events/${props.eventId}/reactions/${reaction.user.id}`)
+    await api.events.delete_reaction(props.eventId, reaction.user.id)
     reactions.value = reactions.value.filter(r => r.user.id !== reaction.user.id)
     emit('change')
   } catch (error) {

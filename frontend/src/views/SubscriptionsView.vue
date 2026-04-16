@@ -88,7 +88,7 @@
               v-for="sub in tagSubscriptions" 
               :key="sub.id" 
               :tag="sub.tag" 
-              :organization="sub.tag.organization"
+              :organization="tagOrg(sub.tag.organization)"
               :subscribed="true"
               :show-subscribe="true"
               @toggle-subscription="unsubscribe(sub)"
@@ -103,15 +103,18 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import api from '../utils/api'
+import { api } from '@/api'
+import type { SubscriptionsRead, SubscriptionOrgEntry, SubscriptionTagEntry, SubscriptionTagOrg, UserGroupRead, OrganizationRead } from '@/api/types'
 import TagBadge from '../components/TagBadge.vue'
 import GroupBadge from '../components/GroupBadge.vue'
 import OrganizationCard from '../components/OrganizationCard.vue'
 
-const subscriptions = ref({ organizations: [], tags: [] })
-const groups = ref([])
+const subscriptions = ref<SubscriptionsRead>({ subscribe_all: false, organizations: [], tags: [] })
+
+const tagOrg = (org: SubscriptionTagOrg | null): OrganizationRead | null => org as unknown as OrganizationRead | null
+const groups = ref<UserGroupRead[]>([])
 const loading = ref(true)
 
 const organizationSubscriptions = computed(() => {
@@ -126,11 +129,11 @@ const loadSubscriptions = async () => {
   loading.value = true
   try {
     const [subsResponse, groupsResponse] = await Promise.all([
-      api.get('/subscriptions/me'),
-      api.get('/users/me/groups')
+      api.subscriptions.get_my_subscriptions(),
+      api.users.get_user_groups()
     ])
-    subscriptions.value = subsResponse.data
-    groups.value = groupsResponse.data
+    subscriptions.value = subsResponse
+    groups.value = groupsResponse
   } catch (error) {
     console.error('Failed to load subscriptions:', error)
   } finally {
@@ -138,15 +141,15 @@ const loadSubscriptions = async () => {
   }
 }
 
-const unsubscribe = async (sub) => {
+const unsubscribe = async (sub: SubscriptionOrgEntry | SubscriptionTagEntry) => {
   if (!confirm('Êtes-vous sûr de vouloir vous désabonner ?')) return
 
   try {
-    if (sub.organization) {
-      await api.delete(`/subscriptions/organizations/${sub.organization.id}`)
+    if ('organization' in sub) {
+      await api.subscriptions.unsubscribe_from_organization(sub.organization.id)
       subscriptions.value.organizations = subscriptions.value.organizations.filter(s => s.id !== sub.id)
-    } else if (sub.tag) {
-      await api.delete(`/subscriptions/tags/${sub.tag.id}`)
+    } else {
+      await api.subscriptions.unsubscribe_from_tag(sub.tag.id)
       subscriptions.value.tags = subscriptions.value.tags.filter(s => s.id !== sub.id)
     }
   } catch (error) {
@@ -154,11 +157,11 @@ const unsubscribe = async (sub) => {
   }
 }
 
-const leaveGroup = async (group) => {
+const leaveGroup = async (group: UserGroupRead) => {
   if (!confirm(`Attention : vous êtes sur le point de quitter le groupe "${group.name}".\n\nUne fois parti, vous ne pourrez pas rejoindre ce groupe par vous-même. Un administrateur devra vous ajouter à nouveau.\n\nÊtes-vous sûr de vouloir continuer ?`)) return
 
   try {
-    await api.delete(`/groups/${group.id}/members/me`)
+    await api.groups.leave_group(group.id)
     groups.value = groups.value.filter(g => g.id !== group.id)
   } catch (error) {
     console.error('Failed to leave group:', error)

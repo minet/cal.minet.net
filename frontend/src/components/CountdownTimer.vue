@@ -17,7 +17,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 const props = defineProps({
@@ -32,10 +32,10 @@ const props = defineProps({
 })
 
 const now = ref(new Date())
-let intervalId = null
+let intervalId: ReturnType<typeof setInterval> | null = null
 
 const targetDateTime = computed(() => new Date(props.targetDate))
-const timeDiff = computed(() => targetDateTime.value - now.value)
+const timeDiff = computed(() => targetDateTime.value.getTime() - now.value.getTime())
 const isPast = computed(() => timeDiff.value <= 0)
 
 const timeUnits = computed(() => {
