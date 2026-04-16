@@ -226,6 +226,8 @@
                 <th class="pb-1.5 font-medium">Montant</th>
                 <th class="pb-1.5 font-medium">Options choisies</th>
                 <th class="pb-1.5 font-medium">Statut</th>
+                <th class="pb-1.5 font-medium">Payment ID</th>
+                <th class="pb-1.5 font-medium">Order ID</th>
                 <th class="pb-1.5 font-medium">Date</th>
               </tr>
             </thead>
@@ -254,6 +256,8 @@
                   <span v-if="entry.payment_type === 'helloasso_import'" class="ml-1 text-purple-500 text-xs">(billeterie)</span>
                   <span v-if="entry.cancelled && entry.completed" class="ml-1 text-gray-400 text-xs">(était : payé)</span>
                 </td>
+                <td class="py-1.5 pr-4 font-mono text-[11px] text-gray-500">{{ entry.helloasso_payment_id || '—' }}</td>
+                <td class="py-1.5 pr-4 font-mono text-[11px] text-gray-500">{{ entry.helloasso_order_id || '—' }}</td>
                 <td class="py-1.5 text-gray-400">{{ formatDate(entry.created_at) }}</td>
               </tr>
             </tbody>

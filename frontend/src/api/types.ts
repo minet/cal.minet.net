@@ -564,6 +564,8 @@ export interface PaymentEntryRead {
   user_name: string | null;
   attendee_name: string | null;
   checkout_intent_id: string | null;
+  helloasso_payment_id: string | null;
+  helloasso_order_id: string | null;
   amount_cents: number;
   payment_type: string;
   selected_option_ids: string[];

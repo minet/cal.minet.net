@@ -147,7 +147,6 @@ class Organization(SQLModel, table=True):
         back_populates="guest_organizations", link_model=EventGuestOrganization
     )
 
-
     def to_read_model(self, session=None):
         from app.schemas import OrganizationRead
 
@@ -389,7 +388,9 @@ class EventPaymentFormOption(SQLModel, table=True):
     is_private: bool = Field(default=False)
     order: int = Field(default=0)
 
-    payment_form: Optional["EventPaymentForm"] = Relationship(back_populates="form_options")
+    payment_form: Optional["EventPaymentForm"] = Relationship(
+        back_populates="form_options"
+    )
     allowed_user_links: List["EventPaymentFormOptionUser"] = Relationship(
         back_populates="option",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
@@ -465,6 +466,8 @@ class EventPaymentEntry(SQLModel, table=True):
     payment_form_id: UUID = Field(foreign_key="eventpaymentform.id", index=True)
     user_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
     checkout_intent_id: Optional[str] = Field(default=None, index=True, unique=True)
+    helloasso_payment_id: Optional[str] = Field(default=None, index=True, unique=True)
+    helloasso_order_id: Optional[str] = Field(default=None, index=True, unique=True)
     completed: bool = Field(default=False)
     completed_at: Optional[datetime] = None
     # JSON list of EventPaymentFormOption UUIDs chosen by the payer

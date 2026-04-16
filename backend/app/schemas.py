@@ -683,6 +683,7 @@ class PaymentInitiateResponse(BaseModel):
 
 class ImportedOption(BaseModel):
     """An option as imported from a HelloAsso billeterie item."""
+
     name: str
     amount_cents: int
 
@@ -693,6 +694,8 @@ class PaymentEntryRead(BaseModel):
     user_name: Optional[str] = None
     attendee_name: Optional[str] = None
     checkout_intent_id: Optional[str] = None
+    helloasso_payment_id: Optional[str] = None
+    helloasso_order_id: Optional[str] = None
     amount_cents: int
     payment_type: str = "helloasso"
     selected_option_ids: List[str] = []  # UUIDs of chosen EventPaymentFormOption rows

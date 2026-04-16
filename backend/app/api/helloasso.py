@@ -10,7 +10,7 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
@@ -85,6 +85,65 @@ def _helloasso_redirect_base_url() -> str:
     """Public base URL used for HelloAsso redirect fields (backUrl/returnUrl/errorUrl).
     Falls back to APP_BASE_URL. Must be a publicly reachable HTTPS URL."""
     return os.getenv("HELLOASSO_REDIRECT_BASE_URL") or _app_base_url()
+
+
+def _helloasso_payment_refs_from_order(
+    data: Any,
+) -> tuple[Optional[str], Optional[str]]:
+    """Extract HelloAsso payment and order identifiers from an order payload."""
+    if not isinstance(data, dict):
+        return None, None
+
+    order = data.get("order") if isinstance(data.get("order"), dict) else data
+    payment_id: Optional[str] = None
+    order_id: Optional[str] = None
+
+    if isinstance(order, dict):
+        raw_order_id = order.get("id")
+        if raw_order_id is not None:
+            order_id = str(raw_order_id)
+
+        payments = order.get("payments")
+        if isinstance(payments, list):
+            for payment in payments:
+                if isinstance(payment, dict) and payment.get("id") is not None:
+                    payment_id = str(payment["id"])
+                    break
+
+        if payment_id is None:
+            raw_payment_id = order.get("paymentId") or data.get("paymentId")
+            if raw_payment_id is not None:
+                payment_id = str(raw_payment_id)
+
+        if order_id is None:
+            raw_order_id = data.get("orderId")
+            if raw_order_id is not None:
+                order_id = str(raw_order_id)
+
+    return payment_id, order_id
+
+
+def _helloasso_payment_refs_from_payment(
+    data: Any,
+) -> tuple[Optional[str], Optional[str]]:
+    """Extract HelloAsso payment and order identifiers from a payment payload."""
+    if not isinstance(data, dict):
+        return None, None
+
+    payment_id = str(data["id"]) if data.get("id") is not None else None
+    order_id: Optional[str] = None
+
+    nested_order = data.get("order") if isinstance(data.get("order"), dict) else None
+    if isinstance(nested_order, dict):
+        raw_order_id = nested_order.get("id")
+        if raw_order_id is not None:
+            order_id = str(raw_order_id)
+    else:
+        raw_order_id = data.get("orderId") or data.get("order_id")
+        if raw_order_id is not None:
+            order_id = str(raw_order_id)
+
+    return payment_id, order_id
 
 
 _TEMPLATE_DIR = Path(__file__).parent.parent / "email" / "templates"
@@ -1090,6 +1149,8 @@ def list_payment_entries(
                 user_name=_entry_user_display_name(entry, user_obj),
                 attendee_name=entry.attendee_name,
                 checkout_intent_id=entry.checkout_intent_id,
+                helloasso_payment_id=entry.helloasso_payment_id,
+                helloasso_order_id=entry.helloasso_order_id,
                 amount_cents=entry.amount_cents,
                 payment_type=entry.payment_type,
                 selected_option_ids=selected_ids,
@@ -1145,6 +1206,8 @@ def export_payment_entries_ods(
         "Options",
         "Options importees",
         "Checkout intent",
+        "Payment ID",
+        "Order ID",
     ]
 
     doc = OpenDocumentSpreadsheet()
@@ -1156,7 +1219,7 @@ def export_payment_entries_ods(
     header_style.addElement(TextProperties(fontweight="bold"))
     doc.styles.addElement(header_style)
 
-    col_widths = [24, 28, 24, 18, 18, 12, 16, 16, 34, 30, 28]
+    col_widths = [24, 28, 24, 18, 18, 12, 16, 16, 34, 30, 28, 18, 18]
     for idx, width_chars in enumerate(col_widths):
         c_style = Style(name=f"PFColStyle{idx}", family="table-column")
         c_style.addElement(
@@ -1209,6 +1272,8 @@ def export_payment_entries_ods(
             for o in imported_opts
         ]
         imported_total_cents = sum(o.amount_cents for o in imported_opts)
+        payment_id = entry.helloasso_payment_id or ""
+        order_id = entry.helloasso_order_id or ""
 
         total_paid_cents = (
             form.total_amount_cents + selected_total_cents + imported_total_cents
@@ -1226,6 +1291,8 @@ def export_payment_entries_ods(
             ", ".join(selected_names),
             ", ".join(imported_names),
             entry.checkout_intent_id or "",
+            payment_id,
+            order_id,
         ]
 
         tr = TableRow()
@@ -1367,6 +1434,8 @@ def export_organization_checkouts_ods(
         "Options",
         "Options importees",
         "Checkout intent",
+        "Payment ID",
+        "Order ID",
     ]
 
     doc = OpenDocumentSpreadsheet()
@@ -1378,7 +1447,7 @@ def export_organization_checkouts_ods(
     header_style.addElement(TextProperties(fontweight="bold"))
     doc.styles.addElement(header_style)
 
-    col_widths = [20, 24, 24, 28, 24, 18, 18, 12, 16, 16, 34, 30, 28]
+    col_widths = [20, 24, 24, 28, 24, 18, 18, 12, 16, 16, 34, 30, 28, 18, 18]
     for idx, width_chars in enumerate(col_widths):
         c_style = Style(name=f"OrgColStyle{idx}", family="table-column")
         c_style.addElement(
@@ -1449,6 +1518,8 @@ def export_organization_checkouts_ods(
             for o in imported_opts
         ]
         imported_total_cents = sum(o.amount_cents for o in imported_opts)
+        payment_id = entry.helloasso_payment_id or ""
+        order_id = entry.helloasso_order_id or ""
 
         total_paid_cents = (
             form.total_amount_cents + selected_total_cents + imported_total_cents
@@ -1468,6 +1539,8 @@ def export_organization_checkouts_ods(
             ", ".join(selected_names),
             ", ".join(imported_names),
             entry.checkout_intent_id or "",
+            payment_id,
+            order_id,
         ]
 
         tr = TableRow()
@@ -2479,6 +2552,8 @@ async def helloasso_webhook(
     event_type = data.get("eventType")
     payload = data.get("data", {})
     entry = None
+    payment_id: Optional[str] = None
+    order_id: Optional[str] = None
 
     # Restrict to entries belonging to this org's payment forms
     org_form_ids = session.exec(
@@ -2506,6 +2581,7 @@ async def helloasso_webhook(
             checkout_intent_id,
             entry,
         )
+        payment_id, order_id = _helloasso_payment_refs_from_order(payload)
 
     elif event_type == "Payment":
         # Payment events don't include checkoutIntentId; match by payer email + amount
@@ -2537,6 +2613,7 @@ async def helloasso_webhook(
             amount_cents,
             entry,
         )
+        payment_id, order_id = _helloasso_payment_refs_from_payment(payload)
 
     else:
         logger.info("[webhook] unknown eventType=%s, ignoring", event_type)
@@ -2551,12 +2628,22 @@ async def helloasso_webhook(
         return {"message": "Already completed"}
 
     logger.info("[webhook] marking entry %s as completed", entry.id)
-    _mark_entry_completed(entry, session)
+    _mark_entry_completed(entry, session, payment_id=payment_id, order_id=order_id)
     return {"message": "ok"}
 
 
-def _mark_entry_completed(entry: EventPaymentEntry, session: Session) -> None:
+def _mark_entry_completed(
+    entry: EventPaymentEntry,
+    session: Session,
+    *,
+    payment_id: Optional[str] = None,
+    order_id: Optional[str] = None,
+) -> None:
     """Mark a payment entry and its form as completed."""
+    if payment_id and not entry.helloasso_payment_id:
+        entry.helloasso_payment_id = payment_id
+    if order_id and not entry.helloasso_order_id:
+        entry.helloasso_order_id = order_id
     entry.completed = True
     entry.completed_at = datetime.now(timezone.utc)
     session.add(entry)
@@ -2636,5 +2723,6 @@ def confirm_payment(
     if not order:
         return {"completed": False, "message": "Payment not yet confirmed by HelloAsso"}
 
-    _mark_entry_completed(entry, session)
+    payment_id, order_id = _helloasso_payment_refs_from_order(intent_data)
+    _mark_entry_completed(entry, session, payment_id=payment_id, order_id=order_id)
     return {"completed": True}
