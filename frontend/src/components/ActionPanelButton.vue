@@ -49,7 +49,7 @@
   </component>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, useSlots } from 'vue';
 import { useRouter } from 'vue-router';
 
@@ -81,7 +81,7 @@ const props = defineProps({
   align: {
     type: String,
     default: 'left',
-    validator: (v) => ['left', 'center', 'right'].includes(v)
+    validator: (v: unknown) => ['left', 'center', 'right'].includes(v as string)
   },
   block: {
     type: Boolean,
@@ -117,7 +117,7 @@ const computedAlignClass = computed(() => {
   }
 });
 
-const handleClick = (event) => {
+const handleClick = (event: MouseEvent) => {
   if (props.disabled || props.loading) {
     event.preventDefault();
     return;

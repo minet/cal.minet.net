@@ -202,9 +202,10 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
-import api from '../utils/api'
+import { api } from '@/api'
+import type { UserRead } from '@/api/types'
 import TextInput from '../components/TextInput.vue'
 import {
   Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot
@@ -216,8 +217,8 @@ const showSyncModal = ref(false)
 const showOrphansModal = ref(false)
 const syncing = ref(false)
 const syncForm = ref({ username: '', password: '' })
-const orphanedUsers = ref([])
-const deletingOrphans = ref([])
+const orphanedUsers = ref<UserRead[]>([])
+const deletingOrphans = ref<string[]>([])
 const isDeletingAllOrphans = ref(false)
 
 // Calculate default date range: last August 15th to next August 15th
@@ -241,27 +242,26 @@ const syncLdap = async () => {
   if (!syncForm.value.username || !syncForm.value.password) return
   syncing.value = true
   try {
-    const housekeepingResponse = await api.post('/admin/housekeeping')
-    console.log(housekeepingResponse.data.message)
+    const housekeepingResponse = await api.admin.housekeeping()
+    console.log(housekeepingResponse.message)
 
-    await api.post('/admin/ldap/sync', syncForm.value)
+    await api.admin.sync_ldap_users(syncForm.value)
 
     // Reset form and close first modal
     showSyncModal.value = false
     syncForm.value.password = ''
 
     // Now look for orphaned users
-    const orphansResponse = await api.get('/admin/ldap/orphans')
-    orphanedUsers.value = orphansResponse.data
+    orphanedUsers.value = await api.admin.get_ldap_orphaned_users()
 
     if (orphanedUsers.value.length > 0) {
       showOrphansModal.value = true
     } else {
       alert('Synchronisation et nettoyage réussis. Aucun compte orphelin trouvé.')
     }
-  } catch (e) {
+  } catch (e: unknown) {
     console.error(e)
-    const detail = e.response?.data?.detail || e.message
+    const detail = (e as any).response?.data?.detail || (e as Error).message
     alert('Erreur: ' + detail)
   } finally {
     syncing.value = false
@@ -272,18 +272,18 @@ const closeOrphansModal = () => {
   showOrphansModal.value = false
 }
 
-const deleteOrphan = async (id) => {
+const deleteOrphan = async (id: string) => {
   deletingOrphans.value.push(id)
   try {
-    await api.delete(`/users/${id}`)
+    await api.users.delete_user(id)
     orphanedUsers.value = orphanedUsers.value.filter(u => u.id !== id)
     if (orphanedUsers.value.length === 0) {
       alert('Tous les comptes orphelins ont été supprimés.')
       closeOrphansModal()
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Failed to delete user', error)
-    alert('Failed to delete user: ' + (error.response?.data?.detail || error.message))
+    alert('Failed to delete user: ' + ((error as any).response?.data?.detail || (error as Error).message))
   } finally {
     deletingOrphans.value = deletingOrphans.value.filter(i => i !== id)
   }
@@ -307,16 +307,13 @@ const handleExport = async () => {
   
   exporting.value = true
   try {
-    const response = await api.get('/events/export', {
-      params: {
-        start_date: new Date(exportForm.value.start_date).toISOString(),
-        end_date: new Date(exportForm.value.end_date).toISOString()
-      },
-      responseType: 'blob'
+    const blob = await api.events.export({
+      start_date: new Date(exportForm.value.start_date).toISOString(),
+      end_date: new Date(exportForm.value.end_date).toISOString()
     })
-    
+
     // Create a download link for the blob
-    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
     link.setAttribute('download', `export_evenements_${exportForm.value.start_date}_${exportForm.value.end_date}.ods`)

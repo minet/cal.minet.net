@@ -127,20 +127,21 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { PlusIcon } from '@heroicons/vue/24/outline'
 import TextInput from '../components/TextInput.vue'
-import api from '../utils/api'
+import { api } from '@/api'
+import type { OrganizationRead, TagRead } from '@/api/types'
 
 const route = useRoute()
-const orgId = route.params.id
+const orgId = route.params.id as string
 
-const organization = ref(null)
-const tags = ref([])
+const organization = ref<OrganizationRead | null>(null)
+const tags = ref<TagRead[]>([])
 const loading = ref(true)
-const editingTag = ref(null)
+const editingTag = ref<string | null>(null)
 const showCreateModal = ref(false)
 const newTag = ref({
   name: '',
@@ -149,8 +150,7 @@ const newTag = ref({
 
 const loadOrganization = async () => {
   try {
-    const response = await api.get(`/organizations/${orgId}`)
-    organization.value = response.data
+    organization.value = await api.organizations.get_organization(orgId)
   } catch (error) {
     console.error('Failed to load organization:', error)
   }
@@ -158,8 +158,7 @@ const loadOrganization = async () => {
 
 const loadTags = async () => {
   try {
-    const response = await api.get(`/organizations/${orgId}/tags`)
-    tags.value = response.data
+    tags.value = await api.tags.get_organization_tags(orgId)
   } catch (error) {
     console.error('Failed to load tags:', error)
   } finally {
@@ -169,7 +168,7 @@ const loadTags = async () => {
 
 const createTag = async () => {
   try {
-    await api.post(`/organizations/${orgId}/tags`, newTag.value)
+    await api.tags.create_tag(orgId, newTag.value)
     newTag.value = { name: '', color: '#6366f1' }
     showCreateModal.value = false
     await loadTags()
@@ -178,23 +177,20 @@ const createTag = async () => {
   }
 }
 
-const saveTag = async (tag) => {
+const saveTag = async (tag: TagRead) => {
   try {
-    await api.put(`/tags/${tag.id}`, {
-      name: tag.name,
-      color: tag.color
-    })
+    await api.tags.update_tag(tag.id, { name: tag.name, color: tag.color })
     editingTag.value = null
   } catch (error) {
     console.error('Failed to update tag:', error)
   }
 }
 
-const deleteTag = async (tagId) => {
+const deleteTag = async (tagId: string) => {
   if (!confirm('Êtes-vous sûr de vouloir supprimer ce tag ?')) return
   
   try {
-    await api.delete(`/tags/${tagId}`)
+    await api.tags.delete_tag(tagId)
     await loadTags()
   } catch (error) {
     console.error('Failed to delete tag:', error)

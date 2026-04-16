@@ -30,6 +30,6 @@
 
 </template>
 
-<script setup>
+<script setup lang="ts">
 // MiNET network logo
 </script>

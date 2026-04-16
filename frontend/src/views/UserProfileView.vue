@@ -114,7 +114,7 @@
         <div class="px-4 py-5 sm:p-6">
           <div class="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6 mb-6">
             <div class="relative">
-              <UserAvatar :src="resolveMediaUrl(profileUser.profile_picture_file, 192) ?? profileUser.profile_picture_url"
+              <UserAvatar :src="resolveMediaUrl(profileUser.profile_picture_file, 192) ?? profileUser.profile_picture_url ?? undefined"
                 :name="profileUser.full_name || profileUser.email" size="2xl" />
               <div v-if="isEditing" class="absolute bottom-0 right-0">
                 <label for="avatar-upload"
@@ -147,7 +147,7 @@
                 <dd class="mt-1 flex flex-wrap gap-3">
                   <a v-for="link in profileUser.links" :key="link.id" :href="link.url" target="_blank"
                     class="flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 hover:underline">
-                    <img v-if="getSocialIcon(link.url)" :src="getSocialIcon(link.url)"
+                    <img v-if="getSocialIcon(link.url)" :src="getSocialIcon(link.url) ?? undefined"
                       class="h-4 w-4 object-contain flex-shrink-0" />
                     <LinkIcon v-else class="h-4 w-4 flex-shrink-0" />
                     {{ link.name }}
@@ -216,8 +216,8 @@
             </p>
           </div>
 
-          <div v-else class="space-y-4">
-            <OrganizationCard v-for="membership in memberships" :key="membership.id"
+            <div v-else class="space-y-4">
+              <OrganizationCard v-for="membership in membershipsWithOrganization" :key="membership.id"
               :organization="membership.organization" :show-type="!isCurrentUser">
               <template #side>
                 <div class="ml-4 flex-shrink-0">
@@ -281,7 +281,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
@@ -289,7 +289,15 @@ import TextInput from '../components/TextInput.vue'
 import UserAvatar from '../components/UserAvatar.vue'
 import OrganizationCard from '../components/OrganizationCard.vue'
 import AddToCalendar from '../components/AddToCalendar.vue'
-import api from '../utils/api'
+import { api } from '@/api'
+import type {
+  MembershipWithOrganization,
+  OrganizationRead,
+  Role,
+  UserLinkRead,
+  UserRead,
+  UserUpdate,
+} from '@/api/types'
 import { getSocialIcon } from '../utils/social'
 import { Switch } from '@headlessui/vue'
 import { resolveMediaUrl } from '../utils/media.js'
@@ -311,31 +319,53 @@ import {
 const route = useRoute()
 const router = useRouter()
 const { user: currentUser, isSuperAdmin } = useAuth()
-const profileUser = ref(null)
-const memberships = ref([])
+const profileUser = ref<UserRead | null>(null)
+const memberships = ref<MembershipWithOrganization[]>([])
 const loading = ref(true)
 const loadingMemberships = ref(false)
 const isEditing = ref(false)
 const saving = ref(false)
-const allOrganizations = ref([])
+const allOrganizations = ref<OrganizationRead[]>([])
 const addingRole = ref(false)
 const securekey = ref('')
-const newRoleForm = ref({
+
+type EditableLink = {
+  id: string | null
+  name: string
+  url: string
+  order: number
+}
+
+const newRoleForm = ref<{ organization_id: string; role: Role }>({
   organization_id: '',
-  role: 'org_member'
+  role: 'org_member' as Role
 })
 
-const editForm = ref({
-  profile_picture_file_id: null,
+const editForm = ref<UserUpdate>({
+  profile_picture_file_id: undefined,
   phone_number: '',
   notification_delay: 15
 })
 
-const editLinks = ref([])
+const editLinks = ref<EditableLink[]>([])
+
+const syncEditFormFromProfile = (user: UserRead) => {
+  editForm.value = {
+    profile_picture_file_id: user.profile_picture_file?.id || undefined,
+    phone_number: user.phone_number || '',
+    notification_delay: user.notification_delay || 15,
+  }
+}
 
 const isCurrentUser = computed(() => {
   if (!currentUser.value || !profileUser.value) return false
   return currentUser.value.id === profileUser.value.id
+})
+
+const membershipsWithOrganization = computed(() => {
+  return memberships.value.filter(
+    (m): m is MembershipWithOrganization & { organization: OrganizationRead } => m.organization !== null,
+  )
 })
 
 const icsUrl = computed(() => {
@@ -344,22 +374,20 @@ const icsUrl = computed(() => {
 
 const loadUser = async () => {
   loading.value = true
-  const userId = route.params.id || 'me'
+  const routeUserId = route.params.id
+  const userId = Array.isArray(routeUserId) ? routeUserId[0] : routeUserId
 
   try {
-    const response = await api.get(`/users/${userId}`)
-    profileUser.value = response.data
+    profileUser.value = !userId || userId === 'me'
+      ? await api.users.get_me()
+      : await api.users.get_user_profile(userId)
 
     // Initialize edit form
-    if (isCurrentUser.value) {
-      editForm.value = {
-        profile_picture_file_id: profileUser.value.profile_picture_file?.id || null,
-        phone_number: profileUser.value.phone_number || '',
-        notification_delay: profileUser.value.notification_delay || 15
-      }
+    if (isCurrentUser.value && profileUser.value) {
+      syncEditFormFromProfile(profileUser.value)
       // Load links
-      const linksRes = await api.get('/users/me/links')
-      editLinks.value = linksRes.data.map(l => ({ ...l }))
+      const links = await api.users.list_my_links()
+      editLinks.value = links.map(l => ({ ...l }))
     }
   } catch (error) {
     console.error('Failed to load user:', error)
@@ -370,13 +398,14 @@ const loadUser = async () => {
 
 const loadMemberships = async () => {
   if (!isCurrentUser.value && !isSuperAdmin.value) return
+  if (!profileUser.value) return
 
   loadingMemberships.value = true
   try {
     const userId = profileUser.value.id
-    const endpoint = isCurrentUser.value ? '/users/me/memberships' : `/users/${userId}/memberships`
-    const response = await api.get(endpoint)
-    memberships.value = response.data
+    memberships.value = isCurrentUser.value
+      ? await api.users.get_user_memberships()
+      : await api.users.get_other_user_memberships(userId)
   } catch (error) {
     console.error('Failed to load memberships:', error)
   } finally {
@@ -387,19 +416,19 @@ const loadMemberships = async () => {
 const loadAllOrganizations = async () => {
   if (!isSuperAdmin.value) return
   try {
-    const response = await api.get('/organizations/')
-    allOrganizations.value = response.data
+    allOrganizations.value = await api.organizations.list_organizations()
   } catch (error) {
     console.error('Failed to load organizations:', error)
   }
 }
 
-const toggleSuperadmin = async (newValue) => {
+const toggleSuperadmin = async (newValue: boolean) => {
+  if (!profileUser.value) return
   // Optimistic update
   profileUser.value.is_superadmin = newValue
 
   try {
-    await api.put(`/users/${profileUser.value.id}/superadmin?is_superadmin=${newValue}`)
+    await api.users.toggle_superadmin(profileUser.value.id, newValue)
   } catch (error) {
     console.error('Failed to toggle superadmin:', error)
     // Revert on error
@@ -407,12 +436,13 @@ const toggleSuperadmin = async (newValue) => {
   }
 }
 
-const toggleLdapExempt = async (newValue) => {
+const toggleLdapExempt = async (newValue: boolean) => {
+  if (!profileUser.value) return
   // Optimistic update
   profileUser.value.exempt_from_rgpd_delete = newValue
 
   try {
-    await api.put(`/users/${profileUser.value.id}/exempt-ldap?exempt=${newValue}`)
+    await api.users.toggle_exempt_from_rgpd_delete(profileUser.value.id, newValue)
   } catch (error) {
     console.error('Failed to toggle LDAP exempt:', error)
     // Revert on error
@@ -421,14 +451,15 @@ const toggleLdapExempt = async (newValue) => {
 }
 
 const addRole = async () => {
-  if (!newRoleForm.value.organization_id) return
+  if (!newRoleForm.value.organization_id || !profileUser.value) return
 
   addingRole.value = true
   try {
-    await api.post(`/organizations/${newRoleForm.value.organization_id}/members`, {
-      email: profileUser.value.email,
-      role: newRoleForm.value.role
-    })
+    await api.organizations.add_organization_member(
+      newRoleForm.value.organization_id,
+      profileUser.value.email,
+      newRoleForm.value.role
+    )
     // Refresh memberships
     await loadMemberships()
     newRoleForm.value.organization_id = ''
@@ -448,39 +479,31 @@ const cancelEditing = () => {
   isEditing.value = false
   // Reset form
   if (profileUser.value) {
-    editForm.value = {
-      profile_picture_file_id: profileUser.value.profile_picture_file?.id || null,
-      phone_number: profileUser.value.phone_number || '',
-      notification_delay: profileUser.value.notification_delay || 15
-    }
-    editLinks.value = (profileUser.value.links || []).map(l => ({ ...l }))
+    syncEditFormFromProfile(profileUser.value)
+    editLinks.value = (profileUser.value.links || []).map((l) => ({ ...l }))
   }
 }
 
 const loadSecurekey = async () => {
   if (!isCurrentUser.value) return
   try {
-    const response = await api.get('/calendar/securekey')
-    securekey.value = response.data
+    securekey.value = await api.calendar.get_securekey()
   } catch (error) {
     console.error('Failed to load securekey:', error)
   }
 }
 
-const handleFileUpload = async (event) => {
-  const file = event.target.files[0]
+const handleFileUpload = async (event: Event) => {
+  const target = event.target as HTMLInputElement | null
+  const file = target?.files?.[0]
   if (!file) return
 
   const formData = new FormData()
   formData.append('file', file)
 
   try {
-    const response = await api.post('/upload/image', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
-    editForm.value.profile_picture_file_id = response.data.stored_file_id
+    const response = await api.upload.upload_image(formData)
+    editForm.value.profile_picture_file_id = response.stored_file_id
   } catch (error) {
     console.error('Failed to upload image:', error)
     alert('Failed to upload image')
@@ -488,33 +511,38 @@ const handleFileUpload = async (event) => {
 }
 
 const saveProfile = async () => {
+  if (!profileUser.value) return
   saving.value = true
   try {
-    const response = await api.put('/users/me', editForm.value)
-    profileUser.value = response.data
+    const originalLinks = [...(profileUser.value.links || [])]
+    const originalIds = new Set(originalLinks.map((l) => l.id))
+
+    profileUser.value = await api.users.update_user_profile(editForm.value)
 
     // Sync links: delete removed, update existing, create new
-    const originalIds = new Set((profileUser.value.links || []).map(l => l.id))
-    const currentIds = new Set(editLinks.value.filter(l => l.id).map(l => l.id))
+    const currentIds = new Set(
+      editLinks.value
+        .map((l) => l.id)
+        .filter((id): id is string => Boolean(id)),
+    )
 
     // Delete removed
     for (const id of originalIds) {
       if (!currentIds.has(id)) {
-        await api.delete(`/users/me/links/${id}`)
+        await api.users.delete_my_link(id)
       }
     }
     // Create or update
     for (const [idx, link] of editLinks.value.entries()) {
       if (link.id && originalIds.has(link.id)) {
-        await api.put(`/users/me/links/${link.id}`, { ...link, order: idx })
+        await api.users.update_my_link(link.id, { name: link.name, url: link.url, order: idx })
       } else {
-        await api.post('/users/me/links', { name: link.name, url: link.url, order: idx })
+        await api.users.create_my_link({ name: link.name, url: link.url, order: idx })
       }
     }
 
     // Reload user to get fresh links
-    const refreshed = await api.get('/users/me')
-    profileUser.value = refreshed.data
+    profileUser.value = await api.users.get_me()
     isEditing.value = false
   } catch (error) {
     console.error('Failed to update profile:', error)
@@ -527,14 +555,14 @@ const addEditLink = () => {
   editLinks.value.push({ id: null, name: '', url: '', order: editLinks.value.length })
 }
 
-const removeEditLink = (idx) => {
+const removeEditLink = (idx: number) => {
   editLinks.value.splice(idx, 1)
 }
 
 
 
-const getRoleLabel = (role) => {
-  const labels = {
+const getRoleLabel = (role: string) => {
+  const labels: Record<string, string> = {
     'superadmin': 'Superadmin',
     'org_admin': 'Administrateur',
     'org_member': 'Éditeur',
@@ -543,8 +571,8 @@ const getRoleLabel = (role) => {
   return labels[role] || role
 }
 
-const getRoleBadgeClass = (role) => {
-  const classes = {
+const getRoleBadgeClass = (role: string) => {
+  const classes: Record<string, string> = {
     'superadmin': 'bg-purple-50 text-purple-700 ring-purple-700/10',
     'org_admin': 'bg-blue-50 text-blue-700 ring-blue-700/10',
     'org_member': 'bg-green-50 text-green-700 ring-green-600/20',
@@ -554,12 +582,12 @@ const getRoleBadgeClass = (role) => {
 }
 
 const toggleBan = async () => {
+  if (!profileUser.value) return
   const action = profileUser.value.is_active ? 'bannir' : 'débannir'
   if (!confirm(`Êtes-vous sûr de vouloir ${action} cet utilisateur ?`)) return
 
   try {
-    const response = await api.put(`/users/${profileUser.value.id}/active?is_active=${!profileUser.value.is_active}`)
-    profileUser.value = response.data
+    profileUser.value = await api.users.toggle_active(profileUser.value.id, !profileUser.value.is_active)
   } catch (error) {
     console.error('Failed to toggle ban:', error)
     alert('Une erreur est survenue.')
@@ -567,10 +595,11 @@ const toggleBan = async () => {
 }
 
 const deleteUser = async () => {
+  if (!profileUser.value) return
   if (!confirm('Êtes-vous sûr de vouloir supprimer définitivement cet utilisateur ? Cette action est irréversible.')) return
 
   try {
-    await api.delete(`/users/${profileUser.value.id}`)
+    await api.users.delete_user(profileUser.value.id)
     router.push('/')
   } catch (error) {
     console.error('Failed to delete user:', error)
@@ -616,7 +645,7 @@ const toggleNotifications = async () => {
   }
 }
 
-const addToCalendarRef = ref(null)
+const addToCalendarRef = ref<{ open: () => void } | null>(null)
 
 const triggerAddCalendar = () => {
   if (route.path === '/profile/add_calendar' && addToCalendarRef.value) {

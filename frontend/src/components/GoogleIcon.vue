@@ -8,6 +8,6 @@
   </svg>
 </template>
 
-<script setup>
+<script setup lang="ts">
 // Google official logo SVG
 </script>

@@ -73,7 +73,7 @@
             <div v-if="personResults.length" class="mt-1 rounded-lg border border-gray-200 bg-white shadow-md overflow-hidden">
               <button
                 v-for="person in personResults"
-                :key="person.email || person.full_name"
+                :key="person.email || person.full_name || undefined"
                 @click="selectPerson(person)"
                 class="w-full flex items-center gap-3 px-3 py-2 hover:bg-indigo-50 text-left transition-colors"
               >
@@ -264,6 +264,15 @@
               {{ entry.validated ? 'Validé ✓' : 'Valider' }}
             </button>
             <span v-else class="flex-shrink-0 text-xs text-amber-500 font-medium">Non payé</span>
+
+            <!-- Cancel button -->
+            <button
+              @click="cancelEntry(entry)"
+              class="flex-shrink-0 px-2 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+              title="Annuler cette entrée"
+            >
+              <XMarkIcon class="h-4 w-4" />
+            </button>
           </div>
         </TransitionGroup>
 
@@ -283,10 +292,12 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, defineComponent, h } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
-import api from '../utils/api'
+import { api } from '@/api'
+import type { EventRead, ManualEntryCreate, PaymentFormRead, ValidationEntryRead, AttendeeSearchResult, PaymentFormOption } from '@/api'
+import { PaymentType } from '@/api'
 import {
   MagnifyingGlassIcon,
   CheckCircleIcon,
@@ -299,37 +310,37 @@ import {
 } from '@heroicons/vue/24/outline'
 
 const route = useRoute()
-const eventId = route.params.id
+const eventId = String(route.params.id)
 
 const loading = ref(true)
-const entries = ref([])
+const entries = ref<ValidationEntryRead[]>([])
 const eventTitle = ref('')
 const search = ref('')
-const searchRef = ref(null)
+const searchRef = ref<HTMLInputElement | null>(null)
 const toast = ref('')
 
 // Manual panel state
 const showManualForm = ref(false)
 const submittingManual = ref(false)
-const formOptions = ref([])
+const formOptions = ref<PaymentFormOption[]>([])
 const formBaseCents = ref(0)
 
 // Person search
 const personQuery = ref('')
-const personResults = ref([])
-const selectedPerson = ref(null)
-const personSearchRef = ref(null)
-let personSearchTimer = null
+const personResults = ref<AttendeeSearchResult[]>([])
+const selectedPerson = ref<AttendeeSearchResult | null>(null)
+const personSearchRef = ref<HTMLInputElement | null>(null)
+let personSearchTimer: ReturnType<typeof setTimeout> | undefined
 
 // Price
 const useCustomPrice = ref(false)
-const customPriceEuros = ref('')
-const selectedOptionIds = ref([])
+const customPriceEuros = ref<number>(0)
+const selectedOptionIds = ref<string[]>([])
 
 // Payment type
 const manualPaymentType = ref('cash')
 
-const PAYMENT_TYPE_LABELS = {
+const PAYMENT_TYPE_LABELS: Record<string, string> = {
   cash: 'Espèces',
   credit_card: 'CB',
   cheque: 'Chèque',
@@ -341,7 +352,7 @@ const PAYMENT_TYPE_LABELS = {
 }
 const manual_payment_type_options = Object.keys(PAYMENT_TYPE_LABELS).filter(t => t !== 'helloasso_import' && t !== 'helloasso')
 
-const PAYMENT_TYPE_BG = {
+const PAYMENT_TYPE_BG: Record<string, string> = {
   cash: 'bg-emerald-600',
   credit_card: 'bg-purple-600',
   cheque: 'bg-orange-600',
@@ -361,17 +372,17 @@ const computedTotal = computed(() => {
   const base = useCustomPrice.value
     ? Math.round((customPriceEuros.value || 0) * 100)
     : formBaseCents.value
-  const optionById = Object.fromEntries((formOptions.value || []).map(o => [String(o.id), o]))
-  const extras = selectedOptionIds.value.reduce((sum, optId) => {
+  const optionById = Object.fromEntries((formOptions.value || []).map((o: PaymentFormOption) => [String(o.id), o]))
+  const extras = selectedOptionIds.value.reduce((sum: number, optId: string) => {
     const opt = optionById[String(optId)]
     return sum + (opt?.price_cents || 0)
   }, 0)
   return base + extras
 })
 
-const initials = (name) => {
+const initials = (name: string | null | undefined): string => {
   if (!name) return '?'
-  return name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
+  return name.split(/\s+/).map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
 }
 
 const openManualForm = (prefill = '') => {
@@ -380,7 +391,7 @@ const openManualForm = (prefill = '') => {
   personResults.value = []
   selectedPerson.value = null
   useCustomPrice.value = false
-  customPriceEuros.value = ''
+  customPriceEuros.value = 0
   selectedOptionIds.value = []
   manualPaymentType.value = 'cash'
   if (prefill) debouncedPersonSearch()
@@ -398,15 +409,15 @@ const debouncedPersonSearch = () => {
   }
   personSearchTimer = setTimeout(async () => {
     try {
-      const res = await api.get(`/helloasso/events/${eventId}/attendee-search`, { params: { q: personQuery.value } })
-      personResults.value = res.data
+      const res = await api.helloasso.search_attendees(eventId, personQuery.value)
+      personResults.value = res
     } catch (err) {
       console.error('Person search failed:', err)
     }
   }, 250)
 }
 
-const selectPerson = (person) => {
+const selectPerson = (person: AttendeeSearchResult) => {
   selectedPerson.value = person
   personQuery.value = ''
   personResults.value = []
@@ -419,11 +430,11 @@ const clearPerson = () => {
 }
 
 const useCustomName = () => {
-  selectedPerson.value = { full_name: personQuery.value.trim(), source: 'custom' }
+  selectedPerson.value = { id: null, full_name: personQuery.value.trim(), email: null, uid: null, source: 'custom' }
   personResults.value = []
 }
 
-const toggleOption = (opt) => {
+const toggleOption = (opt: PaymentFormOption) => {
   if (!opt?.id) return
   const optId = String(opt.id)
   const i = selectedOptionIds.value.indexOf(optId)
@@ -431,7 +442,7 @@ const toggleOption = (opt) => {
   else selectedOptionIds.value.push(optId)
 }
 
-const PAYMENT_TYPE_COLOR_MAP = {
+const PAYMENT_TYPE_COLOR_MAP: Record<string, string> = {
   helloasso: 'bg-blue-50 text-blue-600',
   helloasso_import: 'bg-indigo-50 text-indigo-600',
   credit_card: 'bg-purple-50 text-purple-600',
@@ -446,9 +457,10 @@ const PaymentTypeBadge = defineComponent({
   props: { type: String },
   setup(props) {
     return () => {
-      const label = PAYMENT_TYPE_LABELS[props.type] || props.type
+      const t = props.type ?? ''
+      const label = PAYMENT_TYPE_LABELS[t] ?? t
       return h('span', {
-        class: `inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium ${PAYMENT_TYPE_COLOR_MAP[props.type] || 'bg-gray-50 text-gray-500'}`,
+        class: `inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium ${PAYMENT_TYPE_COLOR_MAP[t] ?? 'bg-gray-50 text-gray-500'}`,
       }, label)
     }
   },
@@ -472,7 +484,7 @@ const displayedEntries = computed(() =>
   search.value.trim() ? filtered.value : entries.value.slice(0, 50)
 )
 
-const showToast = (msg) => {
+const showToast = (msg: string) => {
   toast.value = msg
   setTimeout(() => { toast.value = '' }, 2500)
 }
@@ -492,16 +504,27 @@ const handleEnter = async () => {
   }
 }
 
-const toggleValidate = async (entry) => {
+const toggleValidate = async (entry: ValidationEntryRead) => {
   try {
-    const res = await api.post(`/helloasso/entries/${entry.id}/validate`)
+    const updated = await api.helloasso.validate_entry(entry.id)
     const idx = entries.value.findIndex(e => e.id === entry.id)
-    if (idx !== -1) entries.value[idx] = res.data
-    if (res.data.validated) {
-      showToast(`${res.data.display_name} — validé ✓`)
+    if (idx !== -1) entries.value[idx] = updated
+    if (updated.validated) {
+      showToast(`${updated.display_name} — validé ✓`)
     }
   } catch (err) {
     console.error('Validation failed:', err)
+  }
+}
+
+const cancelEntry = async (entry: ValidationEntryRead) => {
+  if (!confirm(`Annuler l'entrée de ${entry.display_name} ?`)) return
+  try {
+    await api.helloasso.cancel_entry(entry.id)
+    entries.value = entries.value.filter(e => e.id !== entry.id)
+    showToast(`${entry.display_name} — entrée annulée`)
+  } catch (err) {
+    console.error('Cancel failed:', err)
   }
 }
 
@@ -510,16 +533,16 @@ const submitManualEntry = async () => {
   if (!name.trim()) return
   submittingManual.value = true
   try {
-    const payload = {
+    const payload: ManualEntryCreate = {
       attendee_name: name.trim(),
-      payment_type: manualPaymentType.value,
+      payment_type: manualPaymentType.value as PaymentType,
       selected_option_ids: selectedOptionIds.value,
       amount_cents: computedTotal.value,
     }
-    const res = await api.post(`/helloasso/events/${eventId}/manual-entry`, payload)
-    entries.value.unshift(res.data)
+    const created = await api.helloasso.create_manual_entry(String(eventId), payload)
+    entries.value.unshift(created)
     showManualForm.value = false
-    showToast(`${res.data.display_name} — entrée ajoutée`)
+    showToast(`${created.display_name} — entrée ajoutée`)
   } catch (err) {
     console.error('Manual entry failed:', err)
   } finally {
@@ -529,17 +552,17 @@ const submitManualEntry = async () => {
 
 onMounted(async () => {
   try {
-    const [eventRes, entriesRes] = await Promise.all([
-      api.get(`/events/${eventId}`),
-      api.get(`/helloasso/events/${eventId}/validation-entries`),
+    const [event, validationEntries] = await Promise.all([
+      api.events.get_event(String(eventId)) as Promise<EventRead>,
+      api.helloasso.get_validation_entries(String(eventId)),
     ])
-    eventTitle.value = eventRes.data.title
-    entries.value = entriesRes.data
+    eventTitle.value = event.title
+    entries.value = validationEntries
 
     try {
-      const formRes = await api.get(`/helloasso/events/${eventId}/payment-form`)
-      formBaseCents.value = formRes.data.total_amount_cents || 0
-      formOptions.value = formRes.data.options || []
+      const form: PaymentFormRead = await api.helloasso.get_payment_form(String(eventId))
+      formBaseCents.value = form.total_amount_cents || 0
+      formOptions.value = form.options || []
     } catch { /* no form */ }
   } catch (err) {
     console.error('Failed to load validation data:', err)

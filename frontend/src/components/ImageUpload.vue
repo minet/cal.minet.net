@@ -152,17 +152,18 @@
 }
 </style>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 import { PhotoIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
 import { Cropper, CircleStencil } from 'vue-advanced-cropper'
 import 'vue-advanced-cropper/dist/style.css'
-import api from '../utils/api'
+import { type PropType } from 'vue'
+import { api } from '@/api'
 
 const props = defineProps({
   modelValue: {
-    type: String,
+    type: String as PropType<string | null>,
     default: null
   },
   label: {
@@ -177,7 +178,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'update:storedFileId'])
 
-const fileInput = ref(null)
+const fileInput = ref<HTMLInputElement | null>(null)
 const dragover = ref(false)
 const uploading = ref(false)
 const uploadProgress = ref(0)
@@ -185,16 +186,16 @@ const error = ref('')
 
 // Cropper state
 const showCropper = ref(false)
-const cropperImage = ref(null)
-const currentFile = ref(null)
-const cropper = ref(null)
+const cropperImage = ref<string | null>(null)
+const currentFile = ref<File | null>(null)
+const cropper = ref<any>(null)
 
 const triggerFileInput = () => {
   fileInput.value?.click()
 }
 
-const handleFileChange = async (event) => {
-  const file = event.target.files[0]
+const handleFileChange = async (event: Event) => {
+  const file = (event.target as HTMLInputElement).files?.[0]
   if (file) {
     if (props.crop) {
       openCropper(file)
@@ -204,9 +205,9 @@ const handleFileChange = async (event) => {
   }
 }
 
-const handleDrop = async (event) => {
+const handleDrop = async (event: DragEvent) => {
   dragover.value = false
-  const file = event.dataTransfer.files[0]
+  const file = event.dataTransfer?.files[0]
   if (file && file.type.startsWith('image/')) {
     if (props.crop) {
       openCropper(file)
@@ -218,7 +219,7 @@ const handleDrop = async (event) => {
   }
 }
 
-const openCropper = (file) => {
+const openCropper = (file: File) => {
   currentFile.value = file
   cropperImage.value = URL.createObjectURL(file)
   showCropper.value = true
@@ -242,19 +243,20 @@ const cropAndUpload = async () => {
   
   const { canvas } = cropper.value.getResult()
   if (canvas) {
-    canvas.toBlob(async (blob) => {
+    canvas.toBlob(async (blob: Blob | null) => {
       if (blob) {
         // Create a new File object from the blob to preserve name/type if needed
         // or just pass blob. API expects multipart/form-data with 'file'.
-        const fileToUpload = new File([blob], currentFile.value.name, { type: currentFile.value.type })
+        const f = currentFile.value!
+        const fileToUpload = new File([blob], f.name, { type: f.type })
         await uploadFile(fileToUpload)
         closeCropper()
       }
-    }, currentFile.value.type)
+    }, currentFile.value?.type)
   }
 }
 
-const uploadFile = async (file) => {
+const uploadFile = async (file: File) => {
   error.value = ''
   uploading.value = true
   uploadProgress.value = 0
@@ -263,18 +265,13 @@ const uploadFile = async (file) => {
     const formData = new FormData()
     formData.append('file', file)
 
-    const response = await api.post('/upload/image', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      },
-      onUploadProgress: (progressEvent) => {
-        uploadProgress.value = Math.round((progressEvent.loaded * 100) / progressEvent.total)
-      }
+    const response = await api.upload.upload_image(formData, (pct) => {
+      uploadProgress.value = pct
     })
 
-    emit('update:modelValue', response.data.url)
-    emit('update:storedFileId', response.data.stored_file_id)
-  } catch (err) {
+    emit('update:modelValue', response.url)
+    emit('update:storedFileId', response.stored_file_id)
+  } catch (err: any) {
     console.error('Upload failed:', err)
     error.value = err.response?.data?.detail || 'Échec de l\'upload'
   } finally {

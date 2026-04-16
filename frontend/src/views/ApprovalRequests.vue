@@ -67,11 +67,11 @@
                 <div class="flex items-center gap-3 mb-2">
                   <img 
                     v-if="event.organization?.logo_file || event.organization?.logo_url"
-                    :src="resolveMediaUrl(event.organization.logo_file, 64) ?? event.organization.logo_url"
+                    :src="resolveMediaUrl(event.organization.logo_file, 64) ?? event.organization.logo_url ?? undefined"
                     :alt="event.organization.name"
                     class="h-10 w-10 rounded-full object-cover"
                   />
-                  <div 
+                  <div
                     v-else
                     class="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-semibold"
                   >
@@ -82,7 +82,7 @@
                     <p class="text-sm text-gray-500">{{ event.organization?.name }}</p>
                   </div>
                 </div>
-                
+
                 <p v-if="event.description" class="text-gray-600 text-sm mt-2 line-clamp-2">
                   {{ event.description }}
                 </p>
@@ -102,7 +102,7 @@
                   </div>
                   <div class="flex items-center gap-1">
                     <UserIcon class="h-4 w-4" />
-                    <span>{{ event.created_by?.full_name || event.created_by?.email }}</span>
+                    <span>{{ event.created_by?.full_name }}</span>
                   </div>
                   <div v-if="event.submitted_at" class="flex items-center gap-1 text-amber-600">
                     <ClockIcon class="h-4 w-4" />
@@ -166,11 +166,11 @@
                 <div class="flex items-center gap-3 mb-2">
                   <img 
                     v-if="event.organization?.logo_file || event.organization?.logo_url"
-                    :src="resolveMediaUrl(event.organization.logo_file, 64) ?? event.organization.logo_url"
+                    :src="resolveMediaUrl(event.organization.logo_file, 64) ?? event.organization.logo_url ?? undefined"
                     :alt="event.organization.name"
                     class="h-10 w-10 rounded-full object-cover"
                   />
-                  <div 
+                  <div
                     v-else
                     class="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-semibold"
                   >
@@ -201,7 +201,7 @@
                   </div>
                   <div class="flex items-center gap-1">
                     <UserIcon class="h-4 w-4" />
-                    <span>{{ event.created_by?.full_name || event.created_by?.email }}</span>
+                    <span>{{ event.created_by?.full_name }}</span>
                   </div>
                 </div>
               </div>
@@ -246,7 +246,7 @@
             </button>
             <button
               @click="rejectEvent"
-              :disabled="!rejectMessage.trim() || processingId"
+              :disabled="!rejectMessage.trim() || !!processingId"
               class="px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg disabled:opacity-50"
             >
               Refuser
@@ -277,14 +277,14 @@
              >
                 <div 
                   class="h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-white font-bold text-xs"
-                  :style="{ backgroundColor: evt.organization.color_secondary || '#f3f4f6' }"
+                  :style="{ backgroundColor: evt.organization?.color_secondary || '#f3f4f6' }"
                 >
-                   <img 
+                   <img
                       v-if="evt.organization?.logo_file || evt.organization?.logo_url"
-                      :src="resolveMediaUrl(evt.organization.logo_file, 64) ?? evt.organization.logo_url"
+                      :src="resolveMediaUrl(evt.organization?.logo_file, 64) ?? evt.organization?.logo_url ?? undefined"
                       class="h-full w-full object-cover rounded-full"
                     />
-                   <span v-else :style="{ color: evt.organization.color_primary || '#4f46e5' }">
+                   <span v-else :style="{ color: evt.organization?.color_primary || '#4f46e5' }">
                      {{ evt.organization?.name?.charAt(0) }}
                    </span>
                 </div>
@@ -316,14 +316,14 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { resolveMediaUrl } from '../utils/media.js'
-import { 
-  CalendarIcon, 
-  MapPinIcon, 
-  UserIcon, 
-  CheckIcon, 
+import {
+  CalendarIcon,
+  MapPinIcon,
+  UserIcon,
+  CheckIcon,
   XMarkIcon,
   ClipboardDocumentCheckIcon,
   ArrowPathIcon,
@@ -331,26 +331,27 @@ import {
   ClockIcon
 } from '@heroicons/vue/24/outline'
 import { CheckBadgeIcon } from '@heroicons/vue/24/solid'
-import api from '../utils/api'
+import { api } from '@/api'
+import type { EventRead } from '@/api'
 
-const pendingEvents = ref([])
-const processedEvents = ref([])
+const pendingEvents = ref<EventRead[]>([])
+const processedEvents = ref<EventRead[]>([])
 const loading = ref(true)
-const processingId = ref(null)
+const processingId = ref<string | null>(null)
 const showRejectModal = ref(false)
-const selectedEvent = ref(null)
+const selectedEvent = ref<EventRead | null>(null)
 const rejectMessage = ref('')
 const currentTab = ref('pending')
-const overlappingEventsMap = ref({})
+const overlappingEventsMap = ref<Record<string, EventRead[]>>({})
 const showOverlapModal = ref(false)
-const selectedOverlapEvents = ref([])
+const selectedOverlapEvents = ref<EventRead[]>([])
 
-const loadOverlaps = async (events) => {
+const loadOverlaps = async (events: EventRead[]) => {
   for (const event of events) {
     try {
-      const res = await api.get(`/events/${event.id}/overlapping`)
-      if (res.data && res.data.length > 0) {
-        overlappingEventsMap.value[event.id] = res.data
+      const res = await api.events.get_overlapping(event.id)
+      if (res && res.length > 0) {
+        overlappingEventsMap.value[event.id] = res
       }
     } catch (e) {
       console.error("Failed to load overlaps for event", event.id, e)
@@ -358,7 +359,7 @@ const loadOverlaps = async (events) => {
   }
 }
 
-const showOverlaps = (event, overlaps) => {
+const showOverlaps = (event: EventRead, overlaps: EventRead[]) => {
   selectedOverlapEvents.value = overlaps
   showOverlapModal.value = true
 }
@@ -368,7 +369,7 @@ const closeOverlapModal = () => {
   selectedOverlapEvents.value = []
 }
 
-const formatDate = (dateStr) => {
+const formatDate = (dateStr: string) => {
   const date = new Date(dateStr)
   return date.toLocaleDateString('fr-FR', {
     weekday: 'long',
@@ -380,14 +381,14 @@ const formatDate = (dateStr) => {
   })
 }
 
-const formatDuration = (startStr, endStr) => {
+const formatDuration = (startStr: string, endStr: string) => {
   if (!startStr || !endStr) return ''
   const start = new Date(startStr)
   const end = new Date(endStr)
-  const diffMs = end - start
+  const diffMs = end.getTime() - start.getTime()
   const diffHrs = Math.floor(diffMs / 3600000)
   const diffMins = Math.round((diffMs % 3600000) / 60000)
-  
+
   if (diffHrs > 0) {
     return `${diffHrs}h${diffMins > 0 ? diffMins : ''}`
   }
@@ -398,11 +399,10 @@ const loadPendingEvents = async () => {
   if (currentTab.value !== 'pending') return
   loading.value = true
   try {
-    const response = await api.get('/events/pending-approvals')
-    pendingEvents.value = response.data
+    pendingEvents.value = await api.events.get_pending_approvals()
     // Load overlaps for these events (async, don't wait)
     loadOverlaps(pendingEvents.value)
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Failed to load pending events:', err)
   } finally {
     loading.value = false
@@ -413,29 +413,28 @@ const loadProcessedEvents = async () => {
   if (currentTab.value !== 'processed') return
   loading.value = true
   try {
-    const response = await api.get('/events/processed-approvals')
-    processedEvents.value = response.data
-  } catch (err) {
+    processedEvents.value = await api.events.get_processed_approvals()
+  } catch (err: unknown) {
     console.error('Failed to load processed events:', err)
   } finally {
     loading.value = false
   }
 }
 
-const approveEvent = async (event) => {
+const approveEvent = async (event: EventRead) => {
   processingId.value = event.id
   try {
-    await api.post(`/events/${event.id}/approve`)
+    await api.events.approve_event(event.id)
     pendingEvents.value = pendingEvents.value.filter(e => e.id !== event.id)
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Failed to approve event:', err)
-    alert(err.response?.data?.detail || 'Échec de l\'approbation')
+    alert(String(err))
   } finally {
     processingId.value = null
   }
 }
 
-const openRejectModal = (event) => {
+const openRejectModal = (event: EventRead) => {
   selectedEvent.value = event
   rejectMessage.value = ''
   showRejectModal.value = true
@@ -449,33 +448,34 @@ const closeRejectModal = () => {
 
 const rejectEvent = async () => {
   if (!selectedEvent.value || !rejectMessage.value.trim()) return
-  
-  processingId.value = selectedEvent.value.id
+
+  const currentSelected = selectedEvent.value
+  processingId.value = currentSelected.id
   try {
-    await api.post(`/events/${selectedEvent.value.id}/reject`, {
+    await api.events.reject_event(currentSelected.id, {
       message: rejectMessage.value.trim()
     })
-    pendingEvents.value = pendingEvents.value.filter(e => e.id !== selectedEvent.value.id)
+    pendingEvents.value = pendingEvents.value.filter(e => e.id !== currentSelected.id)
     closeRejectModal()
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Failed to reject event:', err)
-    alert(err.response?.data?.detail || 'Échec du refus')
+    alert(String(err))
   } finally {
     processingId.value = null
   }
 }
 
-const resetStatus = async (event) => {
+const resetStatus = async (event: EventRead) => {
   if (!confirm('Êtes-vous sûr de vouloir remettre cet événement en attente ?')) return
 
   processingId.value = event.id
   try {
-    await api.post(`/events/${event.id}/reset-status`)
+    await api.events.reset_status(event.id)
     processedEvents.value = processedEvents.value.filter(e => e.id !== event.id)
     // Optionally reload pending if we switched tabs, but simply removing from processed is enough here
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Failed to reset status:', err)
-    alert(err.response?.data?.detail || 'Échec de l\'annulation')
+    alert(String(err))
   } finally {
     processingId.value = null
   }

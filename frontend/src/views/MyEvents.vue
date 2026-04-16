@@ -84,7 +84,7 @@
                   :style="{ backgroundColor: event.organization.color_secondary || '#f3f4f6' }"
                 >
                   <img
-                    :src="resolveMediaUrl(event.organization.logo_file, 64) ?? event.organization.logo_url"
+                    :src="(resolveMediaUrl(event.organization.logo_file, 64) ?? event.organization.logo_url) ?? undefined"
                     :alt="event.organization.name"
                     class="h-full w-full object-cover"
                   />
@@ -148,7 +148,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { resolveMediaUrl } from '../utils/media.js'
 import { 
@@ -159,10 +159,11 @@ import {
   PaperAirplaneIcon
 } from '@heroicons/vue/24/outline'
 import { CalendarDaysIcon } from '@heroicons/vue/24/solid'
-import api from '../utils/api'
+import { api } from '@/api'
+import type { EventRead, OrganizationRead } from '@/api/types'
 
-const events = ref([])
-const organizations = ref([])
+const events = ref<EventRead[]>([])
+const organizations = ref<OrganizationRead[]>([])
 const loading = ref(true)
 const selectedOrg = ref('')
 const selectedStatus = ref('')
@@ -186,10 +187,10 @@ const filteredEvents = computed(() => {
     return true
   })
   .filter(event => new Date(event.end_time || event.start_time) >= new Date())
-  .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
+  .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
 })
 
-const formatDate = (dateStr) => {
+const formatDate = (dateStr: string) => {
   const date = new Date(dateStr)
   return date.toLocaleDateString('fr-FR', {
     weekday: 'short',
@@ -200,7 +201,7 @@ const formatDate = (dateStr) => {
   })
 }
 
-const getStatusClasses = (visibility) => {
+const getStatusClasses = (visibility: string) => {
   const base = 'px-3 py-1 text-xs font-medium rounded-full'
   switch (visibility) {
     case 'draft':
@@ -218,7 +219,7 @@ const getStatusClasses = (visibility) => {
   }
 }
 
-const getStatusLabel = (visibility) => {
+const getStatusLabel = (visibility: string) => {
   switch (visibility) {
     case 'draft': return 'Brouillon'
     case 'private': return 'Privé'
@@ -232,11 +233,10 @@ const getStatusLabel = (visibility) => {
 const loadEvents = async () => {
   loading.value = true
   try {
-    const response = await api.get('/events/my-events')
-    events.value = response.data
+    events.value = await api.events.get_my_events()
     
     // Extract unique organizations
-    const orgsMap = new Map()
+    const orgsMap = new Map<string, OrganizationRead>()
     events.value.forEach(event => {
       if (event.organization) {
         orgsMap.set(event.organization.id, event.organization)

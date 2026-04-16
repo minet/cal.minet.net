@@ -103,20 +103,21 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { formatLocalDate } from '../utils/dateUtils'
 import Dropdown from '../components/Dropdown.vue'
-import api from '../utils/api'
+import { api } from '@/api'
+import type { EventRead, OrganizationRead, MembershipWithOrganization } from '@/api/types'
 import { useAuth } from '../composables/useAuth'
 
-const events = ref([])
-const organizations = ref([])
-const userMemberships = ref([])
+const events = ref<EventRead[]>([])
+const organizations = ref<OrganizationRead[]>([])
+const userMemberships = ref<MembershipWithOrganization[]>([])
 const { isSuperAdmin } = useAuth()
 const loading = ref(true)
 const searchQuery = ref('')
-const selectedOrganization = ref(null)
+const selectedOrganization = ref<string | null>(null)
 const currentPage = ref(1)
 const itemsPerPage = 20
 const totalPages = ref(0)
@@ -140,9 +141,9 @@ const loadEvents = async () => {
       organization_id: selectedOrganization.value || undefined
     }
     
-    const response = await api.get('/events/', { params })
-    events.value = response.data.items
-    totalPages.value = response.data.pages
+    const response = await api.events.list_events(params)
+    events.value = response.items
+    totalPages.value = response.pages
     
   } catch (error) {
     console.error('Failed to load events:', error)
@@ -163,8 +164,7 @@ watch(currentPage, () => {
 
 const loadOrganizations = async () => {
   try {
-    const response = await api.get('/organizations/')
-    organizations.value = response.data
+    organizations.value = await api.organizations.list_organizations()
   } catch (error) {
     console.error('Failed to load organizations:', error)
   }
@@ -172,13 +172,17 @@ const loadOrganizations = async () => {
 
 const loadUserMemberships = async () => {
     try {
-        const response = await api.get('/users/me/memberships')
-        userMemberships.value = response.data
+        userMemberships.value = await api.users.get_user_memberships()
     } catch (error) {
         // If not authenticated, or error, just set empty
         console.debug('Failed to load memberships (probably not logged in):', error)
         userMemberships.value = []
     }
+}
+
+const clearFilters = () => {
+  searchQuery.value = ''
+  selectedOrganization.value = null
 }
 
 onMounted(async () => {

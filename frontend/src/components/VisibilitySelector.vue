@@ -119,7 +119,7 @@
       </label>
       <select
         :value="visibility"
-        @change="selectVisibility($event.target.value)"
+        @change="selectVisibility(($event.target as HTMLSelectElement).value)"
         class="block w-full rounded-md border-purple-200 bg-white py-2 px-3 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-purple-500 sm:text-sm text-purple-900"
       >
         <option value="public_pending">En attente</option>
@@ -131,7 +131,7 @@
         <label class="block text-xs font-medium text-purple-800 mb-1">Motif du refus</label>
         <textarea
           :value="rejectionMessage"
-          @input="$emit('update:rejectionMessage', $event.target.value)"
+          @input="$emit('update:rejectionMessage', ($event.target as HTMLTextAreaElement).value)"
           rows="2"
           class="block w-full rounded-md border-purple-200 bg-white py-1.5 px-3 text-sm placeholder-purple-300 focus:border-purple-500 focus:ring-purple-500"
           placeholder="Expliquez pourquoi cet événement est refusé..."
@@ -224,8 +224,8 @@
   </div>
 </template>
 
-<script setup>
-import { ref, computed, watch } from 'vue'
+<script setup lang="ts">
+import { ref, computed, watch, type PropType } from 'vue'
 import { 
   DocumentTextIcon, 
   LockClosedIcon, 
@@ -245,7 +245,7 @@ const props = defineProps({
     default: 'public_pending'
   },
   groupId: {
-    type: String,
+    type: String as PropType<string | null>,
     default: null
   },
 
@@ -265,7 +265,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:visibility', 'update:groupId', 'update:hideDetails', 'update:rejectionMessage'])
 
-const localGroupId = ref(props.groupId)
+const localGroupId = ref<string | null>(props.groupId)
 const { isSuperAdmin } = useAuth()
 const hideDetails = ref(props.hideDetails)
 
@@ -277,7 +277,7 @@ const isPending = computed(() => props.visibility === 'public_pending')
 const isApproved = computed(() => props.visibility === 'public_approved')
 const isRejected = computed(() => props.visibility === 'public_rejected')
 
-const selectVisibility = (value) => {
+const selectVisibility = (value: string) => {
   emit('update:visibility', value)
   
   // If not private, clear group

@@ -1,0 +1,223 @@
+import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import Login from '../views/Login.vue'
+import Dashboard from '../views/Dashboard.vue'
+import Feed from '../views/Feed.vue'
+
+const routes: RouteRecordRaw[] = [
+  {
+    path: '/',
+    name: 'Feed',
+    component: Feed,
+    meta: { layout: 'normal' },
+  },
+  {
+    path: '/dashboard',
+    name: 'Dashboard',
+    component: Dashboard,
+    meta: { layout: 'normal' },
+  },
+  {
+    path: '/login',
+    name: 'Login',
+    component: Login,
+    meta: { layout: 'normal' },
+  },
+  {
+    path: '/organizations',
+    name: 'Organizations',
+    component: () => import('../views/Organizations.vue'),
+    meta: { layout: 'normal' },
+  },
+  {
+    path: '/organizations/create',
+    name: 'CreateOrganization',
+    component: () => import('../views/CreateOrganization.vue'),
+    meta: { layout: 'normal' },
+  },
+  {
+    path: '/events',
+    name: 'Events',
+    component: () => import('../views/Events.vue'),
+    meta: { layout: 'normal' },
+  },
+  {
+    path: '/events/create',
+    name: 'CreateEvent',
+    component: () => import('../views/CreateEvent.vue'),
+    meta: { layout: 'normal' },
+  },
+  {
+    path: '/events/:id/edit',
+    name: 'EventEdit',
+    component: () => import('../views/EventEdit.vue'),
+    meta: { layout: 'normal' },
+  },
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: () => import('../views/UserProfileView.vue'),
+    meta: { layout: 'normal' },
+  },
+  {
+    path: '/profile/add_calendar',
+    name: 'ProfileAddCalendar',
+    component: () => import('../views/UserProfileView.vue'),
+    meta: { layout: 'normal' },
+  },
+  {
+    path: '/users/:id',
+    name: 'UserProfile',
+    component: () => import('../views/UserProfileView.vue'),
+    meta: { layout: 'normal' },
+  },
+  {
+    path: '/organizations/:id',
+    name: 'OrganizationView',
+    component: () => import('../views/OrganizationView.vue'),
+    meta: { layout: 'normal' },
+  },
+  {
+    path: '/organizations/:id/edit',
+    name: 'OrganizationEdit',
+    component: () => import('../views/OrganizationEdit.vue'),
+    meta: { layout: 'normal' },
+  },
+  {
+    path: '/organizations/:id/members',
+    name: 'OrganizationMembers',
+    component: () => import('../views/OrganizationMembers.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/organizations/:id/helloasso',
+    name: 'OrganizationHelloAsso',
+    component: () => import('../views/OrganizationHelloAsso.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/organizations/:id/tags',
+    name: 'OrganizationTags',
+    component: () => import('../views/OrganizationTags.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/organizations/:id/groups',
+    name: 'OrganizationGroups',
+    component: () => import('../views/OrganizationGroups.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/subscriptions',
+    name: 'Subscriptions',
+    component: () => import('../views/SubscriptionsView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/events/:id',
+    name: 'EventView',
+    component: () => import('../views/EventView.vue'),
+    meta: { layout: 'normal' },
+  },
+  {
+    path: '/events/:id/countdown',
+    name: 'EventCountdown',
+    component: () => import('../views/EventCountdown.vue'),
+    meta: { layout: 'none' },
+  },
+  {
+    path: '/approval-requests',
+    name: 'ApprovalRequests',
+    component: () => import('../views/ApprovalRequests.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/admin/users',
+    name: 'AdminUsers',
+    component: () => import('../views/AdminUsers.vue'),
+    meta: { layout: 'normal', requiresAuth: true },
+  },
+  {
+    path: '/admin/instance',
+    name: 'AdminInstance',
+    component: () => import('../views/AdminInstance.vue'),
+    meta: { layout: 'normal', requiresAuth: true },
+  },
+  {
+    path: '/my-events',
+    name: 'MyEvents',
+    component: () => import('../views/MyEvents.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/walldisplay',
+    name: 'WallDisplay',
+    component: () => import('../views/WallDisplayView.vue'),
+    meta: { layout: 'none' },
+  },
+  {
+    path: '/admin/tags',
+    name: 'AdminTags',
+    component: () => import('../views/AdminTags.vue'),
+    meta: { layout: 'normal', requiresAuth: true },
+  },
+  {
+    path: '/consent/:shortId',
+    name: 'ShortLinkConsent',
+    component: () => import('../views/ShortLinkConsent.vue'),
+    meta: { layout: 'normal' },
+  },
+  {
+    path: '/payments',
+    name: 'HelloAssoDashboard',
+    component: () => import('../views/HelloAssoDashboard.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/my-payments',
+    name: 'MyPayments',
+    component: () => import('../views/MyPaymentsView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/events/:id/validation',
+    name: 'EventValidation',
+    component: () => import('../views/EventValidationView.vue'),
+    meta: { requiresAuth: true },
+  },
+]
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes,
+})
+
+const publicRoutes = ['/', '/events', '/organizations', '/login', '/register', '/dashboard', '/walldisplay']
+
+router.beforeEach((to, _from, next) => {
+  const token = localStorage.getItem('auth_token')
+  const isAuthenticated = !!token
+
+  const isPublicDetailPage =
+    (/^\/(organizations|events)\/[^/]+$/.test(to.path) && !to.path.endsWith('/edit')) ||
+    /^\/events\/[^/]+\/countdown$/.test(to.path) ||
+    /^\/consent\/[^/]+$/.test(to.path)
+
+  if (publicRoutes.includes(to.path) || isPublicDetailPage) {
+    if (isAuthenticated && to.path === '/login') {
+      next('/dashboard')
+    } else {
+      next()
+    }
+    return
+  }
+
+  if (!isAuthenticated) {
+    localStorage.setItem('auth_redirect_url', to.fullPath)
+    console.log('User is not authenticated, page :', to.path)
+    next('/login')
+  } else {
+    next()
+  }
+})
+
+export default router

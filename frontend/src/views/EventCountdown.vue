@@ -10,13 +10,13 @@
   >
     <!-- Background Poster (Blurred) -->
     <div v-if="event.poster_file || event.poster_url" class="absolute inset-0 z-0 pointer-events-none">
-        <img :src="resolveMediaUrl(event.poster_file, 960) ?? event.poster_url" class="w-full object-cover blur-2xl opacity-50 scale-110" />
+        <img :src="(resolveMediaUrl(event.poster_file, 960) ?? event.poster_url) ?? undefined" class="w-full object-cover blur-2xl opacity-50 scale-110" />
     </div>
 
     <!-- Background Bubbles -->
     <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">
       <div 
-        v-for="(org, index) in [event.organization, event.organization, ...(event.guest_organizations || []), ...(event.guest_organizations || [])].filter(Boolean)"
+        v-for="(org, index) in bubbleOrgs"
         :key="index"
         class="absolute rounded-full blur-3xl opacity-20"
         :class="index % 2 === 0 ? 'animate-float-slow' : 'animate-float-medium'"
@@ -35,7 +35,7 @@
 
     <!-- Left Side: Poster (Desktop) -->
     <div v-if="event.poster_file || event.poster_url" class="hidden md:flex md:w-1/2 h-screen items-center justify-center p-8 relative z-10">
-        <img :src="resolveMediaUrl(event.poster_file, 960) ?? event.poster_url" :alt="event.title" class="max-h-full max-w-full rounded-3xl shadow-2xl ring-8 ring-white/30 object-contain hover:scale-[1.02] transition-transform duration-500" />
+        <img :src="(resolveMediaUrl(event.poster_file, 960) ?? event.poster_url) ?? undefined" :alt="event.title" class="max-h-full max-w-full rounded-3xl shadow-2xl ring-8 ring-white/30 object-contain hover:scale-[1.02] transition-transform duration-500" />
     </div>
 
     <!-- Right Side: Content -->
@@ -52,7 +52,7 @@
             >
                 <img
                     v-if="event.organization.logo_file || event.organization.logo_url"
-                    :src="resolveMediaUrl(event.organization.logo_file, 64) ?? event.organization.logo_url"
+                    :src="(resolveMediaUrl(event.organization.logo_file, 64) ?? event.organization.logo_url) ?? undefined"
                     class="w-10 h-10 rounded-full mr-3 object-cover shadow-sm"
                     alt="Org Logo"
                 />
@@ -65,7 +65,7 @@
             >
                 <img
                     v-if="guest.logo_file || guest.logo_url"
-                    :src="resolveMediaUrl(guest.logo_file, 64) ?? guest.logo_url"
+                    :src="(resolveMediaUrl(guest.logo_file, 64) ?? guest.logo_url) ?? undefined"
                     class="w-8 h-8 rounded-full mr-2 object-cover shadow-sm"
                     alt="Guest Logo"
                 />
@@ -80,7 +80,7 @@
 
         <!-- Mobile Poster -->
         <div v-if="event.poster_file || event.poster_url" class="mb-8 md:hidden">
-            <img :src="resolveMediaUrl(event.poster_file, 640) ?? event.poster_url" :alt="event.title" class="max-h-64 mx-auto rounded-3xl shadow-2xl ring-8 ring-white/30" />
+            <img :src="(resolveMediaUrl(event.poster_file, 640) ?? event.poster_url) ?? undefined" :alt="event.title" class="max-h-64 mx-auto rounded-3xl shadow-2xl ring-8 ring-white/30" />
         </div>
 
         <!-- Countdown -->
@@ -153,10 +153,11 @@
   />
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import api from '../utils/api'
+import { api } from '@/api'
+import type { EventRead, OrganizationRead } from '@/api/types'
 import { useAuth } from '../composables/useAuth'
 import CountdownTimer from '../components/CountdownTimer.vue'
 import ReactionList from '../components/ReactionList.vue'
@@ -171,10 +172,16 @@ const loginDescription = ref("Connectez-vous pour réagir, ajouter cet événeme
 const route = useRoute()
 const router = useRouter()
 const { isAuthenticated } = useAuth()
-const event = ref(null)
+const event = ref<EventRead | null>(null)
 const loading = ref(true)
 
-const formatDate = (dateString) => {
+const bubbleOrgs = computed((): OrganizationRead[] => {
+  if (!event.value) return []
+  return [event.value.organization, event.value.organization, ...(event.value.guest_organizations || []), ...(event.value.guest_organizations || [])]
+    .filter((o): o is OrganizationRead => o !== null)
+})
+
+const formatDate = (dateString: string) => {
   const date = new Date(dateString)
   return date.toLocaleDateString('fr-FR', {
     weekday: 'long',
@@ -210,11 +217,10 @@ const linkTextColor = computed(() => {
 
 const loadEvent = async () => {
   try {
-    const response = await api.get(`/events/${route.params.id}`)
-    event.value = response.data
+    event.value = await api.events.get_event(route.params.id as string)
   } catch (error) {
     console.error('Failed to load event:', error)
-    if (error.response && error.response.status === 403) {
+    if ((error as { response?: { status?: number } })?.response?.status === 403) {
         loginDescription.value = "Cet événement est privé ou vous n'avez pas la permission de le voir. Veuillez vous connecter."
         showLoginModal.value = true
     }
@@ -232,12 +238,11 @@ const handleModalClose = () => {
 }
 
 const refreshReactions = async () => {
-   // Just reload the event to get updated reactions
-   const response = await api.get(`/events/${route.params.id}`)
-   event.value.reactions = response.data.reactions
+   const response = await api.events.get_event(route.params.id as string)
+   if (event.value) event.value.reactions = response.reactions
 }
 
-const checkAuth = (e) => {
+const checkAuth = (e: Event) => {
     // This is a capture phase listener. 
     // If user interacts with reaction list (specifically adding), we want to redirect if not logged in.
     // However, ReactionList handles the click internally.

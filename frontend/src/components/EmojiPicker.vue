@@ -75,20 +75,21 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, computed, watch, nextTick } from 'vue'
 
 const SOURCE = "https://raw.githubusercontent.com/github/gemoji/master/db/emoji.json"
 
 const emit = defineEmits(['select'])
 
-const emojis = ref([])
+interface EmojiObj { char: string; name: string }
+const emojis = ref<EmojiObj[]>([])
 const loading = ref(true)
 const searchQuery = ref('')
-const recentEmojis = ref([])
+const recentEmojis = ref<string[]>([])
 const page = ref(1)
 const PAGE_SIZE = 100
-const nativeInputRef = ref(null)
+const nativeInputRef = ref<HTMLInputElement | null>(null)
 
 // Load recents from localstorage
 const loadRecents = () => {
@@ -106,7 +107,7 @@ const loadRecents = () => {
   }
 }
 
-const saveConfirmRecent = (emoji) => {
+const saveConfirmRecent = (emoji: string) => {
   let recents = [...recentEmojis.value]
   // Remove if exists
   recents = recents.filter(e => e !== emoji)
@@ -127,7 +128,7 @@ const fetchEmojis = async () => {
     
     const rawEmojis = Array.isArray(data) ? data : (data.emojis || [])
     
-    emojis.value = rawEmojis.map(e => {
+    emojis.value = rawEmojis.map((e: any) => {
         if (typeof e === 'string') {
             return { char: e, name: 'emoji' }
         }
@@ -135,7 +136,7 @@ const fetchEmojis = async () => {
             char: e.emoji || e.char || '',
             name: [e.description, ...(e.aliases || []), e.name].filter(Boolean).join(' ')
         }
-    }).filter(e => e.char)
+    }).filter((e: EmojiObj) => e.char)
     
   } catch (error) {
     console.error('Failed to load emojis:', error)
@@ -159,16 +160,17 @@ const hasMoreEmojis = computed(() => {
   return visibleEmojis.value.length < filteredEmojis.value.length
 })
 
-const selectEmoji = (emoji) => {
+const selectEmoji = (emoji: string) => {
   saveConfirmRecent(emoji)
   emit('select', emoji)
 }
 
-const handleNativeInput = (event) => {
-  const val = event.target.value
+const handleNativeInput = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const val = target.value
   if (val) {    
     // reset input
-    event.target.value = ''
+    target.value = ''
     
     // Emit
     // Verify it's not empty string

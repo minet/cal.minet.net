@@ -133,7 +133,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch, onMounted, computed } from 'vue'
 import { ExclamationTriangleIcon, CalendarIcon, ClockIcon, ArrowUturnLeftIcon } from '@heroicons/vue/24/outline'
 
@@ -166,15 +166,15 @@ const date = ref('')
 const time = ref('')
 const endDate = ref('')
 const endTimeVal = ref('')
-const dateInput = ref(null)
-const timeInput = ref(null)
-const endDateInput = ref(null)
-const endTimeInput = ref(null)
+const dateInput = ref<HTMLInputElement | null>(null)
+const timeInput = ref<HTMLInputElement | null>(null)
+const endDateInput = ref<HTMLInputElement | null>(null)
+const endTimeInput = ref<HTMLInputElement | null>(null)
 
 const isModified = computed(() => {
   if (!props.originalStartTime && !props.originalEndTime) return false
   
-  const getTime = (val) => {
+  const getTime = (val: string | null | undefined) => {
     if (!val) return 0
     // Try to handle simple string comparison if possible, but Date parsing is safer
     const d = new Date(val)
@@ -200,37 +200,33 @@ const revertChanges = () => {
 }
 
 const openDatePicker = () => {
-  if (dateInput.value && dateInput.value.showPicker) {
-    dateInput.value.showPicker()
-  }
+  const el = dateInput.value as any
+  if (el && el.showPicker) el.showPicker()
 }
 
 const openTimePicker = () => {
-  if (timeInput.value && timeInput.value.showPicker) {
-    timeInput.value.showPicker()
-  }
+  const el = timeInput.value as any
+  if (el && el.showPicker) el.showPicker()
 }
 
 const openEndDatePicker = () => {
-  if (endDateInput.value && endDateInput.value.showPicker) {
-    endDateInput.value.showPicker()
-  }
+  const el = endDateInput.value as any
+  if (el && el.showPicker) el.showPicker()
 }
 
 const openEndTimePicker = () => {
-  if (endTimeInput.value && endTimeInput.value.showPicker) {
-    endTimeInput.value.showPicker()
-  }
+  const el = endTimeInput.value as any
+  if (el && el.showPicker) el.showPicker()
 }
 
-const formatDate = (d) => {
+const formatDate = (d: Date) => {
   const year = d.getFullYear()
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
 
-const formatTime = (d) => {
+const formatTime = (d: Date) => {
   const hours = String(d.getHours()).padStart(2, '0')
   const minutes = String(d.getMinutes()).padStart(2, '0')
   return `${hours}:${minutes}`

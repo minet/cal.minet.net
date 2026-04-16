@@ -15,7 +15,7 @@
             <div class="h-16 w-16 rounded-xl flex items-center justify-center overflow-hidden transition-colors"
               :style="{ backgroundColor: organization.color_secondary || '#f3f4f6' }"
               :class="{ 'bg-indigo-100': !organization.color_secondary }">
-              <img v-if="organization.logo_file || organization.logo_url" :src="resolveMediaUrl(organization.logo_file, 96) ?? organization.logo_url" :alt="organization.name"
+              <img v-if="organization.logo_file || organization.logo_url" :src="(resolveMediaUrl(organization.logo_file, 96) ?? organization.logo_url) ?? undefined" :alt="organization.name"
                 class="h-full w-full object-cover" />
               <span v-else class="text-2xl font-semibold" :style="{ color: organization.color_primary || '#4f46e5' }"
                 :class="{ 'text-indigo-600': !organization.color_primary }">{{ organization.name.charAt(0) }}</span>
@@ -77,7 +77,7 @@
     <div v-if="organization.description" class="bg-white shadow-sm rounded-lg p-6 mb-6">
       <h2 class="text-lg font-medium text-gray-900 mb-3">Description</h2>
       <OrgDescriptionRenderer :description="organization.description" :members="members"
-        :allowed-image-urls="orgImages.map(i => i.url)" />
+        :allowed-image-urls="orgImages.map(i => i.url).filter((u): u is string => u !== null)" />
     </div>
 
     <!-- Parent Organization -->
@@ -87,7 +87,7 @@
         class="flex items-center space-x-3 hover:bg-gray-50 p-3 rounded-lg transition-colors">
         <div class="h-10 w-10 rounded-full flex items-center justify-center transition-colors"
           :style="{ backgroundColor: parent.color_secondary || '#f3f4f6' }">
-          <img v-if="parent.logo_file || parent.logo_url" :src="resolveMediaUrl(parent.logo_file, 64) ?? parent.logo_url" :alt="parent.name"
+          <img v-if="parent.logo_file || parent.logo_url" :src="(resolveMediaUrl(parent.logo_file, 64) ?? parent.logo_url) ?? undefined" :alt="parent.name"
             class="h-full w-full object-cover rounded-full" />
           <span v-else class="font-semibold" :style="{ color: parent.color_primary || '#4f46e5' }">{{
             parent.name.charAt(0)
@@ -122,7 +122,7 @@
       <div class="flex flex-wrap gap-2">
         <TagBadge v-for="tag in tags" :key="tag.id" :tag="tag" :organization="organization"
           :subscribed="isSubscribedToTag(tag.id)" :show-subscribe="true"
-          :show-share="isMember || (user && user.is_superadmin)" @toggle-subscription="toggleTagSubscription"
+          :show-share="isMember || !!user?.is_superadmin" @toggle-subscription="toggleTagSubscription"
           @share="openTagShare" />
       </div>
     </div>
@@ -167,8 +167,8 @@
   </div>
 </template>
 
-<script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+<script setup lang="ts">
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import SubscribeButton from '../components/SubscribeButton.vue'
@@ -176,17 +176,24 @@ import ShareButton from '../components/ShareButton.vue'
 import ActionPanel from '../components/ActionPanel.vue'
 import ActionPanelButton from '../components/ActionPanelButton.vue'
 import MemberCard from '../components/MemberCard.vue'
-import UserAvatar from '../components/UserAvatar.vue'
 import EventCard from '../components/EventCard.vue'
 import OrgDescriptionRenderer from '../components/OrgDescriptionRenderer.vue'
 
 import TagBadge from '../components/TagBadge.vue'
-import api from '../utils/api'
+import { api } from '@/api'
 import { getSocialIcon } from '../utils/social'
 import { resolveMediaUrl } from '../utils/media.js'
+import type {
+  OrganizationRead,
+  OrgMember,
+  EventRead,
+  TagRead,
+  OrganizationImageRead,
+  SubscriptionOrgEntry,
+  SubscriptionTagEntry,
+} from '@/api/types'
 import {
   PencilIcon,
-  ChevronRightIcon,
   UserGroupIcon,
   TagIcon,
   UsersIcon,
@@ -197,23 +204,23 @@ import {
 
 const route = useRoute()
 const { user } = useAuth()
-const organization = ref(null)
-const parent = ref(null)
-const members = ref([])
-const events = ref([])
-const tags = ref([])
-const subscriptions = ref([])
+const organization = ref<OrganizationRead | null>(null)
+const parent = ref<OrganizationRead | null>(null)
+const members = ref<OrgMember[]>([])
+const events = ref<EventRead[]>([])
+const tags = ref<TagRead[]>([])
+const subscriptions = ref<(SubscriptionOrgEntry | SubscriptionTagEntry)[]>([])
 const canEdit = ref(false)
 const loading = ref(true)
 const loadingMembers = ref(false)
 const loadingEvents = ref(false)
-const orgImages = ref([])
+const orgImages = ref<OrganizationImageRead[]>([])
 
 const showOrgShareModal = ref(false)
 const showTagShareModal = ref(false)
-const activeShareTag = ref(null)
+const activeShareTag = ref<TagRead | null>(null)
 
-const openTagShare = (tag) => {
+const openTagShare = (tag: TagRead) => {
   activeShareTag.value = tag
   showTagShareModal.value = true
 }
@@ -222,27 +229,27 @@ const isMember = computed(() => {
   return members.value.some(m => m.user_id === user.value?.id)
 })
 
-const getRoleLabel = (role) => {
-  const labels = {
+const getRoleLabel = (role: string): string => {
+  const labels: Record<string, string> = {
     'superadmin': 'Superadmin',
     'org_admin': 'Administrateur',
     'org_member': 'Éditeur',
     'org_viewer': 'Lecteur',
   }
-  return labels[role] || role
+  return labels[role] ?? role
 }
 
-const getRoleBadgeClass = (role) => {
-  const classes = {
+const getRoleBadgeClass = (role: string): string => {
+  const classes: Record<string, string> = {
     'superadmin': 'bg-purple-50 text-purple-700 ring-purple-700/10',
     'org_admin': 'bg-blue-50 text-blue-700 ring-blue-700/10',
     'org_member': 'bg-green-50 text-green-700 ring-green-600/20',
     'org_viewer': 'bg-yellow-50 text-yellow-700 ring-yellow-600/20',
   }
-  return classes[role] || 'bg-gray-50 text-gray-700 ring-gray-600/20'
+  return classes[role] ?? 'bg-gray-50 text-gray-700 ring-gray-600/20'
 }
 
-const formatDate = (dateString) => {
+const formatDate = (dateString: string): string => {
   const date = new Date(dateString)
   return date.toLocaleDateString('fr-FR', {
     weekday: 'long',
@@ -256,13 +263,11 @@ const formatDate = (dateString) => {
 
 const loadOrganization = async () => {
   try {
-    const response = await api.get(`/organizations/${route.params.id}`)
-    organization.value = response.data
+    organization.value = await api.organizations.get_organization(String(route.params.id))
 
     // Load parent if exists
     if (organization.value.parent_id) {
-      const parentResponse = await api.get(`/organizations/${organization.value.parent_id}`)
-      parent.value = parentResponse.data
+      parent.value = await api.organizations.get_organization(organization.value.parent_id)
     } else {
       parent.value = null
     }
@@ -276,8 +281,7 @@ const loadOrganization = async () => {
 const loadMembers = async () => {
   loadingMembers.value = true
   try {
-    const response = await api.get(`/organizations/${route.params.id}/members`)
-    members.value = response.data
+    members.value = await api.organizations.get_organization_members(String(route.params.id))
   } catch (error) {
     console.error('Failed to load members:', error)
   } finally {
@@ -288,8 +292,7 @@ const loadMembers = async () => {
 const loadEvents = async () => {
   loadingEvents.value = true
   try {
-    const response = await api.get(`/organizations/${route.params.id}/events`)
-    events.value = response.data
+    events.value = await api.organizations.get_organization_events(String(route.params.id))
   } catch (error) {
     console.error('Failed to load events:', error)
   } finally {
@@ -299,8 +302,7 @@ const loadEvents = async () => {
 
 const loadTags = async () => {
   try {
-    const response = await api.get(`/organizations/${route.params.id}/tags`)
-    tags.value = response.data
+    tags.value = await api.tags.get_organization_tags(String(route.params.id))
   } catch (error) {
     console.error('Failed to load tags:', error)
   }
@@ -308,10 +310,10 @@ const loadTags = async () => {
 
 const loadSubscriptions = async () => {
   try {
-    const response = await api.get('/subscriptions/me')
+    const response = await api.subscriptions.get_my_subscriptions()
     subscriptions.value = [
-      ...response.data.organizations,
-      ...response.data.tags
+      ...response.organizations,
+      ...response.tags
     ]
   } catch (error) {
     console.error('Failed to load subscriptions:', error)
@@ -320,8 +322,8 @@ const loadSubscriptions = async () => {
 
 const checkCanEdit = async () => {
   try {
-    const response = await api.get(`/organizations/${route.params.id}/can-edit`)
-    canEdit.value = response.data.can_edit
+    const response = await api.organizations.can_edit_organization(String(route.params.id))
+    canEdit.value = response.can_edit
   } catch (error) {
     console.error('Failed to check edit permission:', error)
   }
@@ -329,8 +331,7 @@ const checkCanEdit = async () => {
 
 const loadImages = async () => {
   try {
-    const response = await api.get(`/organizations/${route.params.id}/images`)
-    orgImages.value = response.data
+    orgImages.value = await api.organization_images.list_organization_images(String(route.params.id))
   } catch {
     // Silently ignore – user likely not a member
   }
@@ -338,23 +339,33 @@ const loadImages = async () => {
 
 import { askPermissionAndSubscribe } from '../utils/push'
 
-const isSubscribedToTag = (tagId) => {
-  return subscriptions.value.some(sub => sub.tag?.id === tagId)
+const isSubscribedToTag = (tagId: string): boolean => {
+  return subscriptions.value.some(sub => {
+    if ('tag' in sub) return sub.tag.id === tagId
+    return false
+  })
 }
 
-const toggleTagSubscription = async (tag) => {
-  const subscription = subscriptions.value.find(sub => sub.tag?.id === tag.id)
+const toggleTagSubscription = async (tag: TagRead) => {
+  const subscription = subscriptions.value.find(sub => {
+    if ('tag' in sub) return sub.tag.id === tag.id
+    return false
+  })
 
   try {
     if (subscription) {
-      await api.delete(`/subscriptions/tags/${tag.id}`)
-      subscriptions.value = subscriptions.value.filter(sub => sub.tag?.id !== tag.id)
-    } else {
-      const response = await api.post(`/subscriptions/tags/${tag.id}`)
-      subscriptions.value.push({
-        id: response.data.subscription_id,
-        tag: { id: tag.id }
+      await api.subscriptions.unsubscribe_from_tag(tag.id)
+      subscriptions.value = subscriptions.value.filter(sub => {
+        if ('tag' in sub) return sub.tag.id !== tag.id
+        return true
       })
+    } else {
+      await api.subscriptions.subscribe_to_tag(tag.id)
+      const newEntry: SubscriptionTagEntry = {
+        id: tag.id,
+        tag: { id: tag.id, name: tag.name, color: tag.color, organization: null }
+      }
+      subscriptions.value.push(newEntry)
       askPermissionAndSubscribe()
     }
   } catch (error) {
@@ -385,4 +396,9 @@ watch(() => route.params.id, (newId, oldId) => {
 onMounted(() => {
   loadAll()
 })
+
+// suppress unused variable warnings for helper functions only used in template or future use
+void getRoleLabel
+void getRoleBadgeClass
+void formatDate
 </script>

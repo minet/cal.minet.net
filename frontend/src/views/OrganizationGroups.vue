@@ -94,7 +94,7 @@
           <div class="mb-4">
             <UserSearchSelector
               placeholder="Rechercher un utilisateur..."
-              :filter="(user) => !isUserInGroup(user)"
+              :filter="(user: UserId) => !isUserInGroup(user)"
               @select="(user) => addMember(group.id, user)"
             />
           </div>
@@ -111,7 +111,7 @@
             >
               <div class="flex items-center space-x-3">
                 <div class="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                  <img v-if="member.profile_picture_file || member.profile_picture_url" :src="resolveMediaUrl(member.profile_picture_file, 64) ?? member.profile_picture_url" :alt="getFullName(member)" class="h-full w-full object-cover" />
+                  <img v-if="member.profile_picture_file || member.profile_picture_url" :src="(resolveMediaUrl(member.profile_picture_file, 64) ?? member.profile_picture_url) ?? undefined" :alt="getFullName(member)" class="h-full w-full object-cover" />
                   <span v-else class="text-gray-600 font-medium text-xs">
                     {{ getInitials(getFullName(member)) }}
                   </span>
@@ -176,51 +176,58 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { PlusIcon } from '@heroicons/vue/24/outline'
 import UserSearchSelector from '../components/UserSearchSelector.vue'
-import api from '../utils/api'
+import { api } from '@/api'
+import type { GroupRead, GroupMemberRead, OrganizationRead } from '@/api'
 import { resolveMediaUrl } from '../utils/media.js'
 
-const route = useRoute()
-const orgId = route.params.id
+type UserEmail = {
+  email: string
+}
+type UserId = {
+  id: string
+}
 
-const organization = ref(null)
-const groups = ref([])
-const groupMembers = ref([])
+const route = useRoute()
+const orgId = String(route.params.id)
+
+const organization = ref<OrganizationRead | null>(null)
+const groups = ref<GroupRead[]>([])
+const groupMembers = ref<GroupMemberRead[]>([])
 const loading = ref(true)
-const selectedGroup = ref(null)
+const selectedGroup = ref<string | null>(null)
 const showCreateModal = ref(false)
 const newGroup = ref({
   name: '',
   description: ''
 })
 
-const getFullName = (member) => {
+const getFullName = (member: GroupMemberRead): string => {
   if (member.full_name) {
     return member.full_name
   }
   return member.email
 }
 
-const getInitials = (name) => {
+const getInitials = (name: string): string => {
   return name
     .split(/\s+/)
-    .map(word => word.charAt(0).toUpperCase())
+    .map((word: string) => word.charAt(0).toUpperCase())
     .slice(0, 2)
     .join('')
 }
 
-const isUserInGroup = (user) => {
+const isUserInGroup = (user: UserId): boolean => {
   return groupMembers.value.some(member => member.user_id === user.id)
 }
 
 const loadOrganization = async () => {
   try {
-    const response = await api.get(`/organizations/${orgId}`)
-    organization.value = response.data
+    organization.value = await api.organizations.get_organization(orgId)
   } catch (error) {
     console.error('Failed to load organization:', error)
   }
@@ -228,8 +235,7 @@ const loadOrganization = async () => {
 
 const loadGroups = async () => {
   try {
-    const response = await api.get(`/organizations/${orgId}/groups`)
-    groups.value = response.data
+    groups.value = await api.groups.get_organization_groups(orgId)
   } catch (error) {
     console.error('Failed to load groups:', error)
   } finally {
@@ -237,10 +243,9 @@ const loadGroups = async () => {
   }
 }
 
-const loadGroupMembers = async (groupId) => {
+const loadGroupMembers = async (groupId: string) => {
   try {
-    const response = await api.get(`/groups/${groupId}/members`)
-    groupMembers.value = response.data
+    groupMembers.value = await api.groups.get_group_members(groupId)
   } catch (error) {
     console.error('Failed to load group members:', error)
   }
@@ -248,54 +253,52 @@ const loadGroupMembers = async (groupId) => {
 
 const createGroup = async () => {
   try {
-    await api.post(`/organizations/${orgId}/groups`, newGroup.value)
+    await api.groups.create_group(orgId, newGroup.value)
     newGroup.value = { name: '', description: '' }
     showCreateModal.value = false
     await loadGroups()
   } catch (error) {
     console.error('Failed to create group:', error)
-    alert(error.response?.data?.detail || 'Erreur lors de la création du groupe')
+    alert((error as { response?: { data?: { detail?: string } } }).response?.data?.detail || 'Erreur lors de la création du groupe')
   }
 }
 
-const deleteGroup = async (groupId) => {
+const deleteGroup = async (groupId: string) => {
   if (!confirm('Êtes-vous sûr de vouloir supprimer ce groupe ?')) return
-  
+
   try {
-    await api.delete(`/groups/${groupId}`)
+    await api.groups.delete_group(groupId)
     await loadGroups()
     if (selectedGroup.value === groupId) {
       selectedGroup.value = null
     }
   } catch (error) {
     console.error('Failed to delete group:', error)
-    alert(error.response?.data?.detail || 'Erreur lors de la suppression')
+    alert((error as { response?: { data?: { detail?: string } } }).response?.data?.detail || 'Erreur lors de la suppression')
   }
 }
 
-const addMember = async (groupId, user) => {
+const addMember = async (groupId: string, user: UserEmail) => {
   try {
-    await api.post(`/groups/${groupId}/members`, {
-      user_email: user.email
-    })
+    await api.groups.add_group_member(groupId, user.email)
     await loadGroupMembers(groupId)
     await loadGroups() // Refresh member counts
   } catch (error) {
     console.error('Failed to add member:', error)
-    alert(error.response?.data?.detail || 'Erreur lors de l\'ajout du membre')
+    alert((error as { response?: { data?: { detail?: string } } }).response?.data?.detail || 'Erreur lors de l\'ajout du membre')
   }
 }
 
-const removeMember = async (groupId, userId) => {
+const removeMember = async (groupId: string, userId: string) => {
   if (!confirm('Retirer ce membre du groupe ?')) return
-  
+
   try {
-    await api.delete(`/groups/${groupId}/members/${userId}`)
+    await api.groups.remove_group_member(groupId, userId)
     await loadGroupMembers(groupId)
     await loadGroups() // Refresh member counts
   } catch (error) {
     console.error('Failed to remove member:', error)
-    alert(error.response?.data?.detail || 'Erreur lors du retrait')
+    alert((error as { response?: { data?: { detail?: string } } }).response?.data?.detail || 'Erreur lors du retrait')
   }
 }
 

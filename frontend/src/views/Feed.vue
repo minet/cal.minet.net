@@ -98,10 +98,11 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import api from '../utils/api'
+import { api } from '@/api'
+import type { EventRead } from '@/api/types'
 import EventCard from '../components/EventCard.vue'
 import FeaturedEventCard from '../components/FeaturedEventCard.vue'
 import { useAuth } from '../composables/useAuth'
@@ -110,8 +111,8 @@ import { formatLocalDate } from '../utils/dateUtils'
 
 const { initialize, setToken, isAuthenticated } = useAuth()
 const router = useRouter()
-const allEvents = ref([])
-const featuredEvents = ref([])
+const allEvents = ref<EventRead[]>([])
+const featuredEvents = ref<EventRead[]>([])
 const loading = ref(false)
 const page = ref(1)
 const pageSize = 12
@@ -123,16 +124,14 @@ const fetchEvents = async () => {
 
     try {
         loading.value = true
-        const response = await api.get('/events/', {
-            params: {
-                page: page.value,
-                size: pageSize,
-                upcoming: true
-            }
+        const response = await api.events.list_events({
+            page: page.value,
+            size: pageSize,
+            upcoming: true,
         })
 
-        const newEvents = response.data.items
-        const total = response.data.total
+        const newEvents = response.items
+        const total = response.total
         
         // Append new events (filtering duplicates just in case)
         const existingIds = new Set(allEvents.value.map(e => e.id))
@@ -155,14 +154,12 @@ const fetchEvents = async () => {
 
 const fetchFeatured = async () => {
     try {
-        const response = await api.get('/events/', {
-            params: {
-                featured: true,
-                size: 5,
-                upcoming: true
-            }
+        const response = await api.events.list_events({
+            featured: true,
+            size: 5,
+            upcoming: true,
         })
-        featuredEvents.value = response.data.items
+        featuredEvents.value = response.items
     } catch (error) {
         console.error("Failed to load featured events", error)
     }
@@ -170,7 +167,7 @@ const fetchFeatured = async () => {
 
 // Grouping Logic
 const groupedEvents = computed(() => {
-    const groups = []
+    const groups: { label: string; events: EventRead[] }[] = []
     const now = new Date()
     // Reset time part for accurate day comparison
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -186,34 +183,34 @@ const groupedEvents = computed(() => {
     threeWeeksLimit.setDate(threeWeeksLimit.getDate() + 21)
 
     // Helper to check same day
-    const isSameDay = (d1, d2) => {
+    const isSameDay = (d1: Date, d2: Date): boolean => {
         return d1.getFullYear() === d2.getFullYear() &&
                d1.getMonth() === d2.getMonth() &&
                d1.getDate() === d2.getDate()
     }
 
     // Helper to get Week Label
-    const getWeekLabel = (d) => {
+    const getWeekLabel = (d: Date): string => {
         // Find Monday of the week
         const day = d.getDay() || 7 // Get current day number, converting Sun (0) to 7
         if (day !== 1) d.setHours(-24 * (day - 1)) // Set to Monday
         // Re-format
-        const options = { day: 'numeric', month: 'long' }
+        const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long' }
         return `Semaine du ${d.toLocaleDateString('fr-FR', options)}`
     }
-    
+
     // Helper to get Month Label
-    const getMonthLabel = (d) => {
-        const options = { month: 'long', year: 'numeric' }
+    const getMonthLabel = (d: Date): string => {
+        const options: Intl.DateTimeFormatOptions = { month: 'long', year: 'numeric' }
         const label = d.toLocaleDateString('fr-FR', options)
         return `Mois de ${label}` // e.g. "Mois de février 2026"
     }
 
     const eventsCopy = [...allEvents.value]
     // Sort just in case backend didn't (though it does)
-    eventsCopy.sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
+    eventsCopy.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
 
-    let currentGroup = null
+    let currentGroup: { label: string; events: EventRead[] } | null = null
 
     eventsCopy.forEach(event => {
         const eventDate = new Date(event.start_time)

@@ -17,7 +17,7 @@
         <p class="text-sm text-red-800">{{ error }}</p>
       </div>
       
-      <form v-if="eventLoaded" @submit.prevent="updateEvent">
+      <form v-if="eventLoaded" @submit.prevent="onSubmit">
         <div class="space-y-12">
           <div class="border-b border-gray-900/10 pb-12">
             <!-- Organization Selector (Hidden) -->
@@ -454,7 +454,7 @@
               class="h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-white font-bold text-xs"
               :style="{ backgroundColor: evt.organization?.color_secondary || '#f3f4f6' }"
             >
-              <img v-if="evt.organization?.logo_file || evt.organization?.logo_url" :src="resolveMediaUrl(evt.organization.logo_file, 64) ?? evt.organization.logo_url" class="h-full w-full object-cover rounded-full" />
+                <img v-if="evt.organization?.logo_file || evt.organization?.logo_url" :src="resolveMediaUrl(evt.organization.logo_file, 64) ?? evt.organization.logo_url ?? undefined" class="h-full w-full object-cover rounded-full" />
               <span v-else :style="{ color: evt.organization?.color_primary || '#4f46e5' }">{{ evt.organization?.name?.charAt(0) }}</span>
             </div>
             <div>
@@ -472,11 +472,11 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
-import { formatLocalDate, localToUtc, utcToLocal } from '../utils/dateUtils'
+import { localToUtc } from '../utils/dateUtils'
 import OrganizationSelector from '../components/OrganizationSelector.vue'
 import ImageUpload from '../components/ImageUpload.vue'
 import VideoUpload from '../components/VideoUpload.vue'
@@ -485,33 +485,76 @@ import VisibilitySelector from '../components/VisibilitySelector.vue'
 import TagSelector from '../components/TagSelector.vue'
 import DateTimeDurationPicker from '../components/DateTimeDurationPicker.vue'
 import { PlusIcon, XMarkIcon, PaperAirplaneIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
-import api from '../utils/api'
+import { api } from '@/api'
+import type {
+  EventRead,
+  EventVisibility,
+  OrganizationRead,
+  OverlappingCheckParams,
+  PaymentFormRead,
+  UpdateEvent,
+} from '@/api/types'
 import { resolveMediaUrl } from '../utils/media.js'
 
 const router = useRouter()
 const route = useRoute()
-const { user, isSuperAdmin } = useAuth()
-const eventId = route.params.id
+const { isSuperAdmin } = useAuth()
+const eventId = String(route.params.id)
 
-const form = ref({
+type EventLinkForm = {
+  name: string
+  url: string
+  order: number
+}
+
+type PaymentOptionForm = {
+  name: string
+  amount_euros: number | ''
+  is_private: boolean
+  allowed_user_names: string
+  allowed_user_ids: string[]
+}
+
+type EventEditForm = {
+  title: string
+  description: string
+  start_time: string
+  end_time: string
+  location: string
+  location_url: string
+  poster_url: string | undefined
+  video_url: string | undefined
+  poster_file_id: string | null
+  video_file_id: string | null
+  organization_id: string
+  visibility: EventVisibility | string
+  hide_details: boolean
+  rejection_message: string | undefined
+  group_id: string | undefined
+  tag_ids: string[]
+  links: EventLinkForm[]
+  guest_organization_ids: string[]
+  featured: number
+}
+
+const form = ref<EventEditForm>({
   title: '',
   description: '',
   start_time: '',
   end_time: '',
   location: '',
   location_url: '',
-  poster_url: null,
-  video_url: null,
+  poster_url: undefined,
+  video_url: undefined,
   poster_file_id: null,
   video_file_id: null,
   organization_id: '',
   visibility: 'public_pending',
 
   hide_details: false,
-  rejection_message: null,
-  group_id: null,
+  rejection_message: undefined,
+  group_id: undefined,
   tag_ids: [],
-  links: [],
   links: [],
   guest_organization_ids: [],
   featured: 0
@@ -519,35 +562,44 @@ const form = ref({
 
 // timeForm removed as it is handled in component
 
-const userOrganizations = ref([])
-const allOrganizations = ref([])
-const showAllOrgs = ref(false)
+const userOrganizations = ref<OrganizationRead[]>([])
+const allOrganizations = ref<OrganizationRead[]>([])
 const eventLoaded = ref(false)
 const error = ref('')
 const loading = ref(false)
 const helloassoConnected = ref(false)
 const canManagePayments = ref(false)
-const existingPaymentForm = ref(null)
+const existingPaymentForm = ref<PaymentFormRead | null>(null)
 const savingPaymentForm = ref(false)
 // For editing options on an existing form
-const paymentFormEdit = ref({ options: [] })
+const paymentFormEdit = ref<{ options: PaymentOptionForm[] }>({ options: [] })
 // For creating a new payment form
-const newPaymentForm = ref({ item_name: '', amount_euros: '', options: [] })
-const originalOrgId = ref(null) 
-const originalVisibility = ref(null)
-const originalStartTime = ref(null)
-const originalEndTime = ref(null)
-const currentOrganization = ref(null)
+const newPaymentForm = ref<{ item_name: string; amount_euros: number | ''; options: PaymentOptionForm[] }>({
+  item_name: '',
+  amount_euros: '',
+  options: []
+})
+const originalVisibility = ref<EventVisibility | null>(null)
+const originalStartTime = ref<string | undefined>(undefined)
+const originalEndTime = ref<string | undefined>(undefined)
+const currentOrganization = ref<OrganizationRead | null>(null)
 const isGuestOrgsOpen = ref(false)
 
-const overlappingEvents = ref([])
+const overlappingEvents = ref<EventRead[]>([])
 const showOverlapModal = ref(false)
-let overlapCheckTimeout = null
+let overlapCheckTimeout: ReturnType<typeof setTimeout> | undefined
 
-const formatOverlapDate = (dateStr) => {
+const formatOverlapDate = (dateStr: string | null | undefined) => {
   if (!dateStr) return ''
   return new Date(dateStr).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
+
+const getErrorDetail = (err: unknown, fallback: string) => {
+  const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+  return detail || fallback
+}
+
+const onSubmit = () => updateEvent()
 
 const checkOverlaps = async () => {
   if (!form.value.start_time || !form.value.end_time) {
@@ -557,10 +609,9 @@ const checkOverlaps = async () => {
   try {
     const startUtc = localToUtc(form.value.start_time)
     const endUtc = localToUtc(form.value.end_time)
-    const params = { start_time: startUtc, end_time: endUtc }
+    const params: OverlappingCheckParams = { start_time: startUtc, end_time: endUtc }
     if (eventId) params.exclude_event_id = eventId
-    const res = await api.get('/events/overlapping-check', { params })
-    overlappingEvents.value = res.data
+    overlappingEvents.value = await api.events.overlapping_check(params)
   } catch (e) {
     overlappingEvents.value = []
   }
@@ -589,7 +640,7 @@ const isDateModified = computed(() => {
   if (!originalStartTime.value || !originalEndTime.value) return false
   
   // Helper to get time value safely
-  const getTime = (val) => {
+  const getTime = (val: string | undefined) => {
     if (!val) return 0
     return new Date(val).getTime()
   }
@@ -619,7 +670,7 @@ const saveButtonLabel = computed(() => {
 })
 
 // Helper to format date for datetime-local input
-const formatDateTimeLocal = (date) => {
+const formatDateTimeLocal = (date: Date) => {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
@@ -631,35 +682,35 @@ const formatDateTimeLocal = (date) => {
 const loadEvent = async () => {
   loading.value = true
   try {
-    const response = await api.get(`/events/${eventId}`)
-    const event = response.data
+    const event = await api.events.get_event(eventId)
     
     // Convert UTC dates to local datetime-local format
     const startLocal = new Date(event.start_time)
     const endLocal = new Date(event.end_time)
     
     form.value = {
-      organization_id: event.organization?.id || event.organization_id,
+        organization_id: event.organization?.id || '',
       title: event.title,
       description: event.description || '',
       start_time: formatDateTimeLocal(startLocal),
       end_time: formatDateTimeLocal(endLocal),
       location: event.location || '',
       location_url: event.location_url || '',
-      poster_url: event.poster_url || event.poster_file?.url || '',
-      video_url: event.video_url || event.video_file?.url || '',
+      poster_url: event.poster_url || event.poster_file?.url || undefined,
+      video_url: event.video_url || event.video_file?.url || undefined,
       poster_file_id: event.poster_file?.id || null,
       video_file_id: event.video_file?.id || null,
       visibility: event.visibility || 'public_pending',
 
       hide_details: event.hide_details || false,
-      rejection_message: event.rejection_message || null,
-      group_id: event.group?.id || null,
+      rejection_message: event.rejection_message || undefined,
+      group_id: event.group?.id || undefined,
       tag_ids: event.tags?.map(t => t.id) || [],
-      tag_ids: event.tags?.map(t => t.id) || [],
-      links: event.event_links || [],
-      tag_ids: event.tags?.map(t => t.id) || [],
-      links: event.event_links || [],
+      links: (event.event_links || []).map(link => ({
+        name: link.name,
+        url: link.url,
+        order: link.order,
+      })),
       guest_organization_ids: event.guest_organizations?.map(o => o.id) || [],
       featured: event.featured || 0
     }
@@ -674,7 +725,6 @@ const loadEvent = async () => {
     timeForm.value.durationMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
     */
     
-    originalOrgId.value = event.organization_id
     originalVisibility.value = event.visibility
     originalStartTime.value = formatDateTimeLocal(startLocal)
     originalEndTime.value = formatDateTimeLocal(endLocal)
@@ -685,9 +735,9 @@ const loadEvent = async () => {
     if (form.value.guest_organization_ids.length > 0) {
         isGuestOrgsOpen.value = true
     }
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Failed to load event:', err)
-    error.value = err.response?.data?.detail || 'Échec du chargement de l\'événement'
+    error.value = getErrorDetail(err, 'Échec du chargement de l\'événement')
   } finally {
     loading.value = false
   }
@@ -695,18 +745,21 @@ const loadEvent = async () => {
 
 const loadUserOrganizations = async () => {
   try {
-    const response = await api.get('/users/me/memberships')
-    userOrganizations.value = response.data
+    const memberships = await api.users.get_user_memberships()
+    userOrganizations.value = memberships
       .filter(m => m.role === 'org_admin' || m.role === 'org_member')
       .map(m => m.organization)
-      .filter(org => org !== null)
+      .filter((org): org is OrganizationRead => org !== null)
     
     // If superadmin, also ensure the current event's org is in the list even if not a member
     if (isSuperAdmin.value && form.value.organization_id) {
        // Check if current org is in list
        const found = userOrganizations.value.find(o => o.id === form.value.organization_id)
        if (!found) {
-         userOrganizations.value.push({ id: form.value.organization_id })
+         const orgFromAll = allOrganizations.value.find(o => o.id === form.value.organization_id)
+         if (orgFromAll) {
+           userOrganizations.value.push(orgFromAll)
+         }
        }
     }
   } catch (err) {
@@ -717,10 +770,7 @@ const loadUserOrganizations = async () => {
 const loadAllOrganizations = async () => {
   try {
     loading.value = true
-    loading.value = true
-    const response = await api.get('/organizations/')
-    allOrganizations.value = response.data
-    showAllOrgs.value = true
+    allOrganizations.value = await api.organizations.list_organizations()
   } catch (err) {
     console.error('Failed to load all organizations:', err)
   } finally {
@@ -735,7 +785,7 @@ const addLink = () => {
   // }
 }
 
-const removeLink = (index) => {
+const removeLink = (index: number) => {
   form.value.links.splice(index, 1)
   form.value.links.forEach((link, idx) => {
     link.order = idx + 1
@@ -747,18 +797,18 @@ const updateEvent = async (shouldRedirect = true) => {
   error.value = ''
   
   try {
-    const eventData = {
+    const eventData: UpdateEvent = {
       title: form.value.title,
       description: form.value.description,
       start_time: localToUtc(form.value.start_time),
       end_time: localToUtc(form.value.end_time),
       location: form.value.location,
       location_url: form.value.location_url,
-      poster_file_id: form.value.poster_file_id ?? null,
-      video_file_id: form.value.video_file_id ?? null,
-      visibility: form.value.visibility,
+      poster_file_id: form.value.poster_file_id ?? undefined,
+      video_file_id: form.value.video_file_id ?? undefined,
+      visibility: String(form.value.visibility),
       hide_details: form.value.hide_details,
-      group_id: form.value.group_id,
+      group_id: form.value.group_id ?? undefined,
       tag_ids: form.value.tag_ids,
       guest_organization_ids: form.value.guest_organization_ids,
       links: form.value.links.filter(link => link.name && link.url),
@@ -773,11 +823,11 @@ const updateEvent = async (shouldRedirect = true) => {
       eventData.visibility = 'public_pending'
     }
 
-    await api.put(`/events/${eventId}`, eventData)
+    await api.events.update_event(eventId, eventData)
 
     // Handle explicit rejection flow
     if (isSuperAdmin.value && targetVisibility === 'public_rejected') {
-      await api.post(`/events/${eventId}/reject`, {
+      await api.events.reject_event(eventId, {
         message: message || 'Refusé par un administrateur'
       })
     }
@@ -785,9 +835,9 @@ const updateEvent = async (shouldRedirect = true) => {
     if (shouldRedirect) {
       router.push(`/events/${eventId}`)
     }
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Failed to update event:', err)
-    error.value = err.response?.data?.detail || 'Échec de la mise à jour de l\'événement'
+    error.value = getErrorDetail(err, 'Échec de la mise à jour de l\'événement')
     throw err // Re-throw to handle in saveAndResubmit
   } finally {
     if (shouldRedirect) {
@@ -805,61 +855,66 @@ const deleteEvent = async () => {
 
   loading.value = true
   try {
-    await api.delete(`/events/${eventId}`)
+    await api.events.delete_event(eventId)
     router.push('/')
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Failed to delete event:', err)
-    error.value = err.response?.data?.detail || 'Échec de la suppression de l\'événement'
+    error.value = getErrorDetail(err, 'Échec de la suppression de l\'événement')
     loading.value = false
   }
 }
 
 // Watch dates to check overlapping events (debounced)
 watch([() => form.value.start_time, () => form.value.end_time], () => {
-  clearTimeout(overlapCheckTimeout)
+  if (overlapCheckTimeout) {
+    clearTimeout(overlapCheckTimeout)
+  }
   overlapCheckTimeout = setTimeout(checkOverlaps, 600)
 })
 
 const loadPaymentForm = async () => {
   try {
-    const res = await api.get(`/helloasso/events/${eventId}/payment-form`)
-    existingPaymentForm.value = res.data
+    const form = await api.helloasso.get_payment_form(eventId)
+    existingPaymentForm.value = form
     // Seed edit state from existing options
-    paymentFormEdit.value.options = (res.data.options || []).map(o => ({
+    paymentFormEdit.value.options = (form.options || []).map(o => ({
       name: o.name,
       amount_euros: o.price_cents / 100,
       is_private: o.is_private || false,
       allowed_user_ids: o.allowed_user_ids || [],
       allowed_user_names: '', // We don't have the names back, so this starts empty. It's only for appending.
     }))
-  } catch (err) {
-    if (err.response?.status !== 404) {
+  } catch (err: unknown) {
+    const status = (err as { response?: { status?: number } }).response?.status
+    if (status !== 404) {
       console.error('Failed to load payment form:', err)
     }
     existingPaymentForm.value = null
   }
 }
 
-const loadHelloAssoStatus = async (orgId) => {
+const loadHelloAssoStatus = async (orgId: string) => {
   if (!orgId) { helloassoConnected.value = false; canManagePayments.value = false; return }
   try {
-    const res = await api.get(`/helloasso/status/${orgId}`)
-    helloassoConnected.value = res.data.connected
-    canManagePayments.value = res.data.can_manage_payment_forms
+    const status = await api.helloasso.helloasso_status(orgId)
+    helloassoConnected.value = status.connected
+    canManagePayments.value = status.can_manage_payment_forms
   } catch {
     helloassoConnected.value = false
     canManagePayments.value = false
   }
 }
 
-const resolveUserNames = async (namesStr) => {
+const resolveUserNames = async (namesStr: string) => {
   if (!namesStr || !namesStr.trim()) return []
   const queries = namesStr.split('\n').map(n => n.trim()).filter(Boolean)
   if (!queries.length) return []
   
   try {
-    const res = await api.post(`/helloasso/events/${eventId}/attendee-bulk-resolve`, { queries })
-    return res.data.filter(r => r.user_id).map(r => r.user_id)
+    const res = await api.helloasso.bulk_resolve_attendees(eventId, { queries })
+    return res
+      .map(r => r.user_id)
+      .filter((id): id is string => Boolean(id))
   } catch (err) {
     console.error('Bulk resolve failed:', err)
     return []
@@ -887,17 +942,17 @@ const savePaymentFormOptions = async () => {
       })
     }
 
-    const res = await api.put(`/helloasso/events/${eventId}/payment-form`, { options: optionsToSave })
-    existingPaymentForm.value = res.data
-    paymentFormEdit.value.options = (res.data.options || []).map(o => ({
+    const updated = await api.helloasso.update_payment_form(eventId, { options: optionsToSave })
+    existingPaymentForm.value = updated
+    paymentFormEdit.value.options = (updated.options || []).map(o => ({
       name: o.name,
       amount_euros: o.price_cents / 100,
       is_private: o.is_private || false,
       allowed_user_ids: o.allowed_user_ids || [],
       allowed_user_names: '',
     }))
-  } catch (err) {
-    error.value = err.response?.data?.detail || 'Impossible de mettre à jour les options'
+  } catch (err: unknown) {
+    error.value = getErrorDetail(err, 'Impossible de mettre à jour les options')
   } finally {
     savingPaymentForm.value = false
   }
@@ -911,7 +966,7 @@ const submitNewPaymentForm = async () => {
     for (const o of newPaymentForm.value.options) {
       if (!o.name || o.amount_euros === '' || o.amount_euros === null) continue
       
-      let finalUserIds = []
+      let finalUserIds: string[] = []
       if (o.is_private && o.allowed_user_names) {
         finalUserIds = await resolveUserNames(o.allowed_user_names)
       }
@@ -924,15 +979,15 @@ const submitNewPaymentForm = async () => {
       })
     }
 
-    const res = await api.post(`/helloasso/events/${eventId}/payment-form`, {
+    const created = await api.helloasso.create_payment_form(eventId, {
       item_name: newPaymentForm.value.item_name,
       total_amount_cents: Math.round(newPaymentForm.value.amount_euros * 100),
       options: optionsToSave,
     })
-    existingPaymentForm.value = res.data
+    existingPaymentForm.value = created
     newPaymentForm.value = { item_name: '', amount_euros: '', options: [] }
-  } catch (err) {
-    error.value = err.response?.data?.detail || 'Impossible de proposer le formulaire'
+  } catch (err: unknown) {
+    error.value = getErrorDetail(err, 'Impossible de proposer le formulaire')
   } finally {
     savingPaymentForm.value = false
   }

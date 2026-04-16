@@ -376,9 +376,9 @@
     </TransitionRoot>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue';
-import api from '../utils/api';
+import { api } from '@/api'
 import { resolveMediaUrl } from '../utils/media.js';
 import ActionPanelButton from './ActionPanelButton.vue';
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot, Listbox, ListboxButton, ListboxLabel, ListboxOption, ListboxOptions, Switch, SwitchGroup, SwitchLabel } from '@headlessui/vue'
@@ -396,6 +396,9 @@ import {
 } from '@heroicons/vue/24/outline';
 import QRCodeVue3 from 'qrcode-vue3';
 import { computed } from 'vue';
+import type { OrganizationRead } from '@/api/types'
+import { ShortLinkType, ShortLinkActionType } from '@/api/types'
+import { type PropType } from 'vue'
 
 const props = defineProps({
     isOpen: {
@@ -419,11 +422,11 @@ const props = defineProps({
         default: 'default'
     },
     organization: {
-        type: Object,
+        type: Object as PropType<OrganizationRead | null>,
         default: null
     },
     guestOrganizations: {
-        type: Array,
+        type: Array as () => OrganizationRead[],
         default: () => []
     }
 });
@@ -431,15 +434,15 @@ const props = defineProps({
 const emit = defineEmits(['close']);
 
 const loading = ref(false);
-const viewLink = ref(null);
-const subscribeLink = ref(null);
-const countdownLink = ref(null);
-const paymentLink = ref(null);
-const copied = ref(null);
+const viewLink = ref<string | null>(null);
+const subscribeLink = ref<string | null>(null);
+const countdownLink = ref<string | null>(null);
+const paymentLink = ref<string | null>(null);
+const copied = ref<string | null>(null);
 
 const qrPreviewOpen = ref(false);
-const qrLinkType = ref(null); // 'view', 'subscribe', 'countdown', 'payment'
-const qrLinkUrl = ref(null);
+const qrLinkType = ref<string | null>(null); // 'view', 'subscribe', 'countdown', 'payment'
+const qrLinkUrl = ref<string | null>(null);
 const qrcodeComponent = ref(null);
 
 const includeLogo = ref(true);
@@ -456,7 +459,7 @@ const closeModal = () => {
     emit('close');
 }
 
-const openQrPreview = async (type) => {
+const openQrPreview = async (type: string) => {
     qrLinkType.value = type;
     
     // Ensure link exists
@@ -485,7 +488,7 @@ const closeQrPreview = () => {
 const downloadQr = () => {
     const downloadButton = document.querySelector('.hidden-dl-btn');
     if (downloadButton) {
-        downloadButton.click();
+        (downloadButton as HTMLElement).click();
     } else {
         console.error('Download button not found');
     }
@@ -513,8 +516,8 @@ const qrOptions = computed(() => {
     return {
         width: qrResolution.value,
         height: qrResolution.value,
-        value: qrLinkUrl.value,
-        image: (includeLogo.value && (props.organization?.logo_file || props.organization?.logo_url)) ? (resolveMediaUrl(props.organization.logo_file, 256) ?? props.organization.logo_url) : undefined,
+        value: qrLinkUrl.value ?? '',
+        image: (includeLogo.value && (props.organization?.logo_file || props.organization?.logo_url)) ? (resolveMediaUrl(props.organization.logo_file, 256) ?? props.organization.logo_url ?? undefined) : undefined,
         qrOptions: { typeNumber: 0, mode: 'Byte', errorCorrectionLevel: 'H' },
         imageOptions: { hideBackgroundDots: true, imageSize: 0.4, margin: 5 },
         dotsOptions: {
@@ -536,19 +539,19 @@ const qrOptions = computed(() => {
 });
 
 
-const generateLink = async (actionType) => {
+const generateLink = async (actionType: string) => {
     loading.value = true;
     try {
-        const response = await api.post('/short-links/', {
-            item_type: props.itemType.toUpperCase(),
+        const response = await api.short_links.create_short_link({
+            item_type: props.itemType.toUpperCase() as ShortLinkType,
             item_id: props.itemId,
-            action_type: actionType.toUpperCase()
+            action_type: actionType.toUpperCase() as ShortLinkActionType
         });
-        
-        if (actionType === 'view') viewLink.value = response.data.url;
-        else if (actionType === 'subscribe') subscribeLink.value = response.data.url;
-        else if (actionType === 'countdown') countdownLink.value = response.data.url;
-        else if (actionType === 'payment') paymentLink.value = response.data.url;
+
+        if (actionType === 'view') viewLink.value = response.url;
+        else if (actionType === 'subscribe') subscribeLink.value = response.url;
+        else if (actionType === 'countdown') countdownLink.value = response.url;
+        else if (actionType === 'payment') paymentLink.value = response.url;
         
     } catch (err) {
         console.error(err);
@@ -558,7 +561,7 @@ const generateLink = async (actionType) => {
     }
 };
 
-const copy = (text) => {
+const copy = (text: string) => {
     navigator.clipboard.writeText(text);
     copied.value = text;
     setTimeout(() => {

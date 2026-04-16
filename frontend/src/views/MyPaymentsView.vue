@@ -49,15 +49,16 @@
   </div>
 </template>
 
-<script setup>
-import { ref, computed, onMounted, defineComponent, h } from 'vue'
+<script setup lang="ts">
+import { ref, computed, onMounted, defineComponent, h, type PropType } from 'vue'
 import { RouterLink } from 'vue-router'
-import api from '../utils/api'
+import { api } from '@/api'
+import type { MyPaymentEntryRead } from '@/api/types'
 import { TicketIcon, ChevronRightIcon, ArrowPathIcon } from '@heroicons/vue/24/outline'
 import { formatLocalDate } from '../utils/dateUtils'
 
 const loading = ref(false)
-const entries = ref([])
+const entries = ref<MyPaymentEntryRead[]>([])
 const pastOpen = ref(false)
 
 const hasPending = computed(() => entries.value.some(e => !e.completed))
@@ -74,7 +75,7 @@ const past = computed(() =>
 
 // Inline ticket card component
 const TicketCard = defineComponent({
-  props: { entry: Object, dim: Boolean },
+  props: { entry: { type: Object as PropType<MyPaymentEntryRead>, required: true }, dim: Boolean },
   setup(props) {
     return () => h(RouterLink, {
       to: `/events/${props.entry.event_id}`,
@@ -98,7 +99,7 @@ const TicketCard = defineComponent({
       ]),
       h('div', { class: 'mt-2 border-t border-dashed border-gray-200 pt-2' }, [
         h('p', { class: 'text-xs text-gray-700' }, props.entry.item_name),
-        ...(props.entry.selected_options || []).map(opt =>
+        ...(props.entry.selected_options || []).map((opt: { name: string; price_cents: number }) =>
           h('p', { class: 'text-xs text-gray-500' }, `+ ${opt.name} (+${(opt.price_cents / 100).toFixed(2)} €)`)
         ),
       ]),
@@ -109,8 +110,7 @@ const TicketCard = defineComponent({
 const refresh = async () => {
   loading.value = true
   try {
-    const res = await api.get('/helloasso/my-entries')
-    entries.value = res.data
+    entries.value = await api.helloasso.get_my_entries()
   } catch (err) {
     console.error('Failed to load payment entries:', err)
   } finally {

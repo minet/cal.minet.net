@@ -22,6 +22,16 @@
       </div>
     </header>
 
+    <!-- Cancellation notice -->
+    <div class="mb-4 flex items-start gap-3 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+      <InformationCircleIcon class="h-5 w-5 shrink-0 mt-0.5 text-amber-500" />
+      <span>
+        <strong>Paiement annulé ≠ remboursé.</strong>
+        Un paiement HelloAsso annulé signifie simplement qu'il a été supprimé depuis la page de validation de l'événement.
+        Les paiements annulés restent affichés pour des raisons de traçabilité.
+      </span>
+    </div>
+
     <div v-if="loading" class="bg-white shadow-sm rounded-lg p-8 text-center text-sm text-gray-500">
       Chargement…
     </div>
@@ -48,13 +58,19 @@
               <span class="text-xs text-gray-400">·</span>
               <span class="text-xs text-gray-500">{{ formatDate(item.event_start_time) }}</span>
             </div>
-            <p class="text-sm text-gray-700 mt-0.5">
-              {{ item.item_name }}
-              <span class="font-semibold">{{ (item.total_amount_cents / 100).toFixed(2) }}&nbsp;€</span>
-              <template v-if="item.options?.length">
-                <span class="text-gray-400"> + {{ item.options.length }} option(s)</span>
-              </template>
-            </p>
+            <div class="flex items-center gap-2 flex-wrap mt-0.5">
+              <span class="text-sm text-gray-700">
+                {{ item.item_name }}
+                <span class="font-semibold">{{ (item.total_amount_cents / 100).toFixed(2) }}&nbsp;€</span>
+              </span>
+              <span
+                v-for="opt in item.options"
+                :key="opt.id || opt.name"
+                class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700 ring-1 ring-inset ring-indigo-200"
+              >
+                {{ opt.name }}{{ opt.price_cents !== 0 ? ' · ' + (opt.price_cents / 100).toFixed(2) + ' €' : '' }}
+              </span>
+            </div>
           </div>
 
           <!-- Status badge -->
@@ -70,96 +86,111 @@
         </div>
 
         <!-- Card body -->
-        <div class="px-5 py-3 flex flex-wrap items-center gap-x-6 gap-y-2">
+        <div class="px-5 py-3 space-y-2">
           <!-- Entry stats -->
-          <div v-if="item.status === 'approved'" class="flex items-center gap-4 text-sm text-gray-600">
+          <div v-if="item.status === 'approved'" class="flex items-center gap-3 text-sm text-gray-600">
             <span>
               <span class="font-semibold text-gray-900">{{ item.completed_count }}</span>
-              paiement(s) complété(s)
+              payé(s)
             </span>
-            <span class="text-gray-400">·</span>
+            <span class="text-gray-300">·</span>
             <span>
               <span class="font-semibold text-gray-900">{{ item.entry_count }}</span>
               initié(s)
             </span>
           </div>
 
-          <!-- Actions -->
-          <div class="ml-auto flex items-center gap-2 flex-wrap">
-            <!-- Approve/reject (pending) -->
+          <!-- Actions row -->
+          <div class="flex flex-wrap gap-2">
+
+            <!-- ── Pending: approve / reject ── -->
             <template v-if="item.status === 'pending'">
               <button
                 @click="approveForm(item)"
                 :disabled="processingId === item.id"
-                class="rounded-md bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-500 disabled:opacity-50 transition-colors"
+                class="flex items-center gap-1.5 rounded-md bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-500 disabled:opacity-50 transition-colors"
               >
+                <CheckCircleIcon class="h-3.5 w-3.5" />
                 Approuver
               </button>
               <button
                 @click="openRejectModal(item)"
                 :disabled="processingId === item.id"
-                class="rounded-md bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 ring-1 ring-inset ring-red-300 hover:bg-red-100 disabled:opacity-50 transition-colors"
+                class="flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-500 disabled:opacity-50 transition-colors"
               >
+                <XMarkIcon class="h-3.5 w-3.5" />
                 Refuser
               </button>
             </template>
 
-            <!-- Open/close toggle (approved only) -->
+            <!-- ── Approved: primary actions ── -->
             <template v-if="item.status === 'approved'">
+              <!-- Validation view -->
+              <router-link
+                :to="`/events/${item.event_id}/validation`"
+                class="flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors"
+              >
+                <ClipboardDocumentCheckIcon class="h-3.5 w-3.5" />
+                Validation
+              </router-link>
+
+              <!-- View entries -->
+              <button
+                v-if="item.entry_count > 0"
+                @click="toggleEntries(item.id)"
+                class="flex items-center gap-1.5 rounded-md bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-200 hover:bg-blue-100 transition-colors"
+              >
+                <UsersIcon class="h-3.5 w-3.5" />
+                Inscrits
+              </button>
+
+              <!-- Export ODS -->
+              <button
+                v-if="item.entry_count > 0"
+                @click="downloadEntriesOds(item)"
+                class="flex items-center gap-1.5 rounded-md bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200 hover:bg-indigo-100 transition-colors"
+              >
+                <ArrowDownTrayIcon class="h-3.5 w-3.5" />
+                Export ODS
+              </button>
+
+              <!-- Billeterie -->
+              <button
+                v-if="item.approving_org_id"
+                @click="openBilleterieModal(item)"
+                class="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                :class="item.billeterie
+                  ? 'bg-purple-600 text-white hover:bg-purple-500'
+                  : 'bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-200 hover:bg-purple-100'"
+              >
+                <TicketIcon class="h-3.5 w-3.5" />
+                {{ item.billeterie ? 'Billeterie liée' : 'Billeterie Exté' }}
+              </button>
+
+              <!-- Open/close toggle -->
               <button
                 @click="toggleOpen(item)"
                 class="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
                 :class="item.is_open
-                  ? 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-300 hover:bg-amber-100'
-                  : 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-300 hover:bg-green-100'"
+                  ? 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200 hover:bg-amber-100'
+                  : 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-200 hover:bg-green-100'"
               >
                 <LockClosedIcon v-if="item.is_open" class="h-3.5 w-3.5" />
                 <LockOpenIcon v-else class="h-3.5 w-3.5" />
-                {{ item.is_open ? 'Fermer les paiements' : 'Rouvrir les paiements' }}
+                {{ item.is_open ? 'Fermer' : 'Rouvrir' }}
               </button>
             </template>
 
-            <!-- Edit options -->
+            <!-- ── Edit options (all non-rejected) ── -->
             <button
               v-if="item.status !== 'rejected'"
               @click="openEditModal(item)"
-              class="flex items-center gap-1.5 rounded-md bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-100 transition-colors"
+              class="flex items-center gap-1.5 rounded-md bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-200 transition-colors"
             >
               <PencilIcon class="h-3.5 w-3.5" />
               Options
             </button>
 
-            <!-- View entries -->
-            <button
-              v-if="item.status === 'approved' && item.entry_count > 0"
-              @click="toggleEntries(item.id)"
-              class="flex items-center gap-1.5 rounded-md bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-100 transition-colors"
-            >
-              <UsersIcon class="h-3.5 w-3.5" />
-              Inscrits
-            </button>
-
-            <button
-              v-if="item.status === 'approved' && item.entry_count > 0"
-              @click="downloadEntriesOds(item)"
-              class="flex items-center gap-1.5 rounded-md bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-300 hover:bg-indigo-100 transition-colors"
-            >
-              <ArrowDownTrayIcon class="h-3.5 w-3.5" />
-              Export ODS
-            </button>
-
-            <!-- Billeterie button (only for approved forms with an approving org) -->
-            <button
-              v-if="item.status === 'approved' && item.approving_org_id"
-              @click="openBilleterieModal(item)"
-              class="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
-              :class="item.billeterie
-                ? 'bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-300 hover:bg-purple-100'
-                : 'bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-100'"
-            >
-              <TicketIcon class="h-3.5 w-3.5" />
-              {{ item.billeterie ? 'Billeterie liée' : 'Billeterie Exté' }}
-            </button>
           </div>
         </div>
 
@@ -184,18 +215,6 @@
           </button>
         </div>
 
-        <!-- Options list -->
-        <div v-if="item.options?.length" class="px-5 pb-3">
-          <div class="flex flex-wrap gap-2">
-            <span
-              v-for="opt in item.options"
-              :key="opt.id || opt.name"
-              class="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs text-indigo-700 ring-1 ring-inset ring-indigo-200"
-            >
-              {{ opt.name }} {{opt.price_cents !== 0 ? (opt.price_cents / 100).toFixed(2) + "&nbsp;€": ''}}
-            </span>
-          </div>
-        </div>
 
         <!-- Entries table -->
         <div v-if="expandedEntries[item.id]" class="border-t border-gray-100 bg-gray-50 px-5 py-3">
@@ -224,10 +243,16 @@
                   <span v-else class="text-gray-400">—</span>
                 </td>
                 <td class="py-1.5 pr-4">
-                  <span :class="entry.completed ? 'text-green-600 font-medium' : 'text-amber-600'">
-                    {{ entry.completed ? 'Payé' : 'En attente' }}
+                  <span v-if="entry.cancelled" class="inline-flex items-center gap-1 text-red-500 font-medium">
+                    Annulé
                   </span>
+                  <template v-else>
+                    <span :class="entry.completed ? 'text-green-600 font-medium' : 'text-amber-600'">
+                      {{ entry.completed ? 'Payé' : 'En attente' }}
+                    </span>
+                  </template>
                   <span v-if="entry.payment_type === 'helloasso_import'" class="ml-1 text-purple-500 text-xs">(billeterie)</span>
+                  <span v-if="entry.cancelled && entry.completed" class="ml-1 text-gray-400 text-xs">(était : payé)</span>
                 </td>
                 <td class="py-1.5 text-gray-400">{{ formatDate(entry.created_at) }}</td>
               </tr>
@@ -242,7 +267,7 @@
     <div v-if="editModal.open" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl p-6">
         <h3 class="text-lg font-semibold text-gray-900 mb-4">Modifier les options</h3>
-        <p class="text-sm text-gray-500 mb-1">{{ editModal.item?.item_name }} — {{ (editModal.item?.total_amount_cents / 100).toFixed(2) }}&nbsp;€</p>
+        <p class="text-sm text-gray-500 mb-1">{{ editModal.item?.item_name }} — {{ ((editModal.item?.total_amount_cents ?? 0) / 100).toFixed(2) }}&nbsp;€</p>
 
         <!-- is_open toggle -->
         <div class="flex items-center justify-between py-3 border-b border-gray-100 mb-4">
@@ -386,7 +411,7 @@
             class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
             Annuler
           </button>
-          <button @click="confirmReject" :disabled="!rejectModal.message || processingId"
+          <button @click="confirmReject" :disabled="!rejectModal.message || !!processingId"
             class="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50">
             Refuser
           </button>
@@ -471,7 +496,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch, onMounted, reactive } from 'vue'
 import {
   CreditCardIcon,
@@ -484,28 +509,63 @@ import {
   TicketIcon,
   ArrowDownTrayIcon,
   CheckCircleIcon,
+  InformationCircleIcon,
+  ClipboardDocumentCheckIcon,
 } from '@heroicons/vue/24/outline'
-import api from '../utils/api'
+import { api } from '@/api'
+import type {
+  PaymentDashboardItem,
+  PaymentEntryRead,
+  HelloAssoFormSummary,
+} from '@/api/types'
 
-const items = ref([])
+// Local type for options displayed in the edit modal — extends PaymentFormOption
+// with UI-only fields (amount_euros for display, allowed_users cache, etc.)
+interface EditableOption {
+  id: string | null | undefined
+  name: string
+  amount_euros: number | string
+  is_private: boolean
+  allowed_user_ids: string[]
+  allowed_users: Array<{ id: string; full_name: string | null; email: string | null }>
+  allowed_users_loaded: boolean
+  allowed_users_loading: boolean
+  allowed_user_search: string
+  allowed_user_input: string
+}
+
+const items = ref<PaymentDashboardItem[]>([])
 const loading = ref(true)
-const processingId = ref(null)
-const importingId = ref(null)
-const importToast = ref(null)
-const expandedEntries = reactive({})
-const loadingEntries = reactive({})
-const entries = reactive({})
+const processingId = ref<string | null>(null)
+const importingId = ref<string | null>(null)
+const importToast = ref<string | null>(null)
+const expandedEntries = reactive<Record<string, boolean>>({})
+const loadingEntries = reactive<Record<string, boolean>>({})
+const entries = reactive<Record<string, PaymentEntryRead[]>>({})
 
 // Time filter: 'upcoming' | 'all' | 'past'
 const timeFilter = ref('upcoming')
 
-const editModal = ref({ open: false, item: null, options: [], is_open: true })
+const editModal = ref<{
+  open: boolean
+  item: PaymentDashboardItem | null
+  options: EditableOption[]
+  is_open: boolean
+}>({ open: false, item: null, options: [], is_open: true })
 const savingEdit = ref(false)
-const rejectModal = ref({ open: false, item: null, message: '' })
-const resolveModal = ref({ open: false, resolving: false, optionIdx: null, failedText: '' })
+const rejectModal = ref<{ open: boolean; item: PaymentDashboardItem | null; message: string }>({ open: false, item: null, message: '' })
+const resolveModal = ref<{ open: boolean; resolving: boolean; optionIdx: number | null; failedText: string }>({ open: false, resolving: false, optionIdx: null, failedText: '' })
 
 
-const billeterieModal = ref({
+const billeterieModal = ref<{
+  open: boolean
+  item: PaymentDashboardItem | null
+  forms: HelloAssoFormSummary[]
+  selected: string | null
+  loading: boolean
+  saving: boolean
+  error: string | null
+}>({
   open: false,
   item: null,
   forms: [],
@@ -515,22 +575,19 @@ const billeterieModal = ref({
   error: null,
 })
 
-const formatDate = (dateStr) =>
+const formatDate = (dateStr: string) =>
   new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
 
-const statusLabel = (status) => ({
+const statusLabel = (status: string): string => ({
   pending: 'En attente',
   approved: 'Approuvé',
   rejected: 'Refusé',
-}[status] ?? status)
+} as Record<string, string>)[status] ?? status
 
 const loadItems = async () => {
   loading.value = true
   try {
-    const res = await api.get('/helloasso/my-payment-forms', {
-      params: { time_filter: timeFilter.value },
-    })
-    items.value = res.data
+    items.value = await api.helloasso.get_my_payment_forms({ time_filter: timeFilter.value })
   } catch (err) {
     console.error('Failed to load payment forms:', err)
   } finally {
@@ -540,28 +597,27 @@ const loadItems = async () => {
 
 watch(timeFilter, loadItems)
 
-const toggleOpen = async (item) => {
+const toggleOpen = async (item: PaymentDashboardItem) => {
   processingId.value = item.id
   try {
-    const res = await api.put(`/helloasso/events/${item.event_id}/payment-form`, {
+    const updated = await api.helloasso.update_payment_form(item.event_id, {
       is_open: !item.is_open,
     })
-    const updated = res.data
     const idx = items.value.findIndex(i => i.id === item.id)
     if (idx !== -1) items.value[idx].is_open = updated.is_open
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Toggle open failed:', err)
   } finally {
     processingId.value = null
   }
 }
 
-const openEditModal = async (item) => {
+const openEditModal = async (item: PaymentDashboardItem) => {
   editModal.value = {
     open: true,
     item,
     is_open: item.is_open,
-    options: (item.options || []).map(o => ({
+    options: (item.options || []).map((o): EditableOption => ({
       id: o.id || null,
       name: o.name,
       amount_euros: o.price_cents / 100,
@@ -576,7 +632,7 @@ const openEditModal = async (item) => {
   }
 }
 
-const loadAllowedUsersForOption = async (optIdx) => {
+const loadAllowedUsersForOption = async (optIdx: number) => {
   const opt = editModal.value.options[optIdx]
   if (!opt || opt.allowed_users_loading || opt.allowed_users_loaded) return
   if (!opt.allowed_user_ids.length) {
@@ -587,8 +643,8 @@ const loadAllowedUsersForOption = async (optIdx) => {
 
   opt.allowed_users_loading = true
   try {
-    const res = await api.post('/helloasso/users/batch-lookup', { ids: opt.allowed_user_ids })
-    const map = Object.fromEntries((res.data || []).map(u => [String(u.id), u]))
+    const res = await api.helloasso.batch_lookup_users({ ids: opt.allowed_user_ids })
+    const map = Object.fromEntries((res || []).map(u => [String(u.id), u]))
     opt.allowed_users = opt.allowed_user_ids.map((id) => {
       const found = map[String(id)]
       return found
@@ -603,12 +659,12 @@ const loadAllowedUsersForOption = async (optIdx) => {
   }
 }
 
-const onToggleAllowedUsers = (optIdx, evt) => {
-  const isOpen = !!evt?.target?.open
+const onToggleAllowedUsers = (optIdx: number, evt: Event) => {
+  const isOpen = !!(evt?.target as HTMLDetailsElement)?.open
   if (isOpen) loadAllowedUsersForOption(optIdx)
 }
 
-const filteredAllowedUsers = (opt) => {
+const filteredAllowedUsers = (opt: EditableOption) => {
   const q = (opt.allowed_user_search || '').trim().toLowerCase()
   if (!q) return opt.allowed_users || []
   return (opt.allowed_users || []).filter((u) => (
@@ -618,13 +674,13 @@ const filteredAllowedUsers = (opt) => {
   ))
 }
 
-const _splitLines = (raw) => {
+const _splitLines = (raw: string) => {
   const seen = new Set()
   return (raw || '')
     .split('\n')
-    .map(s => s.trim())
+    .map((s: string) => s.trim())
     .filter(Boolean)
-    .filter((s) => {
+    .filter((s: string) => {
       const key = s.toLowerCase()
       if (seen.has(key)) return false
       seen.add(key)
@@ -632,19 +688,19 @@ const _splitLines = (raw) => {
     })
 }
 
-const _resolveLinesToUserIds = async (eventId, lines) => {
+const _resolveLinesToUserIds = async (eventId: string, lines: string[]) => {
   if (!lines.length) return { resolvedIds: [], failedLines: [] }
-  const res = await api.post(`/helloasso/events/${eventId}/attendee-bulk-resolve`, { queries: lines })
+  const res = await api.helloasso.bulk_resolve_attendees(eventId, { queries: lines })
   const resolvedIds = []
   const failedLines = []
-  for (const row of res.data || []) {
+  for (const row of res || []) {
     if (row.user_id) resolvedIds.push(String(row.user_id))
     else if (row.query) failedLines.push(String(row.query))
   }
   return { resolvedIds, failedLines }
 }
 
-const _appendAllowedIds = (optIdx, ids) => {
+const _appendAllowedIds = (optIdx: number, ids: string[]) => {
   const opt = editModal.value.options[optIdx]
   if (!opt) return
   const existing = new Set(opt.allowed_user_ids.map(String))
@@ -658,7 +714,7 @@ const _appendAllowedIds = (optIdx, ids) => {
   opt.allowed_users_loaded = false
 }
 
-const resolveAllowedUsersForOption = async (optIdx) => {
+const resolveAllowedUsersForOption = async (optIdx: number) => {
   const opt = editModal.value.options[optIdx]
   if (!opt) return
   const lines = _splitLines(opt.allowed_user_input)
@@ -666,7 +722,7 @@ const resolveAllowedUsersForOption = async (optIdx) => {
 
   resolveModal.value.resolving = true
   try {
-    const { resolvedIds, failedLines } = await _resolveLinesToUserIds(editModal.value.item.event_id, lines)
+    const { resolvedIds, failedLines } = await _resolveLinesToUserIds(editModal.value.item!.event_id, lines)
     _appendAllowedIds(optIdx, resolvedIds)
     opt.allowed_user_input = ''
 
@@ -693,7 +749,7 @@ const submitResolveCorrections = async () => {
 
   resolveModal.value.resolving = true
   try {
-    const { resolvedIds, failedLines } = await _resolveLinesToUserIds(editModal.value.item.event_id, lines)
+    const { resolvedIds, failedLines } = await _resolveLinesToUserIds(editModal.value.item!.event_id, lines)
     _appendAllowedIds(optIdx, resolvedIds)
     if (failedLines.length) {
       resolveModal.value.failedText = failedLines.join('\n')
@@ -709,7 +765,7 @@ const submitResolveCorrections = async () => {
   }
 }
 
-const removeAllowedUser = (optIdx, userId) => {
+const removeAllowedUser = (optIdx: number, userId: string) => {
   const opt = editModal.value.options[optIdx]
   const id = String(userId)
   opt.allowed_user_ids = opt.allowed_user_ids.filter(x => String(x) !== id)
@@ -724,18 +780,18 @@ const saveEditModal = async () => {
       .map(o => ({
         id: o.id || undefined,
         name: o.name,
-        price_cents: Math.round(o.amount_euros * 100),
+        price_cents: Math.round(Number(o.amount_euros) * 100),
         is_private: o.is_private || false,
         allowed_user_ids: o.allowed_user_ids,
       }))
-    const res = await api.put(`/helloasso/events/${editModal.value.item.event_id}/payment-form`, {
+    const res = await api.helloasso.update_payment_form(editModal.value.item!.event_id, {
       options: optionsToSave,
       is_open: editModal.value.is_open,
     })
-    const idx = items.value.findIndex(i => i.id === editModal.value.item.id)
+    const idx = items.value.findIndex(i => i.id === editModal.value.item!.id)
     if (idx !== -1) {
-      items.value[idx].options = res.data.options
-      items.value[idx].is_open = res.data.is_open
+      items.value[idx].options = res.options
+      items.value[idx].is_open = res.is_open
     }
     editModal.value.open = false
   } catch (err) {
@@ -745,10 +801,10 @@ const saveEditModal = async () => {
   }
 }
 
-const approveForm = async (item) => {
+const approveForm = async (item: PaymentDashboardItem) => {
   processingId.value = item.id
   try {
-    await api.post(`/helloasso/events/${item.event_id}/payment-form/approve`)
+    await api.helloasso.approve_payment_form(item.event_id)
     await loadItems()
   } catch (err) {
     console.error('Approve failed:', err)
@@ -757,15 +813,15 @@ const approveForm = async (item) => {
   }
 }
 
-const openRejectModal = (item) => {
+const openRejectModal = (item: PaymentDashboardItem) => {
   rejectModal.value = { open: true, item, message: '' }
 }
 
 const confirmReject = async () => {
   if (!rejectModal.value.message) return
-  processingId.value = rejectModal.value.item.id
+  processingId.value = rejectModal.value.item!.id
   try {
-    await api.post(`/helloasso/events/${rejectModal.value.item.event_id}/payment-form/reject`, {
+    await api.helloasso.reject_payment_form(rejectModal.value.item!.event_id, {
       rejection_message: rejectModal.value.message,
     })
     rejectModal.value.open = false
@@ -777,7 +833,7 @@ const confirmReject = async () => {
   }
 }
 
-const toggleEntries = async (formId) => {
+const toggleEntries = async (formId: string) => {
   if (expandedEntries[formId]) {
     expandedEntries[formId] = false
     return
@@ -788,8 +844,7 @@ const toggleEntries = async (formId) => {
   loadingEntries[formId] = true
   try {
     const item = items.value.find(i => i.id === formId)
-    const res = await api.get(`/helloasso/events/${item.event_id}/payment-form/entries`)
-    entries[formId] = res.data
+    entries[formId] = await api.helloasso.get_payment_entries(item!.event_id)
   } catch (err) {
     console.error('Failed to load entries:', err)
     entries[formId] = []
@@ -798,14 +853,9 @@ const toggleEntries = async (formId) => {
   }
 }
 
-const downloadEntriesOds = async (item) => {
+const downloadEntriesOds = async (item: PaymentDashboardItem) => {
   try {
-    const response = await api.get(`/helloasso/events/${item.event_id}/payment-form/entries/export`, {
-      responseType: 'blob',
-    })
-    const blob = new Blob([response.data], {
-      type: 'application/vnd.oasis.opendocument.spreadsheet',
-    })
+    const blob = await api.helloasso.export_payment_entries(item.event_id)
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
@@ -823,7 +873,7 @@ const downloadEntriesOds = async (item) => {
 // Billeterie
 // ---------------------------------------------------------------------------
 
-const openBilleterieModal = async (item) => {
+const openBilleterieModal = async (item: PaymentDashboardItem) => {
   billeterieModal.value = {
     open: true,
     item,
@@ -835,15 +885,15 @@ const openBilleterieModal = async (item) => {
   }
 
   try {
-    const res = await api.get(`/helloasso/${item.approving_org_id}/billeteries`)
-    billeterieModal.value.forms = res.data
+    billeterieModal.value.forms = await api.helloasso.get_billeteries(item.approving_org_id!)
   } catch (err) {
-    if (err.response?.status === 403) {
+    const e = err as { response?: { status?: number; data?: { detail?: string } } }
+    if (e.response?.status === 403) {
       billeterieModal.value.error = 'Vous n\'avez pas les droits pour gérer les billeteries de cette organisation.'
-    } else if (err.response?.status === 404) {
+    } else if (e.response?.status === 404) {
       billeterieModal.value.error = 'Aucune intégration HelloAsso configurée sur cette organisation.'
     } else {
-      billeterieModal.value.error = err.response?.data?.detail || 'Erreur lors du chargement des billeteries.'
+      billeterieModal.value.error = e.response?.data?.detail || 'Erreur lors du chargement des billeteries.'
     }
   } finally {
     billeterieModal.value.loading = false
@@ -857,44 +907,44 @@ const saveBilleterieLink = async () => {
   const form = forms.find(f => f.form_slug === selected)
   billeterieModal.value.saving = true
   try {
-    const res = await api.post(`/helloasso/events/${item.event_id}/payment-form/billeterie`, {
-      org_id: item.approving_org_id,
+    const res = await api.helloasso.create_billeterie(item!.event_id, {
+      org_id: item!.approving_org_id ?? '',
       form_slug: selected,
       form_type: form?.form_type ?? 'Event',
       form_title: form?.title ?? selected,
     })
     // Update local item
-    const idx = items.value.findIndex(i => i.id === item.id)
-    if (idx !== -1) items.value[idx].billeterie = res.data
-    billeterieModal.value.item = { ...item, billeterie: res.data }
+    const idx = items.value.findIndex(i => i.id === item!.id)
+    if (idx !== -1) items.value[idx].billeterie = res
+    billeterieModal.value.item = { ...item!, billeterie: res }
     billeterieModal.value.open = false
   } catch (err) {
-    billeterieModal.value.error = err.response?.data?.detail || 'Erreur lors de la liaison.'
+    billeterieModal.value.error = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Erreur lors de la liaison.'
   } finally {
     billeterieModal.value.saving = false
   }
 }
 
-const unlinkBilleterie = async (item) => {
+const unlinkBilleterie = async (item: PaymentDashboardItem) => {
   billeterieModal.value.saving = true
   try {
-    await api.delete(`/helloasso/events/${item.event_id}/payment-form/billeterie`)
+    await api.helloasso.delete_billeterie(item.event_id)
     const idx = items.value.findIndex(i => i.id === item.id)
     if (idx !== -1) items.value[idx].billeterie = null
     billeterieModal.value.item = { ...item, billeterie: null }
     billeterieModal.value.open = false
   } catch (err) {
-    billeterieModal.value.error = err.response?.data?.detail || 'Erreur lors de la déliaison.'
+    billeterieModal.value.error = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Erreur lors de la déliaison.'
   } finally {
     billeterieModal.value.saving = false
   }
 }
 
-const importBilleterie = async (item) => {
+const importBilleterie = async (item: PaymentDashboardItem) => {
   importingId.value = item.id
   try {
-    const res = await api.post(`/helloasso/events/${item.event_id}/payment-form/billeterie/import`)
-    const { imported, skipped } = res.data
+    const res = await api.helloasso.import_billeterie(item.event_id)
+    const { imported, skipped } = res
 
     // Refresh the item's billeterie (to update last_imported_at) and entries
     await loadItems()
@@ -905,7 +955,7 @@ const importBilleterie = async (item) => {
     setTimeout(() => { importToast.value = null }, 4000)
   } catch (err) {
     console.error('Import failed:', err)
-    importToast.value = err.response?.data?.detail || 'Erreur lors de l\'import.'
+    importToast.value = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Erreur lors de l\'import.'
     setTimeout(() => { importToast.value = null }, 5000)
   } finally {
     importingId.value = null

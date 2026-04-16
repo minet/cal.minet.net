@@ -25,9 +25,10 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
-import api from '../utils/api'
+import { api } from '@/api'
+import type { TagRead } from '@/api/types'
 
 const props = defineProps({
   modelValue: {
@@ -42,7 +43,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue'])
 
-const availableTags = ref([])
+const availableTags = ref<TagRead[]>([])
 
 const loadTags = async () => {
   if (!props.organizationId) {
@@ -51,19 +52,18 @@ const loadTags = async () => {
   }
   
   try {
-    const response = await api.get(`/organizations/${props.organizationId}/tags`)
-    availableTags.value = response.data
+    availableTags.value = await api.tags.get_organization_tags(props.organizationId)
   } catch (error) {
     console.error('Failed to load tags:', error)
     availableTags.value = []
   }
 }
 
-const isSelected = (tagId) => {
+const isSelected = (tagId: string) => {
   return props.modelValue.includes(tagId)
 }
 
-const toggleTag = (tagId) => {
+const toggleTag = (tagId: string) => {
   const newValue = isSelected(tagId)
     ? props.modelValue.filter(id => id !== tagId)
     : [...props.modelValue, tagId]
@@ -71,7 +71,7 @@ const toggleTag = (tagId) => {
   emit('update:modelValue', newValue)
 }
 
-const getTagStyle = (tag) => {
+const getTagStyle = (tag: TagRead) => {
   const isActive = isSelected(tag.id)
   return {
     backgroundColor: isActive ? tag.color + '30' : 'transparent',
@@ -80,7 +80,7 @@ const getTagStyle = (tag) => {
   }
 }
 
-const darkenColor = (color) => {
+const darkenColor = (color: string) => {
   try {
     const hex = color.replace('#', '')
     const r = parseInt(hex.substr(0, 2), 16)

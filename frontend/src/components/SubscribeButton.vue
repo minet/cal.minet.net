@@ -12,10 +12,10 @@
   </ActionPanelButton>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { BellIcon, BellSlashIcon } from '@heroicons/vue/24/outline'
-import api from '../utils/api'
+import { api } from '@/api'
 import ActionPanelButton from './ActionPanelButton.vue' // Import ActionPanelButton
 
 import { askPermissionAndSubscribe } from '../utils/push'
@@ -32,8 +32,8 @@ const loading = ref(false)
 
 const checkSubscription = async () => {
   try {
-    const response = await api.get('/subscriptions/me')
-    isSubscribed.value = response.data.organizations.some(
+    const response = await api.subscriptions.get_my_subscriptions()
+    isSubscribed.value = response.organizations.some(
       sub => sub.organization?.id === props.organizationId
     )
   } catch (error) {
@@ -45,15 +45,15 @@ const toggleSubscription = async () => {
   loading.value = true
   try {
     if (isSubscribed.value) {
-      await api.delete(`/subscriptions/organizations/${props.organizationId}`)
+      await api.subscriptions.unsubscribe_from_organization(props.organizationId)
       isSubscribed.value = false
     } else {
-      await api.post(`/subscriptions/organizations/${props.organizationId}`)
+      await api.subscriptions.subscribe_to_organization(props.organizationId)
       isSubscribed.value = true
       // Ask for push permission
       askPermissionAndSubscribe()
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to toggle subscription:', error)
     alert(error.response?.data?.detail || 'Erreur lors de l\'abonnement')
   } finally {

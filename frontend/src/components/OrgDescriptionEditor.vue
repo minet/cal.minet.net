@@ -33,7 +33,7 @@
           <div v-if="filteredMembers.length === 0" class="px-3 py-2 text-xs text-gray-400">Aucun membre</div>
           <button v-for="m in filteredMembers" :key="m.user_id" type="button" @click="insertMember(m)"
             class="w-full text-left flex items-center gap-2 px-3 py-2 hover:bg-gray-50 transition-colors">
-            <UserAvatar :src="resolveMediaUrl(m.profile_picture_file, 64) ?? m.profile_picture_url" :name="m.full_name || m.email" size="sm" />
+            <UserAvatar :src="(resolveMediaUrl(m.profile_picture_file, 64) ?? m.profile_picture_url) ?? undefined" :name="m.full_name || m.email" size="sm" />
             <div>
               <p class="text-sm font-medium text-gray-800">{{ m.full_name || m.email }}</p>
               <p v-if="m.title" class="text-xs text-indigo-600">{{ m.title }}</p>
@@ -71,7 +71,7 @@
               <div v-for="img in images" :key="img.id" class="relative group">
                 <button type="button" @click="insertImage(img)"
                   class="w-full aspect-square rounded overflow-hidden border border-gray-200 hover:border-indigo-300 transition-colors">
-                  <img :src="img.url" :alt="img.filename" class="w-full h-full object-cover" />
+                  <img :src="img.url ?? undefined" :alt="img.filename" class="w-full h-full object-cover" />
                 </button>
                 <button type="button" @click="deleteImage(img)"
                   class="absolute top-0.5 right-0.5 hidden group-hover:flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white"
@@ -86,7 +86,7 @@
     </div>
 
     <!-- Textarea -->
-    <textarea ref="textareaRef" :value="modelValue" @input="$emit('update:modelValue', $event.target.value)" rows="12"
+    <textarea ref="textareaRef" :value="modelValue" @input="$emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)" rows="12"
       placeholder="Écrivez une description... Utilisez la barre d'outils pour insérer des membres ou des images."
       class="block w-full rounded-b-lg border border-gray-200 px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm font-mono leading-relaxed resize-y"></textarea>
 
@@ -98,30 +98,40 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { UserCircleIcon, PhotoIcon, ArrowUpTrayIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import UserAvatar from './UserAvatar.vue'
-import api from '../utils/api'
-import { resolveMediaUrl } from '../utils/media.js'
+import { api } from '@/api'
+import { resolveMediaUrl } from '../utils/media'
+import type { OrganizationImageRead } from '@/api/types'
+
+interface MemberOption {
+  user_id: string
+  email: string
+  full_name: string | null
+  profile_picture_url: string | null
+  profile_picture_file: import('@/api/types').StoredFileRead | null
+  title?: string | null
+}
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
   organizationId: { type: String, required: true },
-  members: { type: Array, default: () => [] }
+  members: { type: Array as () => MemberOption[], default: () => [] }
 })
 
 const emit = defineEmits(['update:modelValue', 'images-updated'])
 
-const textareaRef = ref(null)
-const fileInputRef = ref(null)
-const memberDropdownRef = ref(null)
-const imageDropdownRef = ref(null)
+const textareaRef = ref<HTMLTextAreaElement | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const memberDropdownRef = ref<HTMLElement | null>(null)
+const imageDropdownRef = ref<HTMLElement | null>(null)
 
 const showMemberDropdown = ref(false)
 const showImagePanel = ref(false)
 const memberSearch = ref('')
-const images = ref([])
+const images = ref<OrganizationImageRead[]>([])
 const uploading = ref(false)
 const uploadError = ref('')
 
@@ -135,8 +145,7 @@ const filteredMembers = computed(() => {
 
 const loadImages = async () => {
   try {
-    const res = await api.get(`/organizations/${props.organizationId}/images`)
-    images.value = res.data
+    images.value = await api.organization_images.list_organization_images(props.organizationId)
     emit('images-updated', images.value)
   } catch (e) {
     console.error('Failed to load images', e)
@@ -150,22 +159,20 @@ const toggleImagePanel = async () => {
   }
 }
 
-const uploadImage = async (event) => {
-  const file = event.target.files?.[0]
+const uploadImage = async (event: Event) => {
+  const file = (event.target as HTMLInputElement).files?.[0]
   if (!file) return
   uploading.value = true
   uploadError.value = ''
   try {
     const formData = new FormData()
     formData.append('file', file)
-    const res = await api.post(`/organizations/${props.organizationId}/images`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
-    images.value.push(res.data)
+    const res = await api.organization_images.upload_organization_image(props.organizationId, formData)
+    images.value.push(res)
     emit('images-updated', images.value)
     // Auto-insert
-    insertImage(res.data)
-  } catch (e) {
+    insertImage(res)
+  } catch (e: any) {
     uploadError.value = e.response?.data?.detail || "Échec de l'upload"
   } finally {
     uploading.value = false
@@ -173,10 +180,10 @@ const uploadImage = async (event) => {
   }
 }
 
-const deleteImage = async (img) => {
+const deleteImage = async (img: OrganizationImageRead) => {
   if (!confirm(`Supprimer l'image "${img.filename}" ?`)) return
   try {
-    await api.delete(`/organizations/${props.organizationId}/images/${img.id}`)
+    await api.organization_images.delete_organization_image(props.organizationId, img.id)
     images.value = images.value.filter(i => i.id !== img.id)
     emit('images-updated', images.value)
   } catch (e) {
@@ -192,7 +199,7 @@ function getSelection() {
   return { start: ta.selectionStart, end: ta.selectionEnd, selected: ta.value.slice(ta.selectionStart, ta.selectionEnd) }
 }
 
-function replaceSelection(newText, cursorOffset = null) {
+function replaceSelection(newText: string, cursorOffset: number | null = null) {
   const ta = textareaRef.value
   if (!ta) return
   const { start, end } = getSelection()
@@ -208,7 +215,7 @@ function replaceSelection(newText, cursorOffset = null) {
   }, 0)
 }
 
-function insert(prefix, suffix = '') {
+function insert(prefix: string, suffix = '') {
   const { selected } = getSelection()
   const inner = selected || 'texte'
   replaceSelection(prefix + inner + suffix, prefix.length + inner.length + suffix.length)
@@ -223,14 +230,14 @@ function insertHr() {
   replaceSelection('\n\n---\n\n')
 }
 
-function insertMember(member) {
+function insertMember(member: MemberOption) {
   const line = `\n@[${member.user_id}]\n`
   replaceSelection(line)
   showMemberDropdown.value = false
   memberSearch.value = ''
 }
 
-function insertImage(img) {
+function insertImage(img: OrganizationImageRead) {
   const filename = img.filename.replace("_", " ").replace(".png", "").replace(".jpg", "").replace(".jpeg", "").replace(".gif", "").replace(".webp", "").replace(".svg", "")
   const line = `\n![${filename}](${img.url})\n`
   replaceSelection(line)
@@ -238,11 +245,11 @@ function insertImage(img) {
 }
 
 // Close dropdowns on outside click
-function handleOutsideClick(e) {
-  if (memberDropdownRef.value && !memberDropdownRef.value.contains(e.target)) {
+function handleOutsideClick(e: MouseEvent) {
+  if (memberDropdownRef.value && !memberDropdownRef.value.contains(e.target as Node | null)) {
     showMemberDropdown.value = false
   }
-  if (imageDropdownRef.value && !imageDropdownRef.value.contains(e.target)) {
+  if (imageDropdownRef.value && !imageDropdownRef.value.contains(e.target as Node | null)) {
     showImagePanel.value = false
   }
 }

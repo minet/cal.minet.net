@@ -10,7 +10,7 @@
       </div>
       <router-link @click="closeSidebar" v-if="user" to="/profile" class="flex items-center space-x-3 hover:bg-gray-50 p-2 -m-2 rounded-lg transition-colors group">
         <UserAvatar 
-          :src="resolveMediaUrl(user.profile_picture_file, 80) ?? user.profile_picture_url"
+          :src="resolveMediaUrl(user.profile_picture_file, 80) ?? user.profile_picture_url ?? undefined"
           :name="user.full_name || user.email" 
           size="md" 
         />
@@ -59,10 +59,10 @@
               Mes événements
             </div>
             <span 
-              v-if="user?.rejected_events_count > 0" 
+              v-if="(user?.rejected_events_count ?? 0) > 0" 
               class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800"
             >
-              {{ user.rejected_events_count }}
+              {{ user?.rejected_events_count }}
             </span>
           </router-link>
 
@@ -83,10 +83,10 @@
                 Approbations
               </div>
               <span
-                v-if="user?.pending_approvals_count > 0"
+                v-if="(user?.pending_approvals_count ?? 0) > 0"
                 class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"
               >
-                {{ user.pending_approvals_count }}
+                {{ user?.pending_approvals_count }}
               </span>
             </router-link>
 
@@ -160,7 +160,7 @@
                 :style="{ backgroundColor: org.color_secondary || '#f3f4f6' }"
                 :class="{ 'bg-gray-200': !org.color_secondary }"
               >
-                <img v-if="org.logo_file || org.logo_url" :src="resolveMediaUrl(org.logo_file, 64) ?? org.logo_url" :alt="org.name" class="h-full w-full object-cover" />
+                <img v-if="org.logo_file || org.logo_url" :src="(resolveMediaUrl(org.logo_file, 64) ?? org.logo_url) ?? undefined" :alt="org.name" class="h-full w-full object-cover" />
                 <span v-else class="text-xs font-medium" :style="{ color: org.color_primary || '#4f46e5' }">{{ org.name.charAt(0) }}</span>
               </div>
               <div class="flex-1 min-w-0">
@@ -202,13 +202,14 @@
   <div v-if="isAuthenticated && isOpen" @click="$emit('close')" class="fixed inset-0 bg-black/50 z-40 md:hidden"></div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useAuth } from '../composables/useAuth'
-import api from '../utils/api'
+import { api } from '@/api'
 import UserAvatar from './UserAvatar.vue'
 import MinetIcon from './MinetIcon.vue'
-import { resolveMediaUrl } from '../utils/media.js'
+import { resolveMediaUrl } from '../utils/media'
+import type { OrganizationRead } from '@/api/types'
 import {
   XMarkIcon,
   PlusIcon,
@@ -242,7 +243,7 @@ const closeSidebar = () => {
 }
 
 const { user, isAuthenticated, isSuperAdmin, logout } = useAuth()
-const organizations = ref([])
+const organizations = ref<OrganizationRead[]>([])
 const loading = ref(false)
 const showTreasuryLink = computed(() => organizations.value.some(org => org.can_manage_payment_forms))
 
@@ -251,8 +252,7 @@ const loadUserOrganizations = async () => {
   
   loading.value = true
   try {
-    const response = await api.get('/users/me/organizations')
-    organizations.value = response.data
+    organizations.value = await api.users.get_user_organizations()
   } catch (error) {
     console.error('Failed to load organizations:', error)
   } finally {

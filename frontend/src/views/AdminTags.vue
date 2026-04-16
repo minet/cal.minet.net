@@ -50,7 +50,7 @@
                <label class="relative inline-flex items-center cursor-pointer">
                   <input 
                     type="checkbox" 
-                    :checked="tag.is_auto_approved" 
+                    :checked="tag.is_auto_approved ?? undefined" 
                     class="sr-only peer"
                     @change="toggleAutoApprove(tag)"
                     :disabled="loadingId === tag.id"
@@ -70,17 +70,18 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import api from '../utils/api'
+import { api } from '@/api'
+import type { TagRead, OrganizationRead } from '@/api/types'
 import { MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
 import OrganizationSelector from '../components/OrganizationSelector.vue'
 
-const tags = ref([])
-const organizations = ref([])
-const selectedOrganizationId = ref(null)
+const tags = ref<TagRead[]>([])
+const organizations = ref<OrganizationRead[]>([])
+const selectedOrganizationId = ref<string | undefined>(undefined)
 const searchQuery = ref('')
-const loadingId = ref(null)
+const loadingId = ref<string | null>(null)
 
 const filteredTags = computed(() => {
     if (!searchQuery.value) return tags.value
@@ -90,8 +91,7 @@ const filteredTags = computed(() => {
 
 const loadOrganizations = async () => {
     try {
-        const response = await api.get('/organizations/') 
-        organizations.value = response.data
+        organizations.value = await api.organizations.list_organizations()
     } catch (error) {
         console.error('Failed to load organizations:', error)
     }
@@ -104,21 +104,18 @@ const loadTags = async () => {
     }
     
     try {
-        const response = await api.get(`/organizations/${selectedOrganizationId.value}/tags`)
-        tags.value = response.data
+        tags.value = await api.tags.get_organization_tags(selectedOrganizationId.value)
     } catch (error) {
         console.error('Failed to load tags:', error)
         tags.value = []
     }
 }
 
-const toggleAutoApprove = async (tag) => {
+const toggleAutoApprove = async (tag: TagRead) => {
     loadingId.value = tag.id
     try {
         const newValue = !tag.is_auto_approved
-        await api.put(`/tags/${tag.id}/auto-approve`, null, {
-            params: { is_auto_approved: newValue }
-        })
+        await api.tags.toggle_auto_approve(tag.id, newValue)
         tag.is_auto_approved = newValue
     } catch (error) {
         console.error('Failed to toggle auto-approve:', error)

@@ -271,7 +271,7 @@
           </button>
           <button
             @click="confirmReject"
-            :disabled="!rejectMessage || processingFormId"
+            :disabled="!rejectMessage || !!processingFormId"
             class="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 disabled:opacity-50"
           >
             Refuser
@@ -282,28 +282,29 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { CheckCircleIcon, ExclamationCircleIcon, LinkIcon } from '@heroicons/vue/24/outline'
-import api from '../utils/api'
+import { api, httpClient } from '@/api'
+import type { HelloAssoStatus, OrganizationRead, PaymentFormRead } from '@/api/types'
 
 const route = useRoute()
-const orgId = route.params.id
+const orgId = route.params.id as string
 
-const organization = ref(null)
-const status = ref(null)
-const pendingForms = ref([])
-const eventTitles = ref({})
+const organization = ref<OrganizationRead | null>(null)
+const status = ref<HelloAssoStatus | null>(null)
+const pendingForms = ref<PaymentFormRead[]>([])
+const eventTitles = ref<Record<string, string>>({})
 const loading = ref(true)
 const error = ref('')
 const success = ref('')
 const saving = ref(false)
 const deleting = ref(false)
-const processingFormId = ref(null)
+const processingFormId = ref<string | null>(null)
 const showRejectDialog = ref(false)
 const rejectMessage = ref('')
-const formToReject = ref(null)
+const formToReject = ref<PaymentFormRead | null>(null)
 
 const copied = ref(false)
 
@@ -327,7 +328,7 @@ const canSaveNew = computed(() =>
   form.value.helloasso_slug.trim() && form.value.api_client_id.trim() && form.value.api_client_secret.trim()
 )
 
-const formatDate = (dateStr) =>
+const formatDate = (dateStr: string) =>
   new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
 
 // Initialize default dates (current academic year: Aug 15 -> Aug 15)
@@ -365,28 +366,18 @@ const downloadCheckoutsExport = async () => {
   exportingCheckouts.value = true
   error.value = ''
   try {
-    const params = new URLSearchParams()
-    if (exportDateStart.value) params.append('date_start', exportDateStart.value)
-    if (exportDateEnd.value) params.append('date_end', exportDateEnd.value)
+    const params: { date_start?: string; date_end?: string } = {}
+    if (exportDateStart.value) params.date_start = exportDateStart.value
+    if (exportDateEnd.value) params.date_end = exportDateEnd.value
     
-    const response = await api.get(`/helloasso/${orgId}/checkouts/export?${params}`, {
-      responseType: 'blob'
-    })
+    const responseData = await api.helloasso.export_checkouts(orgId, params)
     
     // Create a download link and trigger download
-    const url = window.URL.createObjectURL(response.data)
+    const url = window.URL.createObjectURL(responseData)
     const link = document.createElement('a')
     link.href = url
     
-    // Extract filename from Content-Disposition header if available
-    const contentDisposition = response.headers['content-disposition']
     let filename = 'checkouts.ods'
-    if (contentDisposition) {
-      const filenameMatch = contentDisposition.match(/filename=([^;]+)/)
-      if (filenameMatch) {
-        filename = filenameMatch[1].trim().replace(/^["']|["']$/g, '')
-      }
-    }
     
     link.setAttribute('download', filename)
     document.body.appendChild(link)
@@ -397,7 +388,7 @@ const downloadCheckoutsExport = async () => {
     success.value = 'Export téléchargé avec succès.'
     setTimeout(() => { success.value = '' }, 3000)
   } catch (err) {
-    error.value = err.response?.data?.detail || 'Impossible de télécharger l\'export'
+    error.value = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Impossible de télécharger l\'export'
   } finally {
     exportingCheckouts.value = false
   }
@@ -405,8 +396,7 @@ const downloadCheckoutsExport = async () => {
 
 const loadOrganization = async () => {
   try {
-    const res = await api.get(`/organizations/${orgId}`)
-    organization.value = res.data
+    organization.value = await api.organizations.get_organization(orgId)
   } catch (err) {
     console.error('Failed to load organization:', err)
   }
@@ -414,16 +404,16 @@ const loadOrganization = async () => {
 
 const loadStatus = async () => {
   try {
-    const res = await api.get(`/helloasso/status/${orgId}`)
-    status.value = res.data
-    if (res.data.helloasso_slug) {
-      form.value.helloasso_slug = res.data.helloasso_slug
+    const res = await api.helloasso.helloasso_status(orgId)
+    status.value = res
+    if (res.helloasso_slug) {
+      form.value.helloasso_slug = res.helloasso_slug
     }
-    if (res.data.api_client_id) {
-      form.value.api_client_id = res.data.api_client_id
+    if (res.api_client_id) {
+      form.value.api_client_id = res.api_client_id
     }
     // Initialize export dates when status is loaded and connected
-    if (res.data.connected) {
+    if (res.connected) {
       initializeExportDates()
     }
   } catch (err) {
@@ -433,20 +423,20 @@ const loadStatus = async () => {
 
 const loadPendingForms = async () => {
   try {
-    const res = await api.get(`/helloasso/pending-forms/${orgId}`)
-    pendingForms.value = res.data
-    for (const f of res.data) {
+    const res = await api.helloasso.get_pending_forms(orgId)
+    pendingForms.value = res
+    for (const f of res) {
       if (!eventTitles.value[f.event_id]) {
         try {
-          const eventRes = await api.get(`/events/${f.event_id}`)
-          eventTitles.value[f.event_id] = eventRes.data.title
+          const eventRes = await api.events.get_event(f.event_id)
+          eventTitles.value[f.event_id] = eventRes.title
         } catch {
           eventTitles.value[f.event_id] = 'Événement inconnu'
         }
       }
     }
   } catch (err) {
-    if (err.response?.status !== 403) {
+    if ((err as { response?: { status?: number } })?.response?.status !== 403) {
       console.error('Failed to load pending forms:', err)
     }
   }
@@ -467,13 +457,13 @@ const saveCredentials = async () => {
       error.value = 'Le client secret est requis pour valider les identifiants.'
       return
     }
-    await api.put(`/helloasso/credentials/${orgId}`, payload)
+    await api.helloasso.set_credentials(orgId, payload)
     form.value.api_client_secret = ''
     await loadStatus()
     success.value = 'Identifiants HelloAsso enregistrés.'
     setTimeout(() => { success.value = '' }, 4000)
   } catch (err) {
-    error.value = err.response?.data?.detail || 'Impossible d\'enregistrer les identifiants'
+    error.value = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Impossible d\'enregistrer les identifiants'
   } finally {
     saving.value = false
   }
@@ -484,34 +474,34 @@ const deleteCredentials = async () => {
   deleting.value = true
   error.value = ''
   try {
-    await api.delete(`/helloasso/credentials/${orgId}`)
+    await api.helloasso.delete_credentials(orgId)
     form.value = { helloasso_slug: '', api_client_id: '', api_client_secret: '' }
     await loadStatus()
     success.value = 'Identifiants supprimés.'
     setTimeout(() => { success.value = '' }, 3000)
   } catch (err) {
-    error.value = err.response?.data?.detail || 'Impossible de supprimer les identifiants'
+    error.value = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Impossible de supprimer les identifiants'
   } finally {
     deleting.value = false
   }
 }
 
-const approveForm = async (f) => {
+const approveForm = async (f: PaymentFormRead) => {
   processingFormId.value = f.id
   error.value = ''
   try {
-    await api.post(`/helloasso/events/${f.event_id}/payment-form/approve`)
+    await api.helloasso.approve_payment_form(f.event_id)
     await loadPendingForms()
     success.value = 'Formulaire approuvé.'
     setTimeout(() => { success.value = '' }, 3000)
   } catch (err) {
-    error.value = err.response?.data?.detail || 'Impossible d\'approuver le formulaire'
+    error.value = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Impossible d\'approuver le formulaire'
   } finally {
     processingFormId.value = null
   }
 }
 
-const openRejectDialog = (f) => {
+const openRejectDialog = (f: PaymentFormRead) => {
   formToReject.value = f
   rejectMessage.value = ''
   showRejectDialog.value = true
@@ -522,7 +512,7 @@ const confirmReject = async () => {
   processingFormId.value = formToReject.value.id
   error.value = ''
   try {
-    await api.post(`/helloasso/events/${formToReject.value.event_id}/payment-form/reject`, {
+    await api.helloasso.reject_payment_form(formToReject.value.event_id, {
       rejection_message: rejectMessage.value
     })
     showRejectDialog.value = false
@@ -532,7 +522,7 @@ const confirmReject = async () => {
     success.value = 'Formulaire refusé.'
     setTimeout(() => { success.value = '' }, 3000)
   } catch (err) {
-    error.value = err.response?.data?.detail || 'Impossible de refuser le formulaire'
+    error.value = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Impossible de refuser le formulaire'
   } finally {
     processingFormId.value = null
   }

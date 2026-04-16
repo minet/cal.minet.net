@@ -1096,6 +1096,8 @@ def list_payment_entries(
                 imported_options=imp_opts,
                 completed=entry.completed,
                 completed_at=entry.completed_at,
+                cancelled=entry.cancelled,
+                cancelled_at=entry.cancelled_at,
                 created_at=entry.created_at,
             )
         )
@@ -1754,6 +1756,7 @@ def _to_validation_entry(
         completed=entry.completed,
         validated=entry.validated,
         validated_at=entry.validated_at,
+        cancelled=entry.cancelled,
         created_at=entry.created_at,
     )
 
@@ -1778,6 +1781,7 @@ def get_validation_entries(
     entries = session.exec(
         select(EventPaymentEntry)
         .where(EventPaymentEntry.payment_form_id == form.id)
+        .where(EventPaymentEntry.cancelled == False)  # noqa: E712
         .order_by(col(EventPaymentEntry.created_at).desc())
     ).all()
     return [_to_validation_entry(e, form, session) for e in entries]
@@ -1808,6 +1812,41 @@ def validate_entry(
     entry.validated = not entry.validated
     entry.validated_at = datetime.now(timezone.utc) if entry.validated else None
     entry.validated_by_id = current_user.id if entry.validated else None
+    session.add(entry)
+    session.commit()
+    session.refresh(entry)
+    return _to_validation_entry(entry, form, session)
+
+
+@router.post("/entries/{entry_id}/cancel", response_model=ValidationEntryRead)
+def cancel_entry(
+    entry_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Toggle cancelled state on a payment entry. Cancelled entries are hidden from validation."""
+    entry = session.get(EventPaymentEntry, UUID(entry_id))
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+    form = session.get(EventPaymentForm, entry.payment_form_id)
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
+
+    if not (
+        current_user.is_superadmin
+        or _can_manage_form(form, current_user, session)
+        or _can_review_payment_form(form, current_user, session)
+    ):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    entry.cancelled = not entry.cancelled
+    entry.cancelled_at = datetime.now(timezone.utc) if entry.cancelled else None
+    # Clear validation if cancelling
+    if entry.cancelled and entry.validated:
+        entry.validated = False
+        entry.validated_at = None
+        entry.validated_by_id = None
     session.add(entry)
     session.commit()
     session.refresh(entry)

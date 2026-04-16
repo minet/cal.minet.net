@@ -699,6 +699,8 @@ class PaymentEntryRead(BaseModel):
     imported_options: List[ImportedOption] = []
     completed: bool
     completed_at: Optional[datetime] = None
+    cancelled: bool = False
+    cancelled_at: Optional[datetime] = None
     created_at: datetime
 
 
@@ -761,6 +763,7 @@ class ValidationEntryRead(BaseModel):
     completed: bool
     validated: bool
     validated_at: Optional[datetime] = None
+    cancelled: bool = False
     created_at: datetime
 
 

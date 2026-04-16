@@ -479,6 +479,9 @@ class EventPaymentEntry(SQLModel, table=True):
     validated: bool = Field(default=False)
     validated_at: Optional[datetime] = None
     validated_by_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
+    # Cancellation (entry hidden from validation view)
+    cancelled: bool = Field(default=False)
+    cancelled_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     payment_form: EventPaymentForm = Relationship(back_populates="entries")

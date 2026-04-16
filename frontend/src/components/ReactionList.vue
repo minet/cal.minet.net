@@ -43,13 +43,13 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue'
 import { PlusIcon } from '@heroicons/vue/24/outline'
 import EmojiPicker from './EmojiPicker.vue'
-import api from '../utils/api'
-
+import { api } from '@/api'
 import { askPermissionAndSubscribe } from '../utils/push'
+import type { ReactionSummary } from '@/api/types'
 
 const props = defineProps({
   eventId: {
@@ -57,7 +57,7 @@ const props = defineProps({
     required: true
   },
   reactions: {
-    type: Array,
+    type: Array as () => ReactionSummary[],
     default: () => []
   },
   btnAdd: {
@@ -73,23 +73,23 @@ const loading = ref(false)
 
 const sortedReactions = computed(() => {
   // Sort by count desc, then alphabetically
-  return [...props.reactions].sort((a, b) => b.count - a.count || a.emoji.localeCompare(b.emoji))
+  return [...props.reactions].sort((a: ReactionSummary, b: ReactionSummary) => b.count - a.count || a.emoji.localeCompare(b.emoji))
 })
 
 const hasUserReacted = computed(() => {
   return props.reactions.some(r => r.user_reacted)
 })
 
-const toggleReaction = async (emoji) => {
+const toggleReaction = async (emoji: string) => {
   if (loading.value) return
   loading.value = true
   
   try {
-    const response = await api.post(`/events/${props.eventId}/react`, { emoji })
+    const response = await api.events.add_reaction(props.eventId, emoji)
     emit('update')
-    
+
     // Check if added (message says "Reaction added")
-    if (response.data.message === "Reaction added" || response.data.message === "Reaction updated") {
+    if (response.message === "Reaction added" || response.message === "Reaction updated") {
         askPermissionAndSubscribe()
     }
   } catch (error) {
@@ -100,7 +100,7 @@ const toggleReaction = async (emoji) => {
   }
 }
 
-const onEmojiSelect = (emoji) => {
+const onEmojiSelect = (emoji: string) => {
   toggleReaction(emoji)
 }
 </script>
