@@ -179,7 +179,7 @@
 
     <!-- Logout Button & Feedback -->
     <div class="p-6 border-t border-gray-200 space-y-3">
-      <a href="https://nextcloud.minet.net/index.php/apps/forms/s/W5SECqdPrLpNJZapXaZH6zAf" target="_blank" class="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors">
+      <a href="https://nextcloud.minet.net/apps/forms/s/Mm9iosAoo8H9DaPs67Li9z6p" target="_blank" class="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors">
         <ChatBubbleBottomCenterTextIcon class="h-5 w-5 mr-2" />
         Bug / Suggestion
       </a>
