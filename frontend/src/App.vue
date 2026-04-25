@@ -49,7 +49,7 @@ import { useAuth } from './composables/useAuth'
 import Sidebar from './components/Sidebar.vue'
 import ChangelogViewer from './components/ChangelogViewer.vue'
 import { Bars3Icon } from '@heroicons/vue/24/outline'
-import { api } from './api'Order ID
+import { api } from './api'
 import type { ChangelogEntryRead } from './api/types'
 
 const { isAuthenticated, initialize } = useAuth()
