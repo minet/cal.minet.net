@@ -478,7 +478,6 @@ export interface HelloAssoStatus {
   connected: boolean;
   helloasso_slug: string | null;
   api_client_id: string | null;
-  webhook_url: string | null;
   can_manage_payment_forms: boolean;
 }
 
@@ -639,9 +638,10 @@ export interface PaymentInitiateResponse {
   checkout_intent_id: string;
 }
 
-export interface PaymentConfirmResponse {
-  completed: boolean;
-  message?: string;
+export interface PaymentCheckResult {
+  checked: number;
+  completed: number;
+  backfilled: number;
 }
 
 export interface ManualEntryCreate {

@@ -573,7 +573,6 @@ class HelloAssoStatus(BaseModel):
     connected: bool
     helloasso_slug: Optional[str] = None
     api_client_id: Optional[str] = None  # Shown to admins; secret is never returned
-    webhook_url: Optional[str] = None  # Full URL to configure on HelloAsso
     can_manage_payment_forms: bool = False
 
 
@@ -679,6 +678,14 @@ class PaymentInitiateResponse(BaseModel):
 
     redirect_url: str
     checkout_intent_id: str
+
+
+class PaymentCheckResult(BaseModel):
+    """Result of polling HelloAsso for pending payment entries."""
+
+    checked: int
+    completed: int
+    backfilled: int = 0
 
 
 class ImportedOption(BaseModel):

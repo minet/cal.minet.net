@@ -111,7 +111,6 @@ app.include_router(organization_images.router, tags=["organization-images"])
 app.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 app.include_router(short_links.router, prefix="/short-links", tags=["short-links"])
 app.include_router(helloasso.router, prefix="/helloasso", tags=["helloasso"])
-app.include_router(helloasso.webhooks_router, prefix="/webhooks", tags=["webhooks"])
 
 @app.get("/")
 def read_root():

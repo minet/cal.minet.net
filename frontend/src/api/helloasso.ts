@@ -12,7 +12,7 @@ import type {
   ManualEntryCreate,
   Message,
   MyPaymentEntryRead,
-  PaymentConfirmResponse,
+  PaymentCheckResult,
   PaymentDashboardItem,
   PaymentEntryRead,
   PaymentFormCreate,
@@ -245,10 +245,10 @@ export class HelloAssoApi {
     return res.data
   }
 
-  /** POST /helloasso/events/{event_id}/confirm-payment */
-  async confirm_payment(eventId: string): Promise<PaymentConfirmResponse> {
-    const res = await httpClient.post<PaymentConfirmResponse>(
-      `/helloasso/events/${eventId}/confirm-payment`,
+  /** POST /helloasso/events/{event_id}/check-payment-status */
+  async check_payment_status(eventId: string): Promise<PaymentCheckResult> {
+    const res = await httpClient.post<PaymentCheckResult>(
+      `/helloasso/events/${eventId}/check-payment-status`,
     )
     return res.data
   }

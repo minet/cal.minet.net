@@ -26,19 +26,20 @@ def ensure_bucket_exists():
     try:
         if not minio_client.bucket_exists(MINIO_BUCKET):
             minio_client.make_bucket(MINIO_BUCKET)
-            # Set public read policy for the bucket
-            policy = {
-                "Version": "2012-10-17",
-                "Statement": [
-                    {
-                        "Effect": "Allow",
-                        "Principal": {"AWS": "*"},
-                        "Action": ["s3:GetObject"],
-                        "Resource": [f"arn:aws:s3:::{MINIO_BUCKET}/*"]
-                    }
-                ]
-            }
-            minio_client.set_bucket_policy(MINIO_BUCKET, json.dumps(policy))
+
+        # Always enforce public read policy, including for pre-existing buckets.
+        policy = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {"AWS": "*"},
+                    "Action": ["s3:GetObject"],
+                    "Resource": [f"arn:aws:s3:::{MINIO_BUCKET}/*"]
+                }
+            ]
+        }
+        minio_client.set_bucket_policy(MINIO_BUCKET, json.dumps(policy))
     except S3Error as e:
         print(f"Error ensuring bucket exists: {e}")
 

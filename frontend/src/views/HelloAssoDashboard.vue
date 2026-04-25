@@ -154,6 +154,17 @@
                 Export ODS
               </button>
 
+              <!-- Check HelloAsso payment status -->
+              <button
+                v-if="item.completed_count < item.entry_count"
+                @click="checkPayments(item)"
+                :disabled="checkingPaymentId === item.id"
+                class="flex items-center gap-1.5 rounded-md bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 ring-1 ring-inset ring-amber-200 hover:bg-amber-100 disabled:opacity-50 transition-colors"
+              >
+                <CreditCardIcon class="h-3.5 w-3.5" />
+                {{ checkingPaymentId === item.id ? 'Vérification…' : 'Vérifier paiements HA' }}
+              </button>
+
               <!-- Billeterie -->
               <button
                 v-if="item.approving_org_id"
@@ -497,6 +508,13 @@
       <CheckCircleIcon class="h-5 w-5 text-green-500 shrink-0" />
       <p class="text-sm text-gray-800">{{ importToast }}</p>
     </div>
+
+    <!-- Check payment result toast -->
+    <div v-if="checkPaymentToast" class="fixed bottom-16 right-4 z-50 bg-white shadow-lg rounded-lg px-4 py-3 flex items-center gap-3 ring-1 ring-gray-200">
+      <CheckCircleIcon v-if="!checkPaymentToast.error" class="h-5 w-5 text-amber-500 shrink-0" />
+      <XMarkIcon v-else class="h-5 w-5 text-red-500 shrink-0" />
+      <p class="text-sm text-gray-800">{{ checkPaymentToast.message }}</p>
+    </div>
   </div>
 </template>
 
@@ -521,6 +539,7 @@ import type {
   PaymentDashboardItem,
   PaymentEntryRead,
   HelloAssoFormSummary,
+  PaymentCheckResult,
 } from '@/api/types'
 
 // Local type for options displayed in the edit modal — extends PaymentFormOption
@@ -543,6 +562,8 @@ const loading = ref(true)
 const processingId = ref<string | null>(null)
 const importingId = ref<string | null>(null)
 const importToast = ref<string | null>(null)
+const checkingPaymentId = ref<string | null>(null)
+const checkPaymentToast = ref<{ message: string; error: boolean } | null>(null)
 const expandedEntries = reactive<Record<string, boolean>>({})
 const loadingEntries = reactive<Record<string, boolean>>({})
 const entries = reactive<Record<string, PaymentEntryRead[]>>({})
@@ -870,6 +891,40 @@ const downloadEntriesOds = async (item: PaymentDashboardItem) => {
     window.URL.revokeObjectURL(url)
   } catch (err) {
     console.error('ODS export failed:', err)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// On-demand payment status check
+// ---------------------------------------------------------------------------
+
+const checkPayments = async (item: PaymentDashboardItem) => {
+  checkingPaymentId.value = item.id
+  checkPaymentToast.value = null
+  try {
+    const result: PaymentCheckResult = await api.helloasso.check_payment_status(item.event_id)
+    const parts: string[] = []
+    if (result.completed > 0) parts.push(`${result.completed} confirmé(s)`)
+    if (result.backfilled > 0) parts.push(`${result.backfilled} référence(s) complétée(s)`)
+    checkPaymentToast.value = {
+      message: parts.length > 0
+        ? `${parts.join(', ')} sur ${result.checked} vérifié(s).`
+        : `${result.checked} paiement(s) vérifié(s) — aucun nouveau.`,
+      error: false,
+    }
+    // Refresh entries if expanded
+    if (expandedEntries[item.id]) {
+      delete entries[item.id]
+      await toggleEntries(item.id)
+    }
+    // Refresh item counts
+    await loadItems()
+  } catch (err) {
+    console.error('check-payment-status failed:', err)
+    checkPaymentToast.value = { message: 'Erreur lors de la vérification.', error: true }
+  } finally {
+    checkingPaymentId.value = null
+    setTimeout(() => { checkPaymentToast.value = null }, 5000)
   }
 }
 

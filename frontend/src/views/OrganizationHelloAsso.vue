@@ -68,24 +68,6 @@
             </div>
           </div>
 
-          <!-- Webhook URL -->
-          <div v-if="status.webhook_url" class="rounded-lg border border-gray-200 p-4">
-            <p class="text-sm font-medium text-gray-900 mb-1">URL de webhook</p>
-            <p class="text-xs text-gray-500 mb-2">
-              Copiez cette URL dans votre espace HelloAsso (<strong>Paramètres → API → Notifications</strong>) pour recevoir les confirmations de paiement.
-            </p>
-            <div class="flex items-center gap-2">
-              <code class="flex-1 text-xs bg-gray-50 border border-gray-200 rounded px-3 py-2 break-all select-all">{{ status.webhook_url }}</code>
-              <button
-                @click="copyWebhookUrl"
-                class="flex-shrink-0 px-3 py-2 text-xs font-medium rounded-md bg-gray-100 hover:bg-gray-200 transition-colors"
-                :title="copied ? 'Copié !' : 'Copier'"
-              >
-                {{ copied ? '✓' : 'Copier' }}
-              </button>
-            </div>
-          </div>
-
           <!-- Update credentials -->
           <div>
             <h3 class="text-sm font-medium text-gray-900 mb-3">Mettre à jour les identifiants</h3>
@@ -306,8 +288,6 @@ const showRejectDialog = ref(false)
 const rejectMessage = ref('')
 const formToReject = ref<PaymentFormRead | null>(null)
 
-const copied = ref(false)
-
 const form = ref({
   helloasso_slug: '',
   api_client_id: '',
@@ -349,16 +329,6 @@ const initializeExportDates = () => {
 
   exportDateStart.value = startDate.toISOString().split('T')[0]
   exportDateEnd.value = endDate.toISOString().split('T')[0]
-}
-
-const copyWebhookUrl = async () => {
-  try {
-    await navigator.clipboard.writeText(status.value?.webhook_url || '')
-    copied.value = true
-    setTimeout(() => { copied.value = false }, 2000)
-  } catch {
-    // Fallback: select the text for manual copy
-  }
 }
 
 const downloadCheckoutsExport = async () => {

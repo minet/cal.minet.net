@@ -2,8 +2,6 @@
 approval workflow, on-demand checkout intent creation, and incoming payment webhooks.
 """
 
-import hashlib
-import hmac
 import io
 import json as _json
 import logging
@@ -13,7 +11,7 @@ from pathlib import Path
 from typing import Any, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from jinja2 import Environment, FileSystemLoader
 import unicodedata
@@ -56,6 +54,7 @@ from app.schemas import (
     ImportedOption,
     ManualEntryCreate,
     MyPaymentEntryRead,
+    PaymentCheckResult,
     PaymentDashboardItem,
     PaymentEntryRead,
     PaymentFormCreate,
@@ -73,7 +72,6 @@ from app.utils.email import send_email
 from sqlmodel import Session as DBSession
 
 router = APIRouter()
-webhooks_router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
@@ -122,28 +120,6 @@ def _helloasso_payment_refs_from_order(
 
     return payment_id, order_id
 
-
-def _helloasso_payment_refs_from_payment(
-    data: Any,
-) -> tuple[Optional[str], Optional[str]]:
-    """Extract HelloAsso payment and order identifiers from a payment payload."""
-    if not isinstance(data, dict):
-        return None, None
-
-    payment_id = str(data["id"]) if data.get("id") is not None else None
-    order_id: Optional[str] = None
-
-    nested_order = data.get("order") if isinstance(data.get("order"), dict) else None
-    if isinstance(nested_order, dict):
-        raw_order_id = nested_order.get("id")
-        if raw_order_id is not None:
-            order_id = str(raw_order_id)
-    else:
-        raw_order_id = data.get("orderId") or data.get("order_id")
-        if raw_order_id is not None:
-            order_id = str(raw_order_id)
-
-    return payment_id, order_id
 
 
 _TEMPLATE_DIR = Path(__file__).parent.parent / "email" / "templates"
@@ -561,19 +537,6 @@ def _notify_creator(form_id: UUID, event_id: UUID, approved: bool) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _webhook_secret(org_id: str) -> str:
-    """Compute the per-org webhook secret as HMAC-SHA256(SECRET_KEY, org_id)."""
-    key = os.getenv("SECRET_KEY")
-    if not key:
-        raise ValueError("Environment variable 'SECRET_KEY' is not set")
-    return hmac.new(key.encode(), org_id.encode(), hashlib.sha256).hexdigest()
-
-
-def _webhook_url(org_id: str) -> str:
-    return (
-        f"{_app_base_url()}/api/webhooks/helloasso/{org_id}/{_webhook_secret(org_id)}"
-    )
-
 
 @router.get("/status/{org_id}", response_model=HelloAssoStatus)
 def helloasso_status(
@@ -615,16 +578,13 @@ def helloasso_status(
     if not org_ha:
         return HelloAssoStatus(
             connected=False,
-            webhook_url=_webhook_url(org_id) if is_admin else None,
-            can_manage_payment_forms=has_manage_permission
-            or current_user.is_superadmin,
+            can_manage_payment_forms=has_manage_permission or current_user.is_superadmin,
         )
 
     return HelloAssoStatus(
         connected=True,
         helloasso_slug=org_ha.helloasso_slug if is_admin else None,
         api_client_id=org_ha.api_client_id if is_admin else None,
-        webhook_url=_webhook_url(org_id) if is_admin else None,
         can_manage_payment_forms=has_manage_permission or current_user.is_superadmin,
     )
 
@@ -2519,117 +2479,135 @@ def create_manual_entry(
 
 
 # ---------------------------------------------------------------------------
-# Webhook (registered separately at /webhooks prefix in main.py)
+# On-demand payment status check (polling, no webhooks needed)
 # ---------------------------------------------------------------------------
 
 
-@webhooks_router.post("/helloasso/{org_id}/{secret}")
-async def helloasso_webhook(
-    org_id: str,
-    secret: str,
-    request: Request,
+@router.post(
+    "/events/{event_id}/check-payment-status", response_model=PaymentCheckResult
+)
+def check_payment_status(
+    event_id: str,
+    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
+    event: Event = Depends(require_event_edit),
 ):
-    """Receive HelloAsso payment notifications for a specific organization.
+    """Poll HelloAsso for all incomplete helloasso entries on this form and mark paid ones complete.
 
-    The URL embeds an org-specific secret (HMAC-SHA256 of SECRET_KEY + org_id)
-    so no additional signature header is needed.
+    Requires org edit rights. Designed for on-demand use to avoid hammering HelloAsso servers.
     """
-    # Verify the path-embedded secret
-    expected_secret = _webhook_secret(org_id)
-    if not hmac.compare_digest(secret, expected_secret):
-        raise HTTPException(status_code=403, detail="Invalid webhook secret")
+    import httpx as _httpx
 
-    body = await request.body()
-    logger.info("[webhook] org=%s headers: %s", org_id, dict(request.headers))
-    logger.info("[webhook] org=%s body: %s", org_id, body.decode(errors="replace"))
+    form = _get_form_or_404(event_id, session)
 
-    try:
-        data = _json.loads(body)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
-
-    event_type = data.get("eventType")
-    payload = data.get("data", {})
-    entry = None
-    payment_id: Optional[str] = None
-    order_id: Optional[str] = None
-
-    # Restrict to entries belonging to this org's payment forms
-    org_form_ids = session.exec(
-        select(EventPaymentForm.id).where(
-            or_(
-                EventPaymentForm.requesting_org_id == UUID(org_id),
-                EventPaymentForm.approving_org_id == UUID(org_id),
+    org_ha = None
+    for org_id in filter(None, [form.approving_org_id, form.requesting_org_id]):
+        org_ha = session.exec(
+            select(OrganizationHelloAsso).where(
+                OrganizationHelloAsso.organization_id == org_id
             )
+        ).first()
+        if org_ha:
+            break
+
+    if not org_ha:
+        raise HTTPException(status_code=503, detail="HelloAsso not configured")
+
+    # Find all incomplete, non-cancelled helloasso entries with a checkout intent
+    pending_entries = session.exec(
+        select(EventPaymentEntry).where(
+            EventPaymentEntry.payment_form_id == form.id,
+            EventPaymentEntry.completed == False,  # noqa: E712
+            EventPaymentEntry.cancelled == False,  # noqa: E712
+            EventPaymentEntry.checkout_intent_id.isnot(None),  # type: ignore[union-attr]
         )
     ).all()
 
-    if event_type == "Order":
-        # Order events contain checkoutIntentId — direct match
-        checkout_intent_id = str(payload.get("checkoutIntentId", ""))
-        if not checkout_intent_id:
-            return {"message": "Order event missing checkoutIntentId, ignoring"}
-        entry = session.exec(
-            select(EventPaymentEntry).where(
-                EventPaymentEntry.checkout_intent_id == checkout_intent_id,
-                col(EventPaymentEntry.payment_form_id).in_(org_form_ids),
-            )
-        ).first()
-        logger.info(
-            "[webhook] Order event checkoutIntentId=%s entry=%s",
-            checkout_intent_id,
-            entry,
+    token = ha_service.get_access_token(org_ha, session)
+    checked = 0
+    completed = 0
+
+    for entry in pending_entries:
+        if not entry.checkout_intent_id:
+            continue
+        checked += 1
+        url = ha_service._api_url(
+            f"organizations/{org_ha.helloasso_slug}/checkout-intents/{entry.checkout_intent_id}"
         )
-        payment_id, order_id = _helloasso_payment_refs_from_order(payload)
-
-    elif event_type == "Payment":
-        # Payment events don't include checkoutIntentId; match by payer email + amount
-        if payload.get("state") != "Authorized":
-            logger.info("[webhook] Payment state=%s, ignoring", payload.get("state"))
-            return {"message": "Payment not authorized, ignoring"}
-
-        payer_email = payload.get("payer", {}).get("email", "")
-        amount_cents = payload.get("amount", 0)
-
-        user_obj = session.exec(select(User).where(User.email == payer_email)).first()
-        if not user_obj:
-            logger.warning("[webhook] no user for email=%s", payer_email)
-            return {"message": "User not found, ignoring"}
-
-        entry = session.exec(
-            select(EventPaymentEntry)
-            .where(
-                EventPaymentEntry.user_id == user_obj.id,
-                not EventPaymentEntry.completed,
-                EventPaymentEntry.amount_cents == amount_cents,
-                col(EventPaymentEntry.payment_form_id).in_(org_form_ids),
+        try:
+            resp = _httpx.get(
+                url, headers={"Authorization": f"Bearer {token}"}, timeout=10
             )
-            .order_by(col(EventPaymentEntry.created_at).desc())
-        ).first()
-        logger.info(
-            "[webhook] Payment event email=%s amount=%d entry=%s",
-            payer_email,
-            amount_cents,
-            entry,
+        except Exception as exc:
+            logger.warning("[check-payment] request failed for entry %s: %s", entry.id, exc)
+            continue
+
+        if not resp.is_success:
+            logger.warning(
+                "[check-payment] HA returned %s for entry %s", resp.status_code, entry.id
+            )
+            continue
+
+        intent_data = resp.json()
+        order = intent_data.get("order")
+        if order:
+            payment_id, order_id = _helloasso_payment_refs_from_order(intent_data)
+            _mark_entry_completed(entry, session, payment_id=payment_id, order_id=order_id)
+            completed += 1
+            logger.info("[check-payment] marked entry %s as completed", entry.id)
+
+    # Backfill payment/order IDs for already-completed entries that are missing them
+    incomplete_refs = session.exec(
+        select(EventPaymentEntry).where(
+            EventPaymentEntry.payment_form_id == form.id,
+            EventPaymentEntry.completed == True,  # noqa: E712
+            EventPaymentEntry.checkout_intent_id.isnot(None),  # type: ignore[union-attr]
+            or_(
+                EventPaymentEntry.helloasso_payment_id.is_(None),  # type: ignore[union-attr]
+                EventPaymentEntry.helloasso_order_id.is_(None),  # type: ignore[union-attr]
+            ),
         )
-        payment_id, order_id = _helloasso_payment_refs_from_payment(payload)
+    ).all()
 
-    else:
-        logger.info("[webhook] unknown eventType=%s, ignoring", event_type)
-        return {"message": f"Unhandled event type {event_type}, ignoring"}
+    backfilled = 0
+    for entry in incomplete_refs:
+        if not entry.checkout_intent_id:
+            continue
+        url = ha_service._api_url(
+            f"organizations/{org_ha.helloasso_slug}/checkout-intents/{entry.checkout_intent_id}"
+        )
+        try:
+            resp = _httpx.get(
+                url, headers={"Authorization": f"Bearer {token}"}, timeout=10
+            )
+        except Exception as exc:
+            logger.warning("[check-payment] backfill request failed for entry %s: %s", entry.id, exc)
+            continue
 
-    if not entry:
-        logger.warning("[webhook] no matching entry found")
-        return {"message": "No matching entry, ignoring"}
+        if not resp.is_success:
+            continue
 
-    if entry.completed:
-        logger.info("[webhook] entry %s already completed, skipping", entry.id)
-        return {"message": "Already completed"}
+        intent_data = resp.json()
+        if not intent_data.get("order"):
+            continue
 
-    logger.info("[webhook] marking entry %s as completed", entry.id)
-    _mark_entry_completed(entry, session, payment_id=payment_id, order_id=order_id)
-    return {"message": "ok"}
+        payment_id, order_id = _helloasso_payment_refs_from_order(intent_data)
+        changed = False
+        if payment_id and not entry.helloasso_payment_id:
+            entry.helloasso_payment_id = payment_id
+            changed = True
+        if order_id and not entry.helloasso_order_id:
+            entry.helloasso_order_id = order_id
+            changed = True
+        if changed:
+            session.add(entry)
+            backfilled += 1
+            logger.info("[check-payment] backfilled refs for entry %s", entry.id)
+
+    if backfilled:
+        session.commit()
+
+    return PaymentCheckResult(checked=checked, completed=completed, backfilled=backfilled)
 
 
 def _mark_entry_completed(
@@ -2656,73 +2634,3 @@ def _mark_entry_completed(
     session.commit()
 
 
-@router.post("/events/{event_id}/confirm-payment")
-def confirm_payment(
-    event_id: str,
-    current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_session),
-    event: Event = Depends(require_event_view),
-):
-    """Called by the frontend when the user returns from HelloAsso (returnUrl).
-
-    Queries HelloAsso to verify the checkout intent is paid and marks the entry complete.
-    """
-    form = _get_form_or_404(event_id, session)
-
-    # Find this user's most recent entry for this form (completed or not)
-    entry = session.exec(
-        select(EventPaymentEntry)
-        .where(
-            EventPaymentEntry.payment_form_id == form.id,
-            EventPaymentEntry.user_id == current_user.id,
-        )
-        .order_by(col(EventPaymentEntry.created_at).desc())
-    ).first()
-
-    if not entry:
-        raise HTTPException(status_code=404, detail="No payment entry found")
-
-    # Webhook may have already marked it complete — return immediately
-    if entry.completed:
-        return {"completed": True}
-
-    # Look up HelloAsso credentials: try approving org first, then requesting org
-    org_ha = None
-    for org_id in filter(None, [form.approving_org_id, form.requesting_org_id]):
-        org_ha = session.exec(
-            select(OrganizationHelloAsso).where(
-                OrganizationHelloAsso.organization_id == org_id
-            )
-        ).first()
-        if org_ha:
-            break
-
-    if not org_ha:
-        raise HTTPException(status_code=503, detail="HelloAsso not configured")
-
-    # Verify with HelloAsso API
-    import httpx as _httpx
-
-    token = ha_service.get_access_token(org_ha, session)
-    url = ha_service._api_url(
-        f"organizations/{org_ha.helloasso_slug}/checkout-intents/{entry.checkout_intent_id}"
-    )
-    logger.info("[confirm-payment] GET %s", url)
-    resp = _httpx.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=15)
-    logger.info(
-        "[confirm-payment] response status=%s body=%s", resp.status_code, resp.text
-    )
-
-    if not resp.is_success:
-        raise HTTPException(
-            status_code=502, detail="Could not verify payment with HelloAsso"
-        )
-
-    intent_data = resp.json()
-    order = intent_data.get("order")
-    if not order:
-        return {"completed": False, "message": "Payment not yet confirmed by HelloAsso"}
-
-    payment_id, order_id = _helloasso_payment_refs_from_order(intent_data)
-    _mark_entry_completed(entry, session, payment_id=payment_id, order_id=order_id)
-    return {"completed": True}

@@ -212,7 +212,7 @@
                 <TicketIcon class="h-5 w-5 text-green-600" />
                 <span class="text-base font-bold text-green-800">Billet confirmé</span>
               </div>
-              
+
               <div class="space-y-1">
                 <p class="text-sm text-gray-800 font-semibold">{{ myEntry.item_name }}</p>
                 <div v-if="myEntry.selected_options?.length" class="space-y-0.5">
@@ -230,6 +230,37 @@
               <router-link to="/my-payments" class="mt-4 block text-center text-xs font-semibold text-green-700 hover:text-green-900 underline transition-colors">
                 Voir mes paiements
               </router-link>
+            </div>
+          </template>
+
+          <!-- Pending entry: payment initiated but not yet confirmed -->
+          <template v-else-if="myEntry && !myEntry.completed && paymentForm.status === 'approved'">
+            <div class="bg-amber-50 border-2 border-amber-200 p-6">
+              <div class="flex items-center gap-2 mb-3">
+                <CreditCardIcon class="h-5 w-5 text-amber-600" />
+                <span class="text-base font-bold text-amber-800">Paiement en attente</span>
+              </div>
+              <p class="text-sm text-amber-700 mb-4">
+                Votre paiement n'a pas encore été confirmé. Si vous avez déjà payé, cliquez sur « Vérifier le statut ».
+              </p>
+              <div class="flex flex-col gap-2">
+                <button
+                  @click="checkMyPayment"
+                  :disabled="checkingPayment"
+                  class="flex items-center justify-center gap-2 w-full rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-500 disabled:opacity-50 transition-colors"
+                >
+                  <CreditCardIcon class="h-4 w-4" />
+                  {{ checkingPayment ? 'Vérification…' : 'Vérifier le statut' }}
+                </button>
+                <button
+                  @click="initiatePayment"
+                  :disabled="initiatingPayment"
+                  class="flex items-center justify-center gap-2 w-full rounded-md bg-white border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-50 transition-colors"
+                >
+                  {{ initiatingPayment ? 'Redirection…' : 'Recommencer le paiement' }}
+                </button>
+              </div>
+              <p v-if="paymentError" class="mt-2 text-xs text-red-600 text-center">{{ paymentError }}</p>
             </div>
           </template>
 
@@ -481,6 +512,7 @@ const event = ref<EventRead | null>(null)
 const paymentForm = ref<PaymentFormRead | null>(null)
 const myEntry = ref<MyPaymentEntryRead | null>(null)
 const initiatingPayment = ref(false)
+const checkingPayment = ref(false)
 const paymentError = ref('')
 const selectedOptionIds = ref<string[]>([])
 const userMemberships = ref<MembershipWithOrganization[]>([])
@@ -642,19 +674,30 @@ const duplicateEvent = () => {
   })
 }
 
-const confirmPaymentIfReturning = async () => {
-  const params = new URLSearchParams(window.location.search)
-  if (params.get('payment') !== 'success') return
-  // Remove the query param from the URL without reloading
-  const cleanUrl = window.location.pathname
-  window.history.replaceState({}, '', cleanUrl)
+const checkMyPayment = async () => {
+  checkingPayment.value = true
+  paymentError.value = ''
   try {
-    const res = await api.helloasso.confirm_payment(String(route.params.id))
-    if (res.completed) {
-      await loadPaymentForm()
+    const res = await api.helloasso.check_payment_status(String(route.params.id))
+    await loadMyEntry()
+    if (res.completed === 0) {
+      paymentError.value = 'Paiement non encore confirmé par HelloAsso. Réessayez dans quelques instants.'
     }
-  } catch (err) {
-    console.warn('Could not confirm payment:', err)
+  } catch (err: unknown) {
+    const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+    paymentError.value = detail || 'Impossible de vérifier le paiement'
+  } finally {
+    checkingPayment.value = false
+  }
+}
+
+const confirmPaymentIfReturning = () => {
+  const params = new URLSearchParams(window.location.search)
+  const paymentParam = params.get('payment')
+  if (!paymentParam) return
+  window.history.replaceState({}, '', window.location.pathname)
+  if (paymentParam === 'error') {
+    paymentError.value = 'Le paiement a échoué ou a été annulé. Vous pouvez réessayer.'
   }
 }
 
@@ -662,9 +705,8 @@ onMounted(async () => {
   loadEvent()
   loadUserMemberships()
   loadSubscriptions()
+  confirmPaymentIfReturning()
   await loadPaymentForm()
-  await Promise.all([loadMyEntry(), confirmPaymentIfReturning()])
-  // Reload entry in case confirm-payment just completed it
   await loadMyEntry()
 })
 </script>
