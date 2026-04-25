@@ -19,6 +19,7 @@ from app.api import (
     admin,
     auth,
     cas,
+    changelogs,
     events,
     groups,
     helloasso,
@@ -111,6 +112,7 @@ app.include_router(organization_images.router, tags=["organization-images"])
 app.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 app.include_router(short_links.router, prefix="/short-links", tags=["short-links"])
 app.include_router(helloasso.router, prefix="/helloasso", tags=["helloasso"])
+app.include_router(changelogs.router, prefix="/changelogs", tags=["changelogs"])
 
 @app.get("/")
 def read_root():

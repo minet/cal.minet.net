@@ -179,6 +179,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/changelog',
+    name: 'Changelog',
+    component: () => import('../views/ChangelogPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/events/:id/validation',
     name: 'EventValidation',
     component: () => import('../views/EventValidationView.vue'),

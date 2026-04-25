@@ -233,6 +233,24 @@
       </div>
 
       <!-- Subscriptions Link Card -->
+      <!-- Changelog Card -->
+      <div v-if="isCurrentUser" class="bg-white shadow-sm rounded-lg overflow-hidden">
+        <div class="px-4 py-5 sm:p-6">
+          <div class="flex items-center mb-2">
+            <MegaphoneIcon class="h-6 w-6 text-gray-400 mr-3" />
+            <h2 class="text-lg font-medium text-gray-900">Nouveautés</h2>
+          </div>
+          <p class="text-sm text-gray-500 mb-4 max-w-2xl">
+            Consultez l'historique des mises à jour et nouvelles fonctionnalités de l'application.
+          </p>
+          <router-link to="/changelog"
+            class="inline-flex items-center text-sm font-semibold text-indigo-600 hover:text-indigo-500">
+            Voir les nouveautés
+            <ArrowRightIcon class="ml-1 h-4 w-4" />
+          </router-link>
+        </div>
+      </div>
+
       <div v-if="isCurrentUser" class="bg-white shadow-sm rounded-lg overflow-hidden">
         <div class="px-4 py-5 sm:p-6">
           <div class="flex items-center mb-2">
@@ -309,6 +327,7 @@ import {
   ShieldCheckIcon,
   ArrowRightIcon,
   BellIcon,
+  MegaphoneIcon,
   TrashIcon,
   NoSymbolIcon,
   LinkIcon,

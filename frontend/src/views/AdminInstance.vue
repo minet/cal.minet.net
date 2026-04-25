@@ -69,6 +69,124 @@
       </div>
     </div>
 
+    <!-- Changelog Section -->
+    <div class="mt-8">
+      <div class="sm:flex sm:items-center mb-4">
+        <div class="sm:flex-auto">
+          <h2 class="text-lg font-semibold text-gray-900">Changelog</h2>
+          <p class="mt-1 text-sm text-gray-500">Gérez les messages de nouveautés affichés aux utilisateurs.</p>
+        </div>
+        <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
+          <button @click="openCreateModal" type="button"
+            class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
+            <PlusIcon class="-ml-0.5 mr-1.5 h-5 w-5" />
+            Nouveau message
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-white shadow sm:rounded-lg overflow-hidden">
+        <div v-if="loadingChangelogs" class="px-6 py-10 text-center text-sm text-gray-400">Chargement...</div>
+        <div v-else-if="changelogEntries.length === 0" class="px-6 py-10 text-center text-sm text-gray-400">
+          Aucun message pour l'instant.
+        </div>
+        <table v-else class="min-w-full divide-y divide-gray-300">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="py-3 pl-4 pr-3 text-left text-xs font-semibold text-gray-900 sm:pl-6">Titre</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-gray-900">Audience</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-gray-900">Date</th>
+              <th class="relative py-3 pl-3 pr-4 sm:pr-6"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200 bg-white">
+            <tr v-for="entry in changelogEntries" :key="entry.id">
+              <td class="py-3 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">{{ entry.title }}</td>
+              <td class="whitespace-nowrap px-3 py-3 text-sm text-gray-500">{{ audienceLabel(entry.audience) }}</td>
+              <td class="whitespace-nowrap px-3 py-3 text-sm text-gray-500">{{ formatDate(entry.created_at) }}</td>
+              <td class="whitespace-nowrap py-3 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 space-x-3">
+                <button @click="openEditModal(entry)" class="text-indigo-600 hover:text-indigo-900">Modifier</button>
+                <button @click="deleteEntry(entry.id)" class="text-red-600 hover:text-red-900">Supprimer</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Changelog Create/Edit Modal -->
+    <TransitionRoot as="template" :show="showChangelogModal">
+      <Dialog as="div" class="relative z-50" @close="showChangelogModal = false">
+        <TransitionChild as="template" enter="ease-out duration-300" enter-from="opacity-0" enter-to="opacity-100"
+          leave="ease-in duration-200" leave-from="opacity-100" leave-to="opacity-0">
+          <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+        </TransitionChild>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+          <div class="flex min-h-full items-center justify-center p-4">
+            <TransitionChild as="template" enter="ease-out duration-300"
+              enter-from="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+              enter-to="opacity-100 translate-y-0 sm:scale-100" leave="ease-in duration-200"
+              leave-from="opacity-100 translate-y-0 sm:scale-100"
+              leave-to="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
+              <DialogPanel class="relative w-full max-w-2xl transform rounded-lg bg-white p-6 shadow-xl transition-all">
+                <DialogTitle as="h3" class="text-base font-semibold text-gray-900 mb-4">
+                  {{ editingEntry ? 'Modifier le message' : 'Nouveau message' }}
+                </DialogTitle>
+
+                <div class="space-y-4">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Titre</label>
+                    <input v-model="changelogForm.title" type="text"
+                      class="block w-full rounded-md border-0 py-2 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm" />
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Audience</label>
+                    <select v-model="changelogForm.audience"
+                      class="block w-full rounded-md border-0 py-2 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm">
+                      <option value="all">Tout le monde</option>
+                      <option value="org_viewer_plus">Membres d'au moins une organisation</option>
+                      <option value="org_member_plus">Membres actifs (éditeur ou admin)</option>
+                      <option value="org_admin_plus">Admins d'organisation uniquement</option>
+                      <option value="treasury">Accès trésorerie uniquement</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Contenu (Markdown)</label>
+                    <div class="flex items-center gap-2 mb-2 p-2 bg-gray-50 rounded-t-lg border border-b-0 border-gray-200">
+                      <label class="flex items-center gap-1 cursor-pointer text-xs font-medium text-indigo-600 hover:text-indigo-800 px-2 py-1 rounded border border-gray-200 bg-white hover:bg-gray-50 transition-colors">
+                        <PhotoIcon class="h-4 w-4" />
+                        Ajouter une image
+                        <input type="file" accept="image/*" class="hidden" @change="uploadChangelogImage" ref="changelogFileInput" />
+                      </label>
+                      <span v-if="uploadingImage" class="text-xs text-gray-400">Envoi...</span>
+                    </div>
+                    <textarea v-model="changelogForm.content" rows="10"
+                      class="block w-full rounded-b-lg border border-gray-200 px-3 py-2 text-gray-900 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm font-mono leading-relaxed resize-y" />
+                    <p class="mt-1 text-xs text-gray-400">
+                      Syntaxe : <code>**gras**</code>, <code>*italique*</code>, <code>- liste</code>, <code>![alt](url)</code>
+                    </p>
+                  </div>
+                </div>
+
+                <div class="mt-6 flex justify-end gap-3">
+                  <button type="button" @click="showChangelogModal = false"
+                    class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                    Annuler
+                  </button>
+                  <button type="button" @click="saveEntry" :disabled="savingEntry"
+                    class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50">
+                    {{ savingEntry ? 'Enregistrement...' : 'Enregistrer' }}
+                  </button>
+                </div>
+              </DialogPanel>
+            </TransitionChild>
+          </div>
+        </div>
+      </Dialog>
+    </TransitionRoot>
+
     <!-- Sync Modal -->
     <TransitionRoot as="template" :show="showSyncModal">
       <Dialog as="div" class="relative z-50" @close="showSyncModal = false">
@@ -203,14 +321,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { api } from '@/api'
-import type { UserRead } from '@/api/types'
+import type { ChangelogAudience, ChangelogEntryRead, UserRead } from '@/api/types'
 import TextInput from '../components/TextInput.vue'
 import {
   Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot
 } from '@headlessui/vue'
-import { ArrowPathIcon, DocumentArrowDownIcon, TrashIcon, CalendarIcon, DocumentTextIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, DocumentArrowDownIcon, TrashIcon, CalendarIcon, DocumentTextIcon, PlusIcon, PhotoIcon } from '@heroicons/vue/24/outline'
 
 // LDAP Sync State
 const showSyncModal = ref(false)
@@ -327,4 +445,120 @@ const handleExport = async () => {
     exporting.value = false
   }
 }
+
+// ─── Changelog ────────────────────────────────────────────────────────────────
+
+const changelogEntries = ref<ChangelogEntryRead[]>([])
+const loadingChangelogs = ref(false)
+const showChangelogModal = ref(false)
+const editingEntry = ref<ChangelogEntryRead | null>(null)
+const savingEntry = ref(false)
+const uploadingImage = ref(false)
+const changelogFileInput = ref<HTMLInputElement | null>(null)
+
+const changelogForm = ref({
+  title: '',
+  content: '',
+  audience: 'all' as ChangelogAudience,
+  image_urls: [] as string[],
+})
+
+const loadChangelogs = async () => {
+  loadingChangelogs.value = true
+  try {
+    changelogEntries.value = await api.changelog.list()
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loadingChangelogs.value = false
+  }
+}
+
+onMounted(loadChangelogs)
+
+const openCreateModal = () => {
+  editingEntry.value = null
+  changelogForm.value = { title: '', content: '', audience: 'all', image_urls: [] }
+  showChangelogModal.value = true
+}
+
+const openEditModal = (entry: ChangelogEntryRead) => {
+  editingEntry.value = entry
+  changelogForm.value = {
+    title: entry.title,
+    content: entry.content,
+    audience: entry.audience,
+    image_urls: entry.image_urls ? [...entry.image_urls] : [],
+  }
+  showChangelogModal.value = true
+}
+
+const saveEntry = async () => {
+  if (!changelogForm.value.title.trim() || !changelogForm.value.content.trim()) return
+  savingEntry.value = true
+  try {
+    const payload = {
+      title: changelogForm.value.title,
+      content: changelogForm.value.content,
+      audience: changelogForm.value.audience,
+      image_urls: changelogForm.value.image_urls.length > 0 ? changelogForm.value.image_urls : undefined,
+    }
+    if (editingEntry.value) {
+      const updated = await api.changelog.update(editingEntry.value.id, payload)
+      const idx = changelogEntries.value.findIndex(e => e.id === editingEntry.value!.id)
+      if (idx >= 0) changelogEntries.value[idx] = updated
+    } else {
+      const created = await api.changelog.create(payload)
+      changelogEntries.value.unshift(created)
+    }
+    showChangelogModal.value = false
+  } catch (e: any) {
+    alert('Erreur: ' + (e.response?.data?.detail || e.message))
+  } finally {
+    savingEntry.value = false
+  }
+}
+
+const deleteEntry = async (id: string) => {
+  if (!confirm('Supprimer ce message de changelog ?')) return
+  try {
+    await api.changelog.delete(id)
+    changelogEntries.value = changelogEntries.value.filter(e => e.id !== id)
+  } catch (e: any) {
+    alert('Erreur: ' + (e.response?.data?.detail || e.message))
+  }
+}
+
+const uploadChangelogImage = async (event: Event) => {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  uploadingImage.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await api.upload.upload_image(formData)
+    changelogForm.value.image_urls.push(res.url)
+    const altName = file.name.replace(/\.[^.]+$/, '')
+    changelogForm.value.content += `\n![${altName}](${res.url})\n`
+  } catch (e: any) {
+    alert("Erreur lors de l'upload: " + (e.response?.data?.detail || e.message))
+  } finally {
+    uploadingImage.value = false
+    if (changelogFileInput.value) changelogFileInput.value.value = ''
+  }
+}
+
+const audienceLabel = (audience: ChangelogAudience) => {
+  const labels: Record<ChangelogAudience, string> = {
+    all: 'Tous',
+    org_viewer_plus: 'Membres',
+    org_member_plus: 'Éditeurs+',
+    org_admin_plus: 'Admins',
+    treasury: 'Trésorerie',
+  }
+  return labels[audience] ?? audience
+}
+
+const formatDate = (dateString: string) =>
+  new Date(dateString).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
 </script>

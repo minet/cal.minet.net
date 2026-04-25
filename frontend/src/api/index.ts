@@ -10,6 +10,7 @@
 import { AdminApi } from './admin'
 import { AuthApi } from './auth'
 import { CalendarApi } from './calendar'
+import { ChangelogApi } from './changelogs'
 import { EventsApi } from './events'
 import { GroupsApi } from './groups'
 import { HelloAssoApi } from './helloasso'
@@ -39,6 +40,7 @@ class ApiClient {
   readonly short_links = new ShortLinksApi()
   readonly organization_links = new OrganizationLinksApi()
   readonly organization_images = new OrganizationImagesApi()
+  readonly changelog = new ChangelogApi()
 }
 
 export const api = new ApiClient()

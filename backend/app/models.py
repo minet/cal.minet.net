@@ -39,6 +39,23 @@ class PaymentType(str, Enum):
     OTHER = "other"
 
 
+class ChangelogAudience(str, Enum):
+    ALL = "all"
+    ORG_VIEWER_PLUS = "org_viewer_plus"
+    ORG_MEMBER_PLUS = "org_member_plus"
+    ORG_ADMIN_PLUS = "org_admin_plus"
+    TREASURY = "treasury"
+
+
+class ChangelogEntry(SQLModel, table=True):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    title: str
+    content: str
+    audience: ChangelogAudience = Field(default=ChangelogAudience.ALL)
+    image_urls: Optional[str] = None  # JSON list of allowed image URLs
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
+
+
 class EventGuestOrganization(SQLModel, table=True):
     event_id: UUID = Field(foreign_key="event.id", primary_key=True)
     organization_id: UUID = Field(foreign_key="organization.id", primary_key=True)
@@ -83,6 +100,9 @@ class User(SQLModel, table=True):
     notification_delay: int = Field(default=45)  # Minutes before event
     profile_picture_file_id: Optional[UUID] = Field(
         default=None, foreign_key="storedfile.id"
+    )
+    last_seen_changelog_id: Optional[UUID] = Field(
+        default=None, foreign_key="changelogentry.id"
     )
 
     memberships: List["Membership"] = Relationship(back_populates="user")

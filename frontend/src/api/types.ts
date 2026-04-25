@@ -217,6 +217,7 @@ export interface UserRead {
   exempt_from_rgpd_delete: boolean;
   is_active: boolean;
   notification_delay: number;
+  last_seen_changelog_id: string | null;
   links: UserLinkRead[];
   profile_picture_file: StoredFileRead | null;
 }
@@ -737,4 +738,38 @@ export interface ShortLinkInfo {
 
 export interface SecureKeyRead {
   secure_key: string;
+}
+
+// ============================================================
+// Changelog
+// ============================================================
+
+export type ChangelogAudience =
+  | 'all'
+  | 'org_viewer_plus'
+  | 'org_member_plus'
+  | 'org_admin_plus'
+  | 'treasury'
+
+export interface ChangelogEntryRead {
+  id: string;
+  title: string;
+  content: string;
+  audience: ChangelogAudience;
+  image_urls: string[] | null;
+  created_at: string;
+}
+
+export interface ChangelogEntryCreate {
+  title: string;
+  content: string;
+  audience: ChangelogAudience;
+  image_urls?: string[];
+}
+
+export interface ChangelogEntryUpdate {
+  title?: string;
+  content?: string;
+  audience?: ChangelogAudience;
+  image_urls?: string[];
 }

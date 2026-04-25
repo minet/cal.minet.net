@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from app.models import (
+    ChangelogAudience,
     EventVisibility,
     OrganizationType,
     PaymentFormStatus,
@@ -221,6 +222,7 @@ class UserRead(BaseModel):
     exempt_from_rgpd_delete: bool = False
     is_active: bool = True
     notification_delay: int = 15
+    last_seen_changelog_id: Optional[UUID] = None
     links: List["UserLinkRead"] = []
     profile_picture_file: Optional[StoredFileRead] = None
 
@@ -807,3 +809,26 @@ class BulkResolveResult(BaseModel):
     query: str
     user_id: Optional[str] = None  # UUID as string
     full_name: Optional[str] = None
+
+
+class ChangelogEntryRead(BaseModel):
+    id: UUID
+    title: str
+    content: str
+    audience: ChangelogAudience
+    image_urls: Optional[List[str]] = None
+    created_at: datetime
+
+
+class ChangelogEntryCreate(BaseModel):
+    title: str
+    content: str
+    audience: ChangelogAudience = ChangelogAudience.ALL
+    image_urls: Optional[List[str]] = None
+
+
+class ChangelogEntryUpdate(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    audience: Optional[ChangelogAudience] = None
+    image_urls: Optional[List[str]] = None
