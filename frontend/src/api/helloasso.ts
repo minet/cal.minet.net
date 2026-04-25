@@ -7,6 +7,7 @@ import type {
   BulkResolveRequest,
   BulkResolveResult,
   HelloAssoCredentials,
+  HelloAssoCredentialsDeleteResponse,
   HelloAssoFormSummary,
   HelloAssoStatus,
   ManualEntryCreate,
