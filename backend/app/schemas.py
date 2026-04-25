@@ -578,6 +578,10 @@ class HelloAssoStatus(BaseModel):
     can_manage_payment_forms: bool = False
 
 
+class HelloAssoCredentialsDeleteResponse(Message):
+    forms_closed: int
+
+
 class HelloAssoFormSummary(BaseModel):
     """A HelloAsso form as returned by the HA forms list API."""
 

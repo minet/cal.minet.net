@@ -43,10 +43,11 @@ export class HelloAssoApi {
   }
 
   /** DELETE /helloasso/credentials/{org_id} */
-  async delete_credentials(orgId: string): Promise<Message> {
-    const res = await httpClient.delete<Message>(`/helloasso/credentials/${orgId}`)
+  async delete_credentials(orgId: string): Promise<HelloAssoCredentialsDeleteResponse> {
+    const res = await httpClient.delete<HelloAssoCredentialsDeleteResponse>(`/helloasso/credentials/${orgId}`)
     return res.data
   }
+
 
   // ------------------------------------------------------------------
   // Payment forms (per-event)

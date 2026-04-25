@@ -482,6 +482,10 @@ export interface HelloAssoStatus {
   can_manage_payment_forms: boolean;
 }
 
+export interface HelloAssoCredentialsDeleteResponse extends Message {
+  forms_closed: number;
+}
+
 export interface HelloAssoCredentials {
   helloasso_slug: string;
   api_client_id: string;

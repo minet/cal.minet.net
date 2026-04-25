@@ -440,17 +440,32 @@ const saveCredentials = async () => {
 }
 
 const deleteCredentials = async () => {
-  if (!confirm('Supprimer les identifiants HelloAsso ? Les membres ne pourront plus initier de paiements.')) return
+  const msg =
+    'Supprimer les identifiants HelloAsso ?\n\n' +
+    'Les membres ne pourront plus initier de paiements. ' +
+    'Tous les formulaires de paiement actifs de cette organisation seront automatiquement fermés.'
+
+  if (!confirm(msg)) return
   deleting.value = true
   error.value = ''
   try {
-    await api.helloasso.delete_credentials(orgId)
+    const res = await api.helloasso.delete_credentials(orgId)
     form.value = { helloasso_slug: '', api_client_id: '', api_client_secret: '' }
     await loadStatus()
-    success.value = 'Identifiants supprimés.'
-    setTimeout(() => { success.value = '' }, 3000)
+
+    let resultMsg = 'Identifiants supprimés.'
+    if (res.forms_closed > 0) {
+      resultMsg += ` ${res.forms_closed} formulaire(s) de paiement ont été fermés.`
+    }
+    success.value = resultMsg
+    setTimeout(() => {
+      success.value = ''
+    }, 5000)
+    alert(resultMsg)
   } catch (err) {
-    error.value = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Impossible de supprimer les identifiants'
+    error.value =
+      (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+      'Impossible de supprimer les identifiants'
   } finally {
     deleting.value = false
   }

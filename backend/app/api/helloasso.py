@@ -49,6 +49,7 @@ from app.schemas import (
     BulkResolveRequest,
     BulkResolveResult,
     HelloAssoCredentials,
+    HelloAssoCredentialsDeleteResponse,
     HelloAssoFormSummary,
     HelloAssoStatus,
     ImportedOption,
@@ -641,25 +642,47 @@ def set_helloasso_credentials(
     )
 
 
-@router.delete("/credentials/{org_id}")
+@router.delete(
+    "/credentials/{org_id}", response_model=HelloAssoCredentialsDeleteResponse
+)
 def delete_helloasso_credentials(
     org_id: str,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
     _require_org_admin(UUID(org_id), current_user, session)
+    org_uuid = UUID(org_id)
 
     org_ha = session.exec(
         select(OrganizationHelloAsso).where(
-            OrganizationHelloAsso.organization_id == UUID(org_id)
+            OrganizationHelloAsso.organization_id == org_uuid
         )
     ).first()
     if not org_ha:
         raise HTTPException(status_code=404, detail="No HelloAsso credentials found")
 
+    # Disable all payment forms that depend on these credentials
+    # 1. Forms where requesting_org_id == org_id
+    # 2. Forms where approving_org_id == org_id
+    affected_forms = session.exec(
+        select(EventPaymentForm).where(
+            or_(
+                EventPaymentForm.requesting_org_id == org_uuid,
+                EventPaymentForm.approving_org_id == org_uuid,
+            )
+        )
+    ).all()
+
+    for form in affected_forms:
+        form.is_open = False
+        session.add(form)
+
     session.delete(org_ha)
     session.commit()
-    return {"message": "HelloAsso credentials removed"}
+    return HelloAssoCredentialsDeleteResponse(
+        message="HelloAsso credentials removed",
+        forms_closed=len(affected_forms),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -700,7 +723,7 @@ def create_payment_form(
     form = EventPaymentForm(
         event_id=UUID(event_id),
         requesting_org_id=event.organization_id,
-        approving_org_id=org.parent_id,
+        approving_org_id=org.parent_id or org.id,
         total_amount_cents=form_data.total_amount_cents,
         item_name=form_data.item_name,
         created_by_id=current_user.id,
@@ -772,7 +795,7 @@ def update_payment_form(
 
     if update_data.options is not None:
         existing_opts = {str(o.id): o for o in form.form_options}
-        kept_ids: set = set()
+        updated_options = []
         for idx, opt_data in enumerate(update_data.options):
             oid = str(opt_data.id) if opt_data.id else None
             if oid and oid in existing_opts:
@@ -795,7 +818,7 @@ def update_payment_form(
                         )
                     except Exception:
                         pass
-                kept_ids.add(oid)
+                updated_options.append(ex)
             else:
                 new_opt = EventPaymentFormOption(
                     payment_form_id=form.id,
@@ -815,10 +838,9 @@ def update_payment_form(
                         )
                     except Exception:
                         pass
-                kept_ids.add(str(new_opt.id))
-        for oid, opt in existing_opts.items():
-            if oid not in kept_ids:
-                session.delete(opt)
+                updated_options.append(new_opt)
+        
+        form.form_options = updated_options
 
     if form.status == PaymentFormStatus.PENDING:
         if update_data.item_name is not None:

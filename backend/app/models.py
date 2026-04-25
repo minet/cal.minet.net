@@ -3,6 +3,7 @@ from enum import Enum
 from typing import List, Optional
 from uuid import UUID, uuid4
 
+from sqlalchemy import Column, ForeignKey
 from sqlmodel import Field, Relationship, SQLModel, Session
 
 GHOST_USER_ID = UUID("00000000-0000-4000-8000-000000000001")
@@ -528,7 +529,11 @@ class PaymentFormBilleterie(SQLModel, table=True):
     payment_form_id: UUID = Field(foreign_key="eventpaymentform.id", unique=True)
     # FK to OrganizationHelloAsso.id (not organization.id) so cascade-delete works
     # when the HA integration is removed.
-    helloasso_org_id: UUID = Field(foreign_key="organizationhelloasso.id")
+    helloasso_org_id: UUID = Field(
+        sa_column=Column(
+            ForeignKey("organizationhelloasso.id", ondelete="CASCADE"), nullable=False
+        )
+    )
     helloasso_form_slug: str
     helloasso_form_title: str
     helloasso_form_type: str = Field(default="Event")
