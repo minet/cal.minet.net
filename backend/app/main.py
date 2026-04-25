@@ -10,7 +10,8 @@ from dotenv import load_dotenv
 # modules see the values from the .env file.
 load_dotenv()
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlmodel import Session
 from starlette.middleware.sessions import SessionMiddleware
@@ -35,13 +36,23 @@ from app.api import (
     users,
 )
 from app.api.notifications import process_notifications
-from app.database import create_db_and_tables
+from app.database import create_db_and_tables, get_session
 from app.database import engine
-from app.migration_runner import run_migrations
+from app.migration_runner import run_migrations, get_last_migration
 
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+class EndpointFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.getMessage().find("/status") == -1
+
+
+# Filter out /status from uvicorn access logs
+logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -117,3 +128,17 @@ app.include_router(changelogs.router, prefix="/changelogs", tags=["changelogs"])
 @app.get("/")
 def read_root():
     return {"message": "Welcome to Calend'INT API"}
+
+
+@app.get("/status")
+def get_status(session: Session = Depends(get_session)):
+    try:
+        session.exec(text("SELECT 1"))
+    except Exception as e:
+        logger.error(f"Status check failed: {e}")
+        raise HTTPException(status_code=500, detail="Database connection failed")
+
+    return {
+        "status": "ok",
+        "last_migration": get_last_migration(),
+    }

@@ -35,6 +35,11 @@ services:
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
       - APP_TIMEZONE=${APP_TIMEZONE:-UTC}
       - MEDIA_SIZES=${MEDIA_SIZES:-320,640,960,1280}
+    healthcheck:
+      test: [ "CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/status')\"" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     depends_on:
       db:
         condition: service_healthy
@@ -94,9 +99,11 @@ services:
     volumes:
       - ./nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/certs:/etc/nginx/certs:ro
-    depends_on:
-      - backend
-      - frontend
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost/nginx_health || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     environment:
       - VITE_API_URL=http://localhost:8000
 
