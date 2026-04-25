@@ -50,7 +50,7 @@ import Sidebar from './components/Sidebar.vue'
 import ChangelogViewer from './components/ChangelogViewer.vue'
 import { Bars3Icon } from '@heroicons/vue/24/outline'
 import { api } from './api'
-import type { ChangelogEntryRead } from './api/types'
+import { type ChangelogEntryRead } from './api/types'
 
 const { isAuthenticated, initialize } = useAuth()
 initialize()
@@ -66,7 +66,7 @@ watch(isAuthenticated, async (val) => {
       if (unseenChangelogs.value.length > 0) {
         showChangelog.value = true
       }
-    } catch {
+    } catch (_e) {
       // Fail silently — changelog is non-critical
     }
   }
@@ -76,7 +76,7 @@ async function onChangelogSeen(lastId: string) {
   unseenChangelogs.value = []
   try {
     await api.changelog.markSeen(lastId)
-  } catch {
+  } catch (_e) {
     // Fail silently
   }
 }
