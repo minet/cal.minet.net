@@ -7,7 +7,7 @@
       </div>
 
       <!-- Image block: ![alt](url) – only allowed org images are rendered -->
-      <div v-else-if="block.type === 'image'" class="my-4 not-prose">
+      <div v-else-if="block.type === 'image'" class="my-4 not-prose flex flex-col items-center">
         <img :src="block.url" :alt="block.alt" class="rounded-xl max-w-full shadow-sm border border-gray-100" />
         <p v-if="block.alt" class="text-xs text-gray-400 mt-1 text-center">{{ block.alt }}</p>
       </div>
