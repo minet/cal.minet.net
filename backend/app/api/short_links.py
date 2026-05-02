@@ -231,7 +231,7 @@ def visit_short_link(short_id: str, session: Session = Depends(get_session)):
                 desc_parts.append(f"Lieu : {event.location}")
             if event.organization:
                 desc_parts.append(f"Organisé par {event.organization.name}")
-            og_description = "&#10;".join(desc_parts)
+            og_description = " - ".join(desc_parts)
 
             if event.poster_file_id:
                 pf = session.get(StoredFile, event.poster_file_id)
