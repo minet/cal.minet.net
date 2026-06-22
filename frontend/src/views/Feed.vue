@@ -6,7 +6,9 @@
         <div class="flex items-center">
           <img v-if="!isAuthenticated" src="/CalendINT_text.svg" alt="Calend'INT" class="hidden md:block h-16 w-auto mr-6" />
           <div>
-            <h1 class="text-3xl font-bold tracking-tight text-gray-900">À venir</h1>
+            <DocsHint path="/decouvrir-evenements" search="Découvrir les événements">
+              <h1 class="text-3xl font-bold tracking-tight text-gray-900">À venir</h1>
+            </DocsHint>
             <p class="mt-2 text-sm text-gray-500">Découvrez les prochains événements.</p>
           </div>
         </div>

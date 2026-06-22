@@ -185,6 +185,18 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/docs',
+    name: 'Docs',
+    component: () => import('../views/DocsPage.vue'),
+    meta: { layout: 'normal', requiresAuth: true },
+  },
+  {
+    path: '/docs/:slug',
+    name: 'DocsArticle',
+    component: () => import('../views/DocsArticle.vue'),
+    meta: { layout: 'normal', requiresAuth: true },
+  },
+  {
     path: '/events/:id/validation',
     name: 'EventValidation',
     component: () => import('../views/EventValidationView.vue'),

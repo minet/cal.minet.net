@@ -2,7 +2,9 @@
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="sm:flex sm:items-center">
       <div class="sm:flex-auto">
-        <h1 class="text-2xl font-semibold text-gray-900">Mes abonnements</h1>
+        <DocsHint path="/s-abonner" search="S'abonner à une organisation">
+          <h1 class="text-2xl font-semibold text-gray-900">Mes abonnements</h1>
+        </DocsHint>
         <p class="mt-2 text-sm text-gray-700">Gérez vos abonnements aux organisations et aux tags. Une fois abonné, vous recevrez dans votre calendrier les événements de l'organisation ou du tag.</p>
       </div>
     </div>

@@ -7,7 +7,9 @@
           <ArrowLeftIcon class="h-5 w-5" />
         </router-link>
         <div class="flex-1 min-w-0">
-          <h1 class="text-xl font-bold text-gray-900 truncate">Validation — {{ eventTitle }}</h1>
+          <DocsHint path="/valider-les-billets" search="Valider les billets à l'entrée">
+            <h1 class="text-xl font-bold text-gray-900 truncate">Validation — {{ eventTitle }}</h1>
+          </DocsHint>
           <p class="text-xs text-gray-400 mt-0.5">
             {{ validated }}/{{ total }} validés
             <span v-if="completed < total" class="ml-2 text-amber-500">· {{ total - completed }} en attente de paiement</span>

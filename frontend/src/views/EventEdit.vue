@@ -8,7 +8,9 @@
       }"
     >
       <div class="px-4 py-6 sm:px-6 lg:px-8">
-        <h1 class="text-3xl font-bold tracking-tight text-gray-900">Modifier l'événement</h1>
+        <DocsHint path="/modifier-supprimer-evenement" search="Modifier ou supprimer un événement">
+          <h1 class="text-3xl font-bold tracking-tight text-gray-900">Modifier l'événement</h1>
+        </DocsHint>
       </div>
     </header>
 
@@ -152,9 +154,11 @@
 
                <!-- Featured Field (Superadmin Only) -->
               <div v-if="isSuperAdmin" class="col-span-full">
-                <label for="featured" class="block text-sm font-medium leading-6 text-gray-900">
-                  Mise en avant (jours avant l'événement)
-                </label>
+                <DocsHint path="/evenements-a-la-une" search="Mettre des événements à la une">
+                  <label for="featured" class="block text-sm font-medium leading-6 text-gray-900">
+                    Mise en avant (jours avant l'événement)
+                  </label>
+                </DocsHint>
                 <div class="mt-2">
                   <input
                     type="number"
@@ -241,7 +245,9 @@
         <!-- Payment Form (HelloAsso) -->
         <div v-if="(helloassoConnected && canManagePayments) || existingPaymentForm" class="border-t border-gray-900/10 pt-8 mt-8">
           <div class="flex items-center gap-2 mb-1">
-            <h2 class="text-base font-semibold leading-7 text-gray-900">Formulaire de paiement HelloAsso</h2>
+            <DocsHint path="/proposer-formulaire-paiement" search="Proposer un formulaire de paiement">
+              <h2 class="text-base font-semibold leading-7 text-gray-900">Formulaire de paiement HelloAsso</h2>
+            </DocsHint>
           </div>
 
           <!-- Existing form: show status + link to dashboard -->

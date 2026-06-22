@@ -16,14 +16,16 @@
         <div class="flex items-center justify-between">
           <div>
             <h1 class="text-3xl font-bold tracking-tight text-gray-900">{{ event.title }}</h1>
-            <ReactionList 
-              v-if="event" 
-              :event-id="event.id" 
-              :reactions="event.reactions"
-              :btn-add="canEdit"
-              @update="loadEvent" 
-              class="my-2"
-            />
+            <DocsHint path="/reagir-evenements" search="Réagir à un événement">
+              <ReactionList
+                v-if="event"
+                :event-id="event.id"
+                :reactions="event.reactions"
+                :btn-add="canEdit"
+                @update="loadEvent"
+                class="my-2"
+              />
+            </DocsHint>
             <div class="mt-1 flex items-center text-xs text-gray-500 mb-2">
               <InformationCircleIcon class="h-3 w-3 mr-1" />
               Interagir ajoute l'événement à votre calendrier
@@ -133,16 +135,18 @@
       <!-- Sidebar -->
       <div class="space-y-6">
         <ActionPanel title="Actions">
-             <ActionPanelButton
-              v-if="event && user"
-              :icon="ShareIcon"
-              @click="showShareModal = true"
-              variant="indigo"
-             >
-                Partager
-             </ActionPanelButton>
-             
-             <ShareButton 
+             <DocsHint path="/partager" search="Partager un événement">
+               <ActionPanelButton
+                v-if="event && user"
+                :icon="ShareIcon"
+                @click="showShareModal = true"
+                variant="indigo"
+               >
+                  Partager
+               </ActionPanelButton>
+             </DocsHint>
+
+             <ShareButton
                 v-if="event && user"
                 :is-open="showShareModal"
                 @close="showShareModal = false"
@@ -152,35 +156,41 @@
                 :guest-organizations="event.guest_organizations"
              />
              
-             <ActionPanelButton
-              v-if="canEdit"
-              :icon="FaceSmileIcon"
-              @click="showReactionModal = true"
-              variant="violet"
-              class="w-full"
-            >
-              Réactions
-            </ActionPanelButton>
-            
-            <ActionPanelButton
-              v-if="canEdit"
-              :to="`/events/${event.id}/edit`"
-              :icon="PencilIcon"
-              variant="purple"
-              class="w-full"
-            >
-              Modifier
-            </ActionPanelButton>
+             <DocsHint path="/reagir-evenements" search="administr">
+              <ActionPanelButton
+                v-if="canEdit"
+                :icon="FaceSmileIcon"
+                @click="showReactionModal = true"
+                variant="violet"
+                class="w-full"
+              >
+                Réactions
+              </ActionPanelButton>
+            </DocsHint>
 
-            <ActionPanelButton
-              v-if="paymentForm?.status === 'approved' && canEdit"
-              :to="`/events/${event.id}/validation`"
-              :icon="TicketIcon"
-              variant="fuchsia"
-              class="w-full"
-            >
-              Validation
-            </ActionPanelButton>
+            <DocsHint path="/modifier-supprimer-evenement" search="Modifier un événement">
+              <ActionPanelButton
+                v-if="canEdit"
+                :to="`/events/${event.id}/edit`"
+                :icon="PencilIcon"
+                variant="purple"
+                class="w-full"
+              >
+                Modifier
+              </ActionPanelButton>
+            </DocsHint>
+
+            <DocsHint path="/valider-les-billets" search="Valider les billets">
+              <ActionPanelButton
+                v-if="paymentForm?.status === 'approved' && canEdit"
+                :to="`/events/${event.id}/validation`"
+                :icon="TicketIcon"
+                variant="fuchsia"
+                class="w-full"
+              >
+                Validation
+              </ActionPanelButton>
+            </DocsHint>
             
             <ActionPanelButton
                v-if="canEdit"
@@ -192,15 +202,17 @@
               Dupliquer
             </ActionPanelButton>
             
-            <ActionPanelButton
-              :to="`/events/${event.id}/countdown`"
-              target="_blank"
-              :icon="ClockIcon"
-              variant="rose"  
-              class="w-full"
-            >
-              Compte à rebours
-            </ActionPanelButton>
+            <DocsHint path="/affichages-compte-a-rebours-mur" search="Compte à rebours">
+              <ActionPanelButton
+                :to="`/events/${event.id}/countdown`"
+                target="_blank"
+                :icon="ClockIcon"
+                variant="rose"
+                class="w-full"
+              >
+                Compte à rebours
+              </ActionPanelButton>
+            </DocsHint>
         </ActionPanel>
 
         <!-- HelloAsso Payment Form -->

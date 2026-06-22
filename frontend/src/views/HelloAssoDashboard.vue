@@ -5,7 +5,9 @@
         <div class="flex items-center gap-3">
           <CreditCardIcon class="h-7 w-7 text-green-600" />
           <div>
-            <h1 class="text-2xl font-bold tracking-tight text-gray-900">Paiements HelloAsso</h1>
+            <DocsHint path="/tableau-de-bord-tresorerie" search="tableau de bord trésorerie">
+              <h1 class="text-2xl font-bold tracking-tight text-gray-900">Paiements HelloAsso</h1>
+            </DocsHint>
             <p class="text-sm text-gray-500 mt-0.5">Formulaires de paiement de vos organisations</p>
           </div>
         </div>

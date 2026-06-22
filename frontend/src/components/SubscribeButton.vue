@@ -1,15 +1,17 @@
 <template>
-  <ActionPanelButton 
-    @click="toggleSubscription"
-    :disabled="loading"
-    :variant="isSubscribed ? 'neutral' : 'amber'"
-    :icon="isSubscribed ? BellSlashIcon : BellIcon"
-    :class="[
-      loading ? 'opacity-50 cursor-not-allowed' : ''
-    ]"
-  >
-    {{ isSubscribed ? 'Se désabonner' : 'S\'abonner' }}
-  </ActionPanelButton>
+  <DocsHint path="/s-abonner" search="S'abonner">
+    <ActionPanelButton
+      @click="toggleSubscription"
+      :disabled="loading"
+      :variant="isSubscribed ? 'neutral' : 'amber'"
+      :icon="isSubscribed ? BellSlashIcon : BellIcon"
+      :class="[
+        loading ? 'opacity-50 cursor-not-allowed' : ''
+      ]"
+    >
+      {{ isSubscribed ? 'Se désabonner' : 'S\'abonner' }}
+    </ActionPanelButton>
+  </DocsHint>
 </template>
 
 <script setup lang="ts">

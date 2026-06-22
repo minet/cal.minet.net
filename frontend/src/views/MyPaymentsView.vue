@@ -1,10 +1,12 @@
 <template>
   <div class="max-w-2xl mx-auto px-4 py-8">
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-gray-900 flex items-center gap-2">
-        <TicketIcon class="h-6 w-6 text-green-600" />
-        Mes paiements
-      </h1>
+      <DocsHint path="/mes-paiements" search="Mes billets et paiements">
+        <h1 class="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <TicketIcon class="h-6 w-6 text-green-600" />
+          Mes paiements
+        </h1>
+      </DocsHint>
       <button
         v-if="hasPending"
         @click="refresh"

@@ -2,7 +2,9 @@
   <div class="max-w-6xl mx-auto">
     <header class="bg-white shadow-sm rounded-lg mb-6">
       <div class="px-4 py-6 sm:px-6 lg:px-8">
-        <h1 class="text-3xl font-bold tracking-tight text-gray-900">Demandes d'approbation</h1>
+        <DocsHint path="/approbations" search="Approuver les événements">
+          <h1 class="text-3xl font-bold tracking-tight text-gray-900">Demandes d'approbation</h1>
+        </DocsHint>
         <p class="mt-2 text-sm text-gray-600">Événements en attente de validation</p>
       </div>
     </header>

@@ -2,7 +2,9 @@
   <div class="px-4 py-6 sm:px-6 lg:px-8">
     <div class="sm:flex sm:items-center">
       <div class="sm:flex-auto">
-        <h1 class="text-2xl font-semibold text-gray-900">Options de l'instance</h1>
+        <DocsHint path="/administration-instance" search="Maintenance de l'instance">
+          <h1 class="text-2xl font-semibold text-gray-900">Options de l'instance</h1>
+        </DocsHint>
         <p class="mt-2 text-sm text-gray-700">Gérez les paramètres globaux de l'instance et exportez des données.</p>
       </div>
     </div>

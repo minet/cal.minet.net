@@ -3,7 +3,9 @@
     <header class="bg-white shadow-sm rounded-lg mb-6">
       <div class="px-4 py-6 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0">
         <div>
-          <h1 class="text-3xl font-bold tracking-tight text-gray-900">Tags de l'organisation</h1>
+          <DocsHint path="/tags-organisation" search="Gérer les tags d'une organisation">
+            <h1 class="text-3xl font-bold tracking-tight text-gray-900">Tags de l'organisation</h1>
+          </DocsHint>
           <p class="mt-2 text-sm text-gray-600">{{ organization?.name }}</p>
         </div>
         <button

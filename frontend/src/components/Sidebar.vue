@@ -8,17 +8,19 @@
         </router-link>
 
       </div>
-      <router-link @click="closeSidebar" v-if="user" to="/profile" class="flex items-center space-x-3 hover:bg-gray-50 p-2 -m-2 rounded-lg transition-colors group">
-        <UserAvatar 
+      <DocsHint path="/mon-profil" search="Photo de profil">
+        <router-link @click="closeSidebar" v-if="user" to="/profile" class="flex items-center space-x-3 hover:bg-gray-50 p-2 -m-2 rounded-lg transition-colors group">
+          <UserAvatar
           :src="resolveMediaUrl(user.profile_picture_file, 80) ?? user.profile_picture_url ?? undefined"
-          :name="user.full_name || user.email" 
-          size="md" 
-        />
-        <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-gray-900 truncate group-hover:text-indigo-600 transition-colors">{{ user.full_name || user.email }}</p>
-          <p class="text-xs text-gray-500 truncate">Voir mon profil</p>
-        </div>
-      </router-link>
+          :name="user.full_name || user.email"
+          size="md"
+          />
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900 truncate group-hover:text-indigo-600 transition-colors">{{ user.full_name || user.email }}</p>
+            <p class="text-xs text-gray-500 truncate">Voir mon profil</p>
+          </div>
+        </router-link>
+      </DocsHint>
     </div>
 
     <!-- Navigation Links -->
@@ -27,44 +29,52 @@
       <div>
         <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Accès rapide</h4>
         <nav class="space-y-1">
-          <router-link @click="closeSidebar" to="/" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-slate-50 hover:text-slate-700">
-            <NewspaperIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-slate-500 transition-colors" />
-            À venir
-          </router-link>
+          <DocsHint path="/decouvrir-evenements" search="À venir">
+            <router-link @click="closeSidebar" to="/" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-slate-50 hover:text-slate-700">
+              <NewspaperIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-slate-500 transition-colors" />
+              À venir
+            </router-link>
+          </DocsHint>
 
-          <router-link @click="closeSidebar" 
-            v-if="isSuperAdmin || organizations.length > 0"
-            to="/events/create" 
-            class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-indigo-50 hover:text-indigo-700"
-          >
-            <PlusIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-indigo-500 transition-colors" />
-            Nouvel événement
-          </router-link>
-
-          <router-link @click="closeSidebar"
-            to="/my-payments"
-            class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700"
-          >
-            <TicketIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-green-500 transition-colors" />
-            Paiements
-          </router-link>
-
-          <router-link @click="closeSidebar"
-            v-if="isSuperAdmin || organizations.length > 0"
-            to="/my-events"
-            class="group flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-slate-50 hover:text-slate-700"
-          >
-            <div class="flex items-center">
-              <TicketIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-slate-500 transition-colors" />
-              Mes événements
-            </div>
-            <span 
-              v-if="(user?.rejected_events_count ?? 0) > 0" 
-              class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800"
+          <DocsHint path="/creer-un-evenement" search="Nouvel événement">
+            <router-link @click="closeSidebar"
+              v-if="isSuperAdmin || organizations.length > 0"
+              to="/events/create"
+              class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-indigo-50 hover:text-indigo-700"
             >
-              {{ user?.rejected_events_count }}
-            </span>
-          </router-link>
+              <PlusIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-indigo-500 transition-colors" />
+              Nouvel événement
+            </router-link>
+          </DocsHint>
+
+          <DocsHint path="/mes-paiements" search="billets">
+            <router-link @click="closeSidebar"
+              to="/my-payments"
+              class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700"
+            >
+              <TicketIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-green-500 transition-colors" />
+              Paiements
+            </router-link>
+          </DocsHint>
+
+          <DocsHint path="/modifier-supprimer-evenement" search="Mes événements">
+            <router-link @click="closeSidebar"
+              v-if="isSuperAdmin || organizations.length > 0"
+              to="/my-events"
+              class="group flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-slate-50 hover:text-slate-700"
+            >
+              <div class="flex items-center">
+                <TicketIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-slate-500 transition-colors" />
+                Mes événements
+              </div>
+              <span
+                v-if="(user?.rejected_events_count ?? 0) > 0"
+                class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800"
+              >
+                {{ user?.rejected_events_count }}
+              </span>
+            </router-link>
+          </DocsHint>
 
         </nav>
       </div>
@@ -74,46 +84,56 @@
         <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Administration</h4>
         <nav class="space-y-1">
           <template v-if="isSuperAdmin">
-            <router-link @click="closeSidebar"
-              to="/approval-requests"
-              class="group flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-amber-50 hover:text-amber-700"
-            >
-              <div class="flex items-center">
-                <ClipboardDocumentCheckIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-amber-500 transition-colors" />
-                Approbations
-              </div>
-              <span
-                v-if="(user?.pending_approvals_count ?? 0) > 0"
-                class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"
+            <DocsHint path="/approbations" search="Approuver les événements">
+              <router-link @click="closeSidebar"
+                to="/approval-requests"
+                class="group flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-amber-50 hover:text-amber-700"
               >
-                {{ user?.pending_approvals_count }}
-              </span>
-            </router-link>
+                <div class="flex items-center">
+                  <ClipboardDocumentCheckIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-amber-500 transition-colors" />
+                  Approbations
+                </div>
+                <span
+                  v-if="(user?.pending_approvals_count ?? 0) > 0"
+                  class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"
+                >
+                  {{ user?.pending_approvals_count }}
+                </span>
+              </router-link>
+            </DocsHint>
 
-            <router-link @click="closeSidebar" to="/admin/users" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-gray-900">
-              <UsersIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-gray-500 transition-colors" />
-              Utilisateurs
-            </router-link>
+            <DocsHint path="/gerer-les-utilisateurs" search="utilisateurs">
+              <router-link @click="closeSidebar" to="/admin/users" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-gray-900">
+                <UsersIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-gray-500 transition-colors" />
+                Utilisateurs
+              </router-link>
+            </DocsHint>
 
-            <router-link @click="closeSidebar" to="/admin/tags" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-gray-900">
-              <TagIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-gray-500 transition-colors" />
-              Tags
-            </router-link>
+            <DocsHint path="/approbations" search="auto-approuvés">
+              <router-link @click="closeSidebar" to="/admin/tags" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-gray-900">
+                <TagIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-gray-500 transition-colors" />
+                Tags
+              </router-link>
+            </DocsHint>
 
-            <router-link @click="closeSidebar" to="/admin/instance" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-gray-900">
-              <WrenchScrewdriverIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-gray-500 transition-colors" />
-              Instance
-            </router-link>
+            <DocsHint path="/administration-instance" search="Instance">
+              <router-link @click="closeSidebar" to="/admin/instance" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-gray-900">
+                <WrenchScrewdriverIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-gray-500 transition-colors" />
+                Instance
+              </router-link>
+            </DocsHint>
           </template>
 
-          <router-link @click="closeSidebar"
-            v-if="showTreasuryLink"
-            to="/payments"
-            class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700"
-          >
-            <CreditCardIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-green-500 transition-colors" />
-            Trésorerie
-          </router-link>
+          <DocsHint path="/tableau-de-bord-tresorerie" search="trésorerie">
+            <router-link @click="closeSidebar"
+              v-if="showTreasuryLink"
+              to="/payments"
+              class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-700"
+            >
+              <CreditCardIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-green-500 transition-colors" />
+              Trésorerie
+            </router-link>
+          </DocsHint>
 
         </nav>
       </div>
@@ -122,25 +142,33 @@
       <div>
         <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Découvrir</h4>
         <nav class="space-y-1">
-          <router-link @click="closeSidebar" to="/dashboard" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-emerald-50 hover:text-emerald-700">
-            <CalendarIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-emerald-500 transition-colors" />
-            Calendrier
-          </router-link>
+          <DocsHint path="/exporter-calendrier-ics" search="calendrier">
+            <router-link @click="closeSidebar" to="/dashboard" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-emerald-50 hover:text-emerald-700">
+              <CalendarIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-emerald-500 transition-colors" />
+              Calendrier
+            </router-link>
+          </DocsHint>
 
-          <router-link @click="closeSidebar" to="/events" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-pink-50 hover:text-pink-700">
-            <CalendarDaysIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-pink-500 transition-colors" />
-            Tous les événements
-          </router-link>
+          <DocsHint path="/decouvrir-evenements" search="Tous les événements">
+            <router-link @click="closeSidebar" to="/events" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-pink-50 hover:text-pink-700">
+              <CalendarDaysIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-pink-500 transition-colors" />
+              Tous les événements
+            </router-link>
+          </DocsHint>
 
-          <router-link @click="closeSidebar" to="/subscriptions" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-purple-50 hover:text-purple-700">
-            <BellIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-purple-500 transition-colors" />
-            Mes abonnements
-          </router-link>
+          <DocsHint path="/s-abonner" search="abonnements">
+            <router-link @click="closeSidebar" to="/subscriptions" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-purple-50 hover:text-purple-700">
+              <BellIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-purple-500 transition-colors" />
+              Mes abonnements
+            </router-link>
+          </DocsHint>
 
-          <router-link @click="closeSidebar" to="/organizations" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700">
-            <BuildingOfficeIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-blue-500 transition-colors" />
-            Toutes les organisations
-          </router-link>
+          <DocsHint path="/s-abonner" search="organisation">
+            <router-link @click="closeSidebar" to="/organizations" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700">
+              <BuildingOfficeIcon class="h-5 w-5 mr-3 text-gray-400 group-hover:text-blue-500 transition-colors" />
+              Toutes les organisations
+            </router-link>
+          </DocsHint>
         </nav>
       </div>
     </div>
@@ -168,9 +196,11 @@
               </div>
             </router-link>
             <div class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <router-link @click="closeSidebar" :to="`/organizations/${org.id}/edit`" class="p-1 text-gray-400 hover:text-indigo-600" title="Modifier">
-                <Cog6ToothIcon class="h-4 w-4" />
-              </router-link>
+              <DocsHint path="/personnaliser-organisation" search="Personnaliser">
+                <router-link @click="closeSidebar" :to="`/organizations/${org.id}/edit`" class="p-1 text-gray-400 hover:text-indigo-600" title="Modifier">
+                  <Cog6ToothIcon class="h-4 w-4" />
+                </router-link>
+              </DocsHint>
             </div>
           </div>
         </div>
@@ -179,6 +209,11 @@
 
     <!-- Logout Button & Feedback -->
     <div class="p-6 border-t border-gray-200 space-y-3">
+      <router-link @click="closeSidebar" to="/docs" class="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-cyan-700 bg-cyan-50 rounded-lg hover:bg-cyan-100 transition-colors">
+        <QuestionMarkCircleIcon class="h-5 w-5 mr-2" />
+        Documentation
+      </router-link>
+
       <a href="https://nextcloud.minet.net/apps/forms/s/Mm9iosAoo8H9DaPs67Li9z6p" target="_blank" class="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors">
         <ChatBubbleBottomCenterTextIcon class="h-5 w-5 mr-2" />
         Bug / Suggestion
@@ -210,6 +245,7 @@ import UserAvatar from './UserAvatar.vue'
 import MinetIcon from './MinetIcon.vue'
 import { resolveMediaUrl } from '../utils/media'
 import type { OrganizationRead } from '@/api/types'
+import DocsHint from './DocsHint.vue'
 import {
   XMarkIcon,
   PlusIcon,
@@ -226,7 +262,8 @@ import {
   TagIcon,
   CreditCardIcon,
   WrenchScrewdriverIcon,
-  ChatBubbleBottomCenterTextIcon
+  ChatBubbleBottomCenterTextIcon,
+  QuestionMarkCircleIcon
 } from '@heroicons/vue/24/outline'
 
 const props = defineProps({

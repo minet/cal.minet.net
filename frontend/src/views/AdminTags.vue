@@ -1,6 +1,8 @@
 <template>
   <div>
-    <h1 class="text-2xl font-bold text-gray-900 mb-6">Gestion des tags</h1>
+    <DocsHint path="/approbations" search="auto-approuvés">
+      <h1 class="text-2xl font-bold text-gray-900 mb-6">Gestion des tags</h1>
+    </DocsHint>
     
     <div class="mb-6">
         <OrganizationSelector 

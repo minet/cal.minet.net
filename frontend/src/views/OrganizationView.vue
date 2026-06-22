@@ -33,37 +33,49 @@
     </header>
 
     <ActionPanel title="Actions" content-class="flex flex-col lg:flex-row lg:flex-wrap lg:gap-3 lg:space-y-0">
-      <ActionPanelButton v-if="isMember || (user && user.is_superadmin)" @click="showOrgShareModal = true"
-        :icon="ShareIcon" variant="indigo" class="w-full lg:w-auto">
-        Partager
-      </ActionPanelButton>
+      <DocsHint path="/partager" search="Partager une organisation">
+        <ActionPanelButton v-if="isMember || (user && user.is_superadmin)" @click="showOrgShareModal = true"
+          :icon="ShareIcon" variant="indigo" class="w-full lg:w-auto">
+          Partager
+        </ActionPanelButton>
+      </DocsHint>
 
       <SubscribeButton v-if="!isMember" :organization-id="organization.id" class="w-full lg:w-auto" />
 
-      <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/tags`" :icon="TagIcon" variant="violet"
-        class="w-full lg:w-auto">
-        Tags
-      </ActionPanelButton>
+      <DocsHint path="/tags-organisation" search="tags">
+        <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/tags`" :icon="TagIcon" variant="violet"
+          class="w-full lg:w-auto">
+          Tags
+        </ActionPanelButton>
+      </DocsHint>
 
-      <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/groups`" :icon="UsersIcon"
-        variant="purple" class="w-full lg:w-auto">
-        Groupes
-      </ActionPanelButton>
+      <DocsHint path="/groupes-evenements" search="groupes">
+        <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/groups`" :icon="UsersIcon"
+          variant="purple" class="w-full lg:w-auto">
+          Groupes
+        </ActionPanelButton>
+      </DocsHint>
 
-      <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/members`" :icon="UserGroupIcon"
-        variant="fuchsia" class="w-full lg:w-auto">
-        Membres
-      </ActionPanelButton>
+      <DocsHint path="/gerer-les-membres" search="membres">
+        <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/members`" :icon="UserGroupIcon"
+          variant="fuchsia" class="w-full lg:w-auto">
+          Membres
+        </ActionPanelButton>
+      </DocsHint>
 
-      <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/helloasso`" :icon="CreditCardIcon"
-        variant="pink" class="w-full lg:w-auto">
-        HelloAsso
-      </ActionPanelButton>
+      <DocsHint path="/configurer-helloasso" search="HelloAsso">
+        <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/helloasso`" :icon="CreditCardIcon"
+          variant="pink" class="w-full lg:w-auto">
+          HelloAsso
+        </ActionPanelButton>
+      </DocsHint>
 
-      <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/edit`" :icon="PencilIcon" variant="rose"
-        class="w-full lg:w-auto">
-        Modifier
-      </ActionPanelButton>
+      <DocsHint path="/personnaliser-organisation" search="Personnaliser">
+        <ActionPanelButton v-if="canEdit" :to="`/organizations/${organization.id}/edit`" :icon="PencilIcon" variant="rose"
+          class="w-full lg:w-auto">
+          Modifier
+        </ActionPanelButton>
+      </DocsHint>
 
       <template #footer>
         <p v-if="!isMember" class="text-xs text-gray-500 mt-2 text-center">

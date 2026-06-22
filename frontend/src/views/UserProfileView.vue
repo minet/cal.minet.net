@@ -188,7 +188,9 @@
             <div v-if="isCurrentUser && !isEditing" class="sm:col-span-2 border-t border-gray-100 pt-4 mt-2">
               <dt class="text-sm font-medium text-gray-500 mb-1">Calendrier personnel (ICS)</dt>
               <dd class="mt-1">
-                <AddToCalendar ref="addToCalendarRef" :url="icsUrl" />
+                <DocsHint path="/exporter-calendrier-ics" search="ICS">
+                  <AddToCalendar ref="addToCalendarRef" :url="icsUrl" />
+                </DocsHint>
                 <p class="mt-1 text-xs text-gray-500">Synchronisez vos événements avec votre application de calendrier
                   préférée.</p>
               </dd>
@@ -262,11 +264,13 @@
             événements
             apparaissent dans votre calendrier.
           </p>
-          <router-link to="/subscriptions"
-            class="inline-flex items-center text-sm font-semibold text-indigo-600 hover:text-indigo-500">
-            Gérer mes abonnements
-            <ArrowRightIcon class="ml-1 h-4 w-4" />
-          </router-link>
+          <DocsHint path="/s-abonner" search="abonnements">
+            <router-link to="/subscriptions"
+              class="inline-flex items-center text-sm font-semibold text-indigo-600 hover:text-indigo-500">
+              Gérer mes abonnements
+              <ArrowRightIcon class="ml-1 h-4 w-4" />
+            </router-link>
+          </DocsHint>
         </div>
       </div>
 
@@ -281,14 +285,16 @@
           <p class="text-sm text-gray-500 mb-4 max-w-2xl">
             Activez les notifications push sur cet appareil pour être averti des événements à venir.
           </p>
-          <button @click="toggleNotifications" :class="[
-            notificationsEnabled
-              ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
-              : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500',
-            'inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white focus:outline-none focus:ring-2 focus:ring-offset-2'
-          ]">
-            {{ notificationsEnabled ? 'Désactiver les notifications' : 'Activer les notifications' }}
-          </button>
+          <DocsHint path="/mes-notifications" search="notifications push">
+            <button @click="toggleNotifications" :class="[
+              notificationsEnabled
+                ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
+                : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500',
+              'inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white focus:outline-none focus:ring-2 focus:ring-offset-2'
+            ]">
+              {{ notificationsEnabled ? 'Désactiver les notifications' : 'Activer les notifications' }}
+            </button>
+          </DocsHint>
         </div>
       </div>
     </div>

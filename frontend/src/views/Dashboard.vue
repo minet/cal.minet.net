@@ -3,7 +3,9 @@
     <header class="bg-white shadow-sm rounded-lg mb-6">
       <div class="px-4 py-6 sm:px-6 lg:px-8 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 sm:gap-0">
         <div class="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
-          <h1 class="text-3xl font-bold tracking-tight text-gray-900">Calendrier</h1>
+          <DocsHint path="/exporter-calendrier-ics" search="Exporter mon calendrier">
+            <h1 class="text-3xl font-bold tracking-tight text-gray-900">Calendrier</h1>
+          </DocsHint>
           <div class="flex items-center justify-center sm:justify-start space-x-2 w-full sm:w-auto">
             <button @click="previousPeriod" class="p-2 hover:bg-gray-100 rounded-lg">
               <ChevronLeftIcon class="h-5 w-5 text-gray-600" />
