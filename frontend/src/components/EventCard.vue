@@ -1,5 +1,6 @@
 <template>
-  <div 
+  <DocsHint path="/decouvrir-evenements" search="Découvrir les événements">
+  <div
     class="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 h-full flex flex-col cursor-pointer"
     @click="navigateToEvent"
     :class="{
@@ -171,6 +172,7 @@
       </div>
     </div>
   </div>
+  </DocsHint>
 </template>
 
 <script setup lang="ts">

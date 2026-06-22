@@ -1,4 +1,5 @@
 <template>
+  <DocsHint path="/visibilite-evenement" search="La visibilité d'un événement">
   <div>
     <label class="block text-sm font-medium text-gray-700 mb-3">Visibilité de l'événement</label>
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -222,6 +223,7 @@
       />
     </div>
   </div>
+  </DocsHint>
 </template>
 
 <script setup lang="ts">

@@ -1,4 +1,5 @@
 <template>
+  <DocsHint path="/affichages-compte-a-rebours-mur" search="Compte à rebours">
   <div class="text-center">
     <div v-if="isPast" class="text-5xl md:text-7xl font-bold text-white">
       L'événement a commencé !
@@ -15,6 +16,7 @@
       </div>
     </div>
   </div>
+  </DocsHint>
 </template>
 
 <script setup lang="ts">

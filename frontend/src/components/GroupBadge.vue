@@ -1,5 +1,6 @@
 <template>
-  <div 
+  <DocsHint path="/groupes-evenements" search="Les groupes d'une organisation">
+  <div
     class="inline-flex items-center rounded-lg border border-gray-200 bg-white hover:border-gray-300 transition-all duration-200 overflow-hidden pr-2 pl-1 py-1 shadow-sm"
   >
     <!-- Left: Organization Logo -->
@@ -25,6 +26,7 @@
       <XMarkIcon class="h-4 w-4" />
     </button>
   </div>
+  </DocsHint>
 </template>
 
 <script setup lang="ts">

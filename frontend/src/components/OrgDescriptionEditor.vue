@@ -1,4 +1,5 @@
 <template>
+  <DocsHint path="/personnaliser-organisation" search="description">
   <div class="org-description-editor">
     <!-- Toolbar -->
     <div class="flex flex-wrap items-center gap-2 mb-2 p-2 bg-gray-50 rounded-t-lg border border-b-0 border-gray-200">
@@ -96,6 +97,7 @@
       <code>![alt](url)</code>
     </p>
   </div>
+  </DocsHint>
 </template>
 
 <script setup lang="ts">

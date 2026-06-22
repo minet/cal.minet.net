@@ -1,12 +1,14 @@
 <template>
   <div>
-    <button
-      @click="isOpen = true"
-      class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-    >
-      <CalendarIcon class="h-5 w-5 mr-2" />
-      S'abonner au calendrier
-    </button>
+    <DocsHint path="/exporter-calendrier-ics" search="S'abonner au calendrier">
+      <button
+        @click="isOpen = true"
+        class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+      >
+        <CalendarIcon class="h-5 w-5 mr-2" />
+        S'abonner au calendrier
+      </button>
+    </DocsHint>
 
     <TransitionRoot appear :show="isOpen" as="template">
       <Dialog as="div" @close="closeModal" class="relative z-50">

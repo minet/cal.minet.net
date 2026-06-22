@@ -1,4 +1,5 @@
 <template>
+  <DocsHint path="/creer-un-evenement" search="dates de début et de fin">
   <div class="bg-gray-50 p-4 rounded-lg">
     <div class="flex items-center justify-between mb-4">
       <h3 class="text-sm font-medium text-gray-900">Date et Heure</h3>
@@ -131,6 +132,7 @@
     
     <slot name="footer"></slot>
   </div>
+  </DocsHint>
 </template>
 
 <script setup lang="ts">

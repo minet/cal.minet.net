@@ -1,4 +1,5 @@
 <template>
+  <DocsHint path="/s-abonner" search="S'abonner à une organisation">
   <router-link
     v-if="clickable"
     :to="`/organizations/${organization.id}`"
@@ -103,6 +104,7 @@
       <slot name="side" />
     </div>
   </div>
+  </DocsHint>
 </template>
 
 <script setup lang="ts">

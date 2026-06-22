@@ -25,8 +25,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, cloneVNode, Fragment, h, useSlots } from 'vue'
+import { computed, onBeforeUnmount, ref, cloneVNode, Fragment, h, mergeProps, useAttrs, useSlots } from 'vue'
 import { QuestionMarkCircleIcon } from '@heroicons/vue/24/outline'
+
+// We attach our listeners (and forward fallthrough attrs) onto the wrapped element
+// ourselves, so disable Vue's automatic attribute inheritance to avoid double-applying
+// or losing them when DocsHint is a component's root (it renders a Teleport too).
+defineOptions({ inheritAttrs: false })
 
 const props = withDefaults(
   defineProps<{
@@ -130,6 +135,7 @@ function onPopupClick(): void {
 // Renderless Wrapper: Grabs the inner element and attaches events to it
 // -----------------------------------------------------------------------------
 const slots = useSlots()
+const attrs = useAttrs()
 
 const SlotWrapper = () => {
   const children = slots.default?.()
@@ -149,8 +155,9 @@ const SlotWrapper = () => {
       // 2. Look for the first valid HTML Element ('string') or Vue Component ('object' / 'function')
       if (typeof node.type === 'string' || typeof node.type === 'object' || typeof node.type === 'function') {
         attached = true
-        // 3. Inject our events and refs directly into that child element
-        return cloneVNode(node, {
+        // 3. Inject our events + ref, and forward any fallthrough attributes (class, style…)
+        //    so wrapping an element stays visually transparent for its parent.
+        return cloneVNode(node, mergeProps(attrs, {
           ref: (el: any) => {
             if (!el) {
               rootEl.value = null
@@ -160,8 +167,8 @@ const SlotWrapper = () => {
           },
           onMouseover: onMouseOver,
           onMouseout: onMouseOut,
-          onMousemove: onMouseMove
-        })
+          onMousemove: onMouseMove,
+        }), true)
       }
 
       return node

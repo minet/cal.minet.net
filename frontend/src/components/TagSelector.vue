@@ -1,4 +1,5 @@
 <template>
+  <DocsHint path="/creer-un-evenement" search="tags">
   <div>
     <label class="block text-sm font-medium text-gray-700 mb-2">Tags</label>
     <div class="flex flex-wrap gap-2">
@@ -23,6 +24,7 @@
       </p>
     </div>
   </div>
+  </DocsHint>
 </template>
 
 <script setup lang="ts">

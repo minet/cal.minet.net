@@ -1,5 +1,6 @@
 <template>
-  <div 
+  <DocsHint path="/s-abonner" search="thème">
+  <div
     class="inline-flex items-center rounded-lg border transition-all duration-200 overflow-hidden pr-2 pl-1 py-1"
     :class="[
       subscribed ? 'border-transparent shadow-sm' : 'border-gray-200 bg-white hover:border-gray-300',
@@ -46,6 +47,7 @@
         </button>
     </div>
   </div>
+  </DocsHint>
 </template>
 
 <script setup lang="ts">

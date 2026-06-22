@@ -1,4 +1,5 @@
 <template>
+  <DocsHint path="/decouvrir-evenements" search="à la une">
   <div
     class="relative overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 group cursor-pointer h-64 sm:h-80"
     @click="router.push(`/events/${event.id}`)"
@@ -53,6 +54,7 @@
     <!-- Glowing border -->
     <div class="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/10 group-hover:ring-indigo-400/50 transition-colors" />
   </div>
+  </DocsHint>
 </template>
 
 <script setup lang="ts">

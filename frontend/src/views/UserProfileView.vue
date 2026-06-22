@@ -188,9 +188,7 @@
             <div v-if="isCurrentUser && !isEditing" class="sm:col-span-2 border-t border-gray-100 pt-4 mt-2">
               <dt class="text-sm font-medium text-gray-500 mb-1">Calendrier personnel (ICS)</dt>
               <dd class="mt-1">
-                <DocsHint path="/exporter-calendrier-ics" search="ICS">
-                  <AddToCalendar ref="addToCalendarRef" :url="icsUrl" />
-                </DocsHint>
+                <AddToCalendar ref="addToCalendarRef" :url="icsUrl" />
                 <p class="mt-1 text-xs text-gray-500">Synchronisez vos événements avec votre application de calendrier
                   préférée.</p>
               </dd>
