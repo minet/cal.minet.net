@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 from urllib.parse import urlparse
 from uuid import UUID
@@ -35,6 +35,10 @@ APP_TIMEZONE = tz.gettz(config.get("APP_TIMEZONE", default="UTC"))
 assert BASE_URL is not None, "APP_BASE_URL must be set in .env"
 assert config.get("SECRET_KEY") is not None, "SECRET_KEY must be set in .env"
 assert APP_TIMEZONE is not None, "APP_TIMEZONE must be a valid timezone"
+
+# How far back to include events (in months) depending on membership status
+ICS_MEMBER_HISTORY_MONTHS = int(config.get("ICS_MEMBER_HISTORY_MONTHS", default="24"))
+ICS_NON_MEMBER_HISTORY_MONTHS = int(config.get("ICS_NON_MEMBER_HISTORY_MONTHS", default="2"))
 
 
 def securekey_gen(user_id: str | UUID):
@@ -133,7 +137,22 @@ def export_user_calendar(
         # Apply strict visibility rules from events system to ensure consistency
         visibility_conditions = get_visibility_conditions(user, session)
 
-        query = select(Event).where(and_(or_(*conditions), visibility_conditions))
+        now_utc = datetime.now(timezone.utc)
+        cutoff_member = now_utc - timedelta(days=30 * ICS_MEMBER_HISTORY_MONTHS)
+        cutoff_non_member = now_utc - timedelta(days=30 * ICS_NON_MEMBER_HISTORY_MONTHS)
+
+        if member_org_ids:
+            time_condition = or_(
+                Event.start_time >= cutoff_non_member,
+                and_(
+                    col(Event.organization_id).in_(member_org_ids),
+                    Event.start_time >= cutoff_member,
+                ),
+            )
+        else:
+            time_condition = Event.start_time >= cutoff_non_member
+
+        query = select(Event).where(and_(or_(*conditions), visibility_conditions, time_condition))
         events = session.exec(query).unique().all()
 
     # Create iCalendar
