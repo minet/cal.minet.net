@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse
 from sqlmodel import Session, select, and_, or_, col, func, text
 from sqlalchemy.dialects.postgresql import INTERVAL
 from typing import List, Optional, Sequence, cast
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import os
 import io
@@ -54,6 +54,11 @@ from app.schemas import (
     PaginatedResponse,
 )
 from app.email.utils import send_email, render_email_template
+
+# How far back to show events (in months) depending on membership status.
+# Mirrors the cutoff applied to ICS calendar exports (see app/api/ics.py).
+HISTORY_MEMBER_MONTHS = int(os.getenv("ICS_MEMBER_HISTORY_MONTHS", "24"))
+HISTORY_NON_MEMBER_MONTHS = int(os.getenv("ICS_NON_MEMBER_HISTORY_MONTHS", "2"))
 
 router = APIRouter()
 
@@ -674,6 +679,39 @@ def get_visibility_conditions(current_user: Optional[User], session: Session):
     return or_(*conditions)
 
 
+
+
+def get_history_cutoff_condition(current_user: Optional[User], session: Session):
+    """Build a time condition hiding events that are too old to be relevant.
+
+    Non-members only see recent history, members see further back for their own
+    organizations. Superadmins are exempt and see everything (returns None).
+    """
+    if current_user and current_user.is_superadmin:
+        return None
+
+    now_utc = datetime.now(timezone.utc)
+    cutoff_member = now_utc - timedelta(days=30 * HISTORY_MEMBER_MONTHS)
+    cutoff_non_member = now_utc - timedelta(days=30 * HISTORY_NON_MEMBER_MONTHS)
+
+    member_org_ids: list = []
+    if current_user:
+        memberships = session.exec(
+            select(Membership).where(Membership.user_id == current_user.id)
+        ).all()
+        member_org_ids = [m.organization_id for m in memberships]
+
+    if member_org_ids:
+        return or_(
+            Event.start_time >= cutoff_non_member,
+            and_(
+                col(Event.organization_id).in_(member_org_ids),
+                Event.start_time >= cutoff_member,
+            ),
+        )
+    return Event.start_time >= cutoff_non_member
+
+
 @router.get("/", response_model=PaginatedResponse[EventRead])
 def list_events(
     page: int = 1,
@@ -699,6 +737,11 @@ def list_events(
     visibility_cond = get_visibility_conditions(current_user, session)
     if visibility_cond is not None:
         query = query.where(visibility_cond)
+
+    # Hide events that are too old (except for superadmins), mirroring ICS export
+    history_cond = get_history_cutoff_condition(current_user, session)
+    if history_cond is not None:
+        query = query.where(history_cond)
 
     # Execute Count Query
     count_query = select(func.count()).select_from(query.subquery())
