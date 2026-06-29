@@ -142,7 +142,10 @@ def _require_org_admin(org_id: UUID, current_user: User, session: Session) -> No
         select(Membership).where(
             Membership.user_id == current_user.id,
             Membership.organization_id == org_id,
-            Membership.can_manage_payment_forms,
+            or_(
+                Membership.can_manage_payment_forms,
+                Membership.role == Role.ORG_ADMIN
+            )
         )
     ).first()
     if not membership:
