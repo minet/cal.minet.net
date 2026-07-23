@@ -219,7 +219,10 @@ def visit_short_link(short_id: str, session: Session = Depends(get_session)):
         if event:
             og_title = event.title
             og_type = "article"
-            start_local = event.start_time.astimezone(_app_tz())
+            event_start = event.start_time
+            if event_start.tzinfo is None:
+                event_start = event_start.replace(tzinfo=timezone.utc)
+            start_local = event_start.astimezone(_app_tz())
 
             desc_parts = []
             if event.description:
@@ -344,7 +347,12 @@ def get_link_info(
                 raise HTTPException(status_code=403, detail=reason)
             title = event.title
             # Maybe show date in description?
-            description = f"Date: {event.start_time.strftime('%d/%m/%Y %H:%M')}"
+            event_start = event.start_time
+            if event_start.tzinfo is None:
+                event_start = event_start.replace(tzinfo=timezone.utc)
+            description = (
+                f"Date: {event_start.astimezone(_app_tz()).strftime('%d/%m/%Y %H:%M')}"
+            )
             if event.organization:
                 if event.organization.logo_file_id:
                     lf = session.get(StoredFile, event.organization.logo_file_id)

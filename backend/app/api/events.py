@@ -369,8 +369,15 @@ def export_events(
         creator = session.get(User, event.created_by_id)
         creator_name = creator.full_name if creator else "Inconnu"
 
-        start_local = event.start_time.astimezone(tz)
-        end_local = event.end_time.astimezone(tz)
+        event_start = event.start_time
+        if event_start.tzinfo is None:
+            event_start = event_start.replace(tzinfo=timezone.utc)
+        event_end = event.end_time
+        if event_end.tzinfo is None:
+            event_end = event_end.replace(tzinfo=timezone.utc)
+
+        start_local = event_start.astimezone(tz)
+        end_local = event_end.astimezone(tz)
 
         duration = event.end_time - event.start_time
         h, rem = divmod(duration.total_seconds(), 3600)
@@ -1174,13 +1181,17 @@ def approve_event(
         app_base_url = os.getenv("APP_BASE_URL", "https://cal.minet.net")
         event_url = f"{app_base_url}/events/{event.id}"
 
+        event_start = event.start_time
+        if event_start.tzinfo is None:
+            event_start = event_start.replace(tzinfo=timezone.utc)
+
         html_content = render_email_template(
             "event_approved.html",
             {
                 "project_name": "Calend'INT",
                 "user_name": creator.full_name or creator.email.split("@")[0],
                 "event_title": event.title,
-                "event_date": event.start_time.astimezone(_app_tz()).strftime(
+                "event_date": event_start.astimezone(_app_tz()).strftime(
                     "%d/%m/%Y à %H:%M"
                 ),
                 "event_location": event.location or "Non spécifié",
