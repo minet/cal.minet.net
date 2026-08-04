@@ -108,12 +108,12 @@ app.add_middleware(
     secret_key=os.getenv("SECRET_KEY", "your-secret-key-change-in-production-please-make-it-long-and-random")
 )
 
-# Allow other websites to do GET requests to API
+# Allow other websites to do GET requests to API, on public data only
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["GET"],
-    allow_headers=["*"],
+    allow_methods=["GET", "HEAD"],
+    allow_credentials=False,
 )
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
