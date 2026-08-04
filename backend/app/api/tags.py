@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 
 from app.api.auth import get_current_user
 from app.database import get_session
-from app.models import EventTag, Membership, Organization, Role, Tag, User
+from app.models import EventTag, Membership, Organization, Role, Subscription, Tag, User
 from app.schemas import TagRead
 
 router = APIRouter()
@@ -121,7 +121,43 @@ def update_tag(
         "color": tag.color
     }
 
- 
+@router.delete("/tags/{tag_id}")
+def delete_tag(
+    tag_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Delete a tag (org_admin only)"""
+    # Get tag
+    tag = session.get(Tag, UUID(tag_id))
+    if not tag:
+        raise HTTPException(status_code=404, detail="Tag not found")
+
+    # Check permissions
+    if not check_org_admin(current_user, str(tag.organization_id), session):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Delete event links
+    event_tags = session.exec(
+        select(EventTag).where(EventTag.tag_id == UUID(tag_id))
+    ).all()
+    for event_tag in event_tags:
+        session.delete(event_tag)
+
+    # Delete subscriptions to this tag
+    subscriptions = session.exec(
+        select(Subscription).where(Subscription.tag_id == UUID(tag_id))
+    ).all()
+    for subscription in subscriptions:
+        session.delete(subscription)
+    session.commit()
+
+    # Delete tag
+    session.delete(tag)
+    session.commit()
+
+    return {"message": "Tag deleted successfully"}
+
 
 @router.put("/tags/{tag_id}/auto-approve")
 def toggle_auto_approve(
