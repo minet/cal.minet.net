@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlmodel import Session
@@ -105,6 +106,14 @@ app = FastAPI(title="Calend'INT API", lifespan=lifespan, root_path="/api")
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SECRET_KEY", "your-secret-key-change-in-production-please-make-it-long-and-random")
+)
+
+# Allow other websites to do GET requests to API, on public data only
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "HEAD"],
+    allow_credentials=False,
 )
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
