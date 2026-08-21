@@ -98,4 +98,25 @@ export class OrganizationsApi {
     )
     return res.data
   }
+
+  /** POST /organizations/{org_id}/members/{membership_id}/transfer */
+  async transfer_membership(
+    orgId: string,
+    membershipId: string,
+    successors: { user_id: string; title?: string }[],
+  ): Promise<{ message: string; membership_ids: string[] }> {
+    const res = await httpClient.post<{ message: string; membership_ids: string[] }>(
+      `/organizations/${orgId}/members/${membershipId}/transfer`,
+      { successors },
+    )
+    return res.data
+  }
+
+  /** POST /organizations/{org_id}/members/{membership_id}/request-transfer */
+  async request_membership_transfer(orgId: string, membershipId: string): Promise<Message> {
+    const res = await httpClient.post<Message>(
+      `/organizations/${orgId}/members/${membershipId}/request-transfer`,
+    )
+    return res.data
+  }
 }

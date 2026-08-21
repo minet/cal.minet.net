@@ -46,6 +46,14 @@ L'opération de **ménage** :
 Les comptes peuvent être protégés de cette suppression via l'option d'**exemption RGPD**
 ([[gerer-les-utilisateurs]]).
 
+## Rappels de passation
+
+Le bouton **Envoyer les rappels de passation** envoie un e-mail à tous les
+administrateur·rice·s d'organisation en poste depuis plus de 8 mois, avec un lien direct
+vers la page de passation de chacune de leurs organisations (voir
+[[passation-de-mandat]]). Utile en fin d'année scolaire pour rattraper les organisations
+qui n'ont pas encore préparé leur relève.
+
 ## Tags auto-approuvés
 
 L'administration des tags **auto-approuvés** (publication d'événements sans validation) se

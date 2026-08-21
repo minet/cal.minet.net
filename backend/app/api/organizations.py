@@ -253,6 +253,154 @@ def remove_organization_member(
     
     return {"message": "Member removed successfully"}
 
+class MembershipTransferSuccessor(BaseModel):
+    user_id: str
+    title: Optional[str] = None
+
+
+class MembershipTransferRequest(BaseModel):
+    successors: List[MembershipTransferSuccessor]
+
+
+@router.post("/{org_id}/members/{membership_id}/transfer")
+def transfer_membership(
+    org_id: str,
+    membership_id: str,
+    request: MembershipTransferRequest,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Transfer a membership (a "post") to zero, one, or more successors.
+
+    The new membership(s) always inherit `role` and `can_manage_payment_forms` from the
+    source membership — these are never taken from the request body — so this cannot be
+    used to self-elevate or grant a role the caller doesn't already hold. Only `title`
+    (the human-readable post name) is caller-provided, so a handover can be re-gendered
+    (e.g. "Président" -> "Présidente") at the moment it's validated.
+
+    An empty successor list just removes the source membership (leave the org / drop the
+    post without handing it to anyone).
+    """
+    membership = session.get(Membership, membership_id)
+    if not membership or str(membership.organization_id) != org_id:
+        raise HTTPException(status_code=404, detail="Membership not found")
+
+    is_self = current_user.id == membership.user_id
+    if not is_self:
+        can_edit, reason = can_edit_organization(org_id, current_user, session)
+        if not can_edit:
+            raise HTTPException(status_code=403, detail=reason)
+
+    new_membership_ids: List[str] = []
+    for successor in request.successors:
+        try:
+            successor_user_id = UUID(successor.user_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid successor user_id")
+
+        successor_user = session.get(User, successor_user_id)
+        if not successor_user:
+            raise HTTPException(status_code=404, detail="Successor user not found")
+
+        existing = session.exec(
+            select(Membership).where(
+                Membership.user_id == successor_user_id,
+                Membership.organization_id == org_id,
+            )
+        ).first()
+
+        if existing:
+            raise HTTPException(status_code=400, detail="successor_already_member")
+
+        new_membership = Membership(
+            user_id=successor_user_id,
+            organization_id=org_id,  # type: ignore
+            role=membership.role,
+            title=successor.title or membership.title,
+            order=membership.order,
+            can_manage_payment_forms=membership.can_manage_payment_forms,
+        )
+        session.add(new_membership)
+        session.flush()
+        new_membership_ids.append(str(new_membership.id))
+
+    session.delete(membership)
+    session.commit()
+
+    message = "membership_transferred" if new_membership_ids else "membership_removed"
+    return {"message": message, "membership_ids": new_membership_ids}
+
+
+@router.post("/{org_id}/members/{membership_id}/request-transfer")
+def request_membership_transfer(
+    org_id: str,
+    membership_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Notify the current holder of a post that someone would like to take it over.
+
+    This never writes to the database: the mail link carries the membership id and the
+    requester's id as query params so the current holder's client can preselect them in
+    the transfer UI. The actual transfer still goes through `transfer_membership` with its
+    own permission check, so this endpoint cannot grant anything by itself.
+    """
+    import os
+
+    from app.email.utils import render_email_template, send_email
+
+    membership = session.get(Membership, membership_id)
+    if not membership or str(membership.organization_id) != org_id:
+        raise HTTPException(status_code=404, detail="Membership not found")
+
+    if current_user.id == membership.user_id:
+        raise HTTPException(status_code=400, detail="You already hold this post")
+
+    already_member = session.exec(
+        select(Membership).where(
+            Membership.user_id == current_user.id,
+            Membership.organization_id == org_id,
+        )
+    ).first()
+    if already_member:
+        raise HTTPException(
+            status_code=400,
+            detail="Vous êtes déjà membre de cette organisation",
+        )
+
+    holder = session.get(User, membership.user_id)
+    org = session.get(Organization, org_id)
+    if not holder or not org:
+        raise HTTPException(status_code=404, detail="Organization or holder not found")
+
+    app_base_url = os.getenv("APP_BASE_URL", "https://cal.minet.net")
+    transfer_url = (
+        f"{app_base_url}/organizations/{org_id}/members"
+        f"?transfer_membership={membership_id}&transfer_to={current_user.id}"
+    )
+
+    html_content = render_email_template(
+        "membership_transfer_request.html",
+        {
+            "project_name": "Calend'INT",
+            "year": datetime.now(timezone.utc).year,
+            "holder_name": holder.full_name or holder.email,
+            "requester_name": current_user.full_name or current_user.email,
+            "requester_email": current_user.email,
+            "organization_name": org.name,
+            "post_title": membership.title or "votre poste",
+            "transfer_url": transfer_url,
+        },
+    )
+    send_email(
+        holder.email,
+        f"Demande de passation - {org.name}",
+        html_content,
+    )
+
+    return {"message": "request_sent"}
+
+
 @router.get("/{org_id}/events", response_model=List[EventRead])
 def get_organization_events(
     org_id: str, 

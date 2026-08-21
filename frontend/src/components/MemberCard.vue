@@ -30,12 +30,20 @@
         <LinkIcon v-else class="h-4 w-4 text-gray-500" />
       </a>
     </div>
+
+    <!-- Request this post (non-members only) -->
+    <button v-if="showRequestTransfer" @click.prevent.stop="$emit('request-transfer', member)"
+      class="mt-2 flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800"
+      title="Demander à reprendre ce poste">
+      <UserPlusIcon class="h-3.5 w-3.5" />
+      Demander ce poste
+    </button>
   </router-link>
 </template>
 
 <script setup lang="ts">
 import UserAvatar from './UserAvatar.vue'
-import { LinkIcon, PhoneIcon } from '@heroicons/vue/24/outline'
+import { LinkIcon, PhoneIcon, UserPlusIcon } from '@heroicons/vue/24/outline'
 import { getSocialIcon } from '../utils/social'
 import { resolveMediaUrl } from '../utils/media.js'
 
@@ -44,8 +52,14 @@ defineProps({
     type: Object,
     required: true
     // Expected: { user_id, full_name, email, profile_picture_url, phone_number, title, role, links }
+  },
+  showRequestTransfer: {
+    type: Boolean,
+    default: false
   }
 })
+
+defineEmits(['request-transfer'])
 
 function openLink(url: string) {
   window.open(url, '_blank', 'noopener,noreferrer')

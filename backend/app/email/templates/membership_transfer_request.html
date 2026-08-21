@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Demande de passation</h2>
+
+<p>Bonjour {{ holder_name }},</p>
+
+<p><strong>{{ requester_name }}</strong> ({{ requester_email }}) souhaite reprendre le
+    poste <strong>« {{ post_title }} »</strong> au sein de <strong>{{ organization_name }}</strong>,
+    et vous demande de lui transférer votre place sur Calend'INT.</p>
+
+<p>Cet e-mail ne fait que vous prévenir de la demande : aucun transfert n'a été effectué.
+    C'est à vous de valider, ou non, la passation.</p>
+
+<div style="text-align: center;">
+    <a href="{{ transfer_url }}" class="button">Voir la demande et transférer mon poste</a>
+</div>
+
+<p style="margin-top: 20px; font-size: 0.9em; color: #6b7280;">
+    Pour rappel, ce message n'est qu'informatif : {{ requester_name }} a
+    cliqué sur « Demander ce poste » sur la page de {{ organization_name }}. Si vous ne
+    reconnaissez pas cette personne ou avez un doute, contactez un·e administrateur·rice de
+    l'organisation ou le/la secrétaire du BDE avant de valider quoi que ce soit.
+</p>
+{% endblock %}

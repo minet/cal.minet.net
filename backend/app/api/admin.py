@@ -331,6 +331,64 @@ async def housekeeping(
     return {"message": msg}
 
 
+@router.post("/mandate-reminders/send")
+async def send_mandate_reminders(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Email every org-admin who has held their post for more than 8 months, with a link
+    to the passation page for each organization they administer (superadmin only)."""
+    from collections import defaultdict
+    from datetime import timedelta, timezone
+
+    from app.email.utils import render_email_template, send_email
+    from app.models import Organization, Role
+
+    if not current_user.is_superadmin:
+        raise HTTPException(status_code=403, detail="Superadmin access required")
+
+    threshold = datetime.now(timezone.utc) - timedelta(days=8 * 30)
+
+    stale_admins = session.exec(
+        select(Membership).where(
+            Membership.role == Role.ORG_ADMIN,
+            col(Membership.created_at) <= threshold,
+        )
+    ).all()
+
+    orgs_by_user: dict[UUID, list[Organization]] = defaultdict(list)
+    for membership in stale_admins:
+        org = session.get(Organization, membership.organization_id)
+        if org:
+            orgs_by_user[membership.user_id].append(org)
+
+    app_base_url = os.getenv("APP_BASE_URL", "https://cal.minet.net")
+    sent = 0
+    for user_id, orgs in orgs_by_user.items():
+        user = session.get(User, user_id)
+        if not user:
+            continue
+        html_content = render_email_template(
+            "mandate_reminder.html",
+            {
+                "project_name": "Calend'INT",
+                "year": datetime.now(timezone.utc).year,
+                "user_name": user.full_name or user.email,
+                "organizations": [
+                    {
+                        "name": org.name,
+                        "transfer_url": f"{app_base_url}/organizations/{org.id}/members#mandate",
+                    }
+                    for org in orgs
+                ],
+            },
+        )
+        send_email(user.email, "Rappel : pensez à la passation de votre mandat", html_content)
+        sent += 1
+
+    return {"message": "reminders_sent", "count": sent}
+
+
 @router.get("/ldap/orphans", response_model=List[UserRead])
 async def get_ldap_orphaned_users(
     current_user: User = Depends(get_current_user),

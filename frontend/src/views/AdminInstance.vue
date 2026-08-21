@@ -27,6 +27,23 @@
         </div>
       </div>
 
+      <!-- Mandate Reminders Section -->
+      <div class="bg-white shadow sm:rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+          <h3 class="text-base font-semibold leading-6 text-gray-900">Rappels de passation</h3>
+          <div class="mt-2 max-w-xl text-sm text-gray-500">
+            <p>Envoyez un e-mail à tous les administrateur·rice·s d'organisation en poste depuis plus de 8 mois, avec un lien direct vers la passation de chacune de leurs organisations.</p>
+          </div>
+          <div class="mt-5">
+            <button @click="sendMandateReminders" :disabled="sendingReminders" type="button"
+              class="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50">
+              <EnvelopeIcon class="-ml-0.5 mr-1.5 h-5 w-5 text-gray-400" aria-hidden="true" />
+              {{ sendingReminders ? 'Envoi en cours...' : 'Envoyer les rappels de passation' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Export Section -->
       <div class="bg-white shadow sm:rounded-lg">
         <div class="px-4 py-5 sm:p-6">
@@ -330,7 +347,7 @@ import TextInput from '../components/TextInput.vue'
 import {
   Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot
 } from '@headlessui/vue'
-import { ArrowPathIcon, DocumentArrowDownIcon, TrashIcon, CalendarIcon, DocumentTextIcon, PlusIcon, PhotoIcon } from '@heroicons/vue/24/outline'
+import { ArrowPathIcon, DocumentArrowDownIcon, TrashIcon, CalendarIcon, DocumentTextIcon, PlusIcon, PhotoIcon, EnvelopeIcon } from '@heroicons/vue/24/outline'
 
 // LDAP Sync State
 const showSyncModal = ref(false)
@@ -445,6 +462,26 @@ const handleExport = async () => {
     alert('Erreur lors de l\'exportation des événements')
   } finally {
     exporting.value = false
+  }
+}
+
+// ─── Mandate reminders ──────────────────────────────────────────────────────
+
+const sendingReminders = ref(false)
+
+const sendMandateReminders = async () => {
+  if (!confirm("Envoyer un e-mail de rappel de passation à tous les administrateur·rice·s d'organisation en poste depuis plus de 8 mois ?")) return
+
+  sendingReminders.value = true
+  try {
+    const res = await api.admin.send_mandate_reminders()
+    alert(`Rappels envoyés à ${res.count} administrateur·rice·s.`)
+  } catch (e: unknown) {
+    console.error(e)
+    const detail = (e as any).response?.data?.detail || (e as Error).message
+    alert('Erreur: ' + detail)
+  } finally {
+    sendingReminders.value = false
   }
 }
 

@@ -31,4 +31,12 @@ export class AdminApi {
     })
     return res.data
   }
+
+  /** POST /admin/mandate-reminders/send */
+  async send_mandate_reminders(): Promise<{ message: string; count: number }> {
+    const res = await httpClient.post<{ message: string; count: number }>(
+      '/admin/mandate-reminders/send',
+    )
+    return res.data
+  }
 }

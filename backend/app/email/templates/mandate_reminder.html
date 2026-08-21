@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Pensez à la passation de votre mandat</h2>
+
+<p>Bonjour {{ user_name }},</p>
+
+<p>Vous êtes administrateur·rice depuis environ un an dans {{ organizations|length }}
+    club{{ "s" if organizations|length > 1 else "" }} ou association{{ "s" if organizations|length > 1 else "" }} sur Calend'INT. Si le
+    nouveau mandat a déjà été décidé, pensez à transférer vos postes (et ceux de votre
+    bureau) à vos successeur·e·s pour que les accès restent à jour.</p>
+
+<div class="event-details">
+    {% for org in organizations %}
+    <div style="margin-bottom: 10px;">
+        <a href="{{ org.transfer_url }}">{{ org.name }}</a>
+    </div>
+    {% endfor %}
+</div>
+
+<p>Cliquez sur une organisation ci-dessus pour accéder directement à sa page de
+    passation.</p>
+
+<p>Vous pouvez également retrouver cette fonction directement sur <a href="https://cal.minet.net">Calend'INT</a> dans la section "Membres" de la page de votre organisation.</p>
+{% endblock %}

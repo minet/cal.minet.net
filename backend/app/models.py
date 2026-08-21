@@ -183,6 +183,7 @@ class Membership(SQLModel, table=True):
     role: Role = Field(default=Role.ORG_VIEWER)
     title: Optional[str] = Field(default=None)
     order: int = Field(default=0)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     can_manage_payment_forms: bool = Field(default=False)
 

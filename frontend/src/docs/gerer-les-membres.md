@@ -40,3 +40,9 @@ Sur la page de l'organisation, cliquez sur **Membres** (`/organizations/<id>/mem
 > Donnez le rôle administrateur et le droit de trésorerie avec parcimonie. La gestion des
 > membres requiert d'être administrateur **de cette organisation** ; la liste ci-dessus
 > indique lesquelles.
+
+## Passation de mandat
+
+Pour transférer un poste à un·e remplaçant·e en fin de mandat (le vôtre ou celui d'un autre
+membre), voir [[passation-de-mandat]]. Chaque membre peut transférer son propre poste
+depuis cette même page, sans passer par vous.

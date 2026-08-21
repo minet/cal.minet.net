@@ -44,7 +44,7 @@
     </div>
 
     <!-- Add Member Form -->
-    <div class="bg-white shadow-sm rounded-lg p-6 mb-6">
+    <div v-if="canEdit" class="bg-white shadow-sm rounded-lg p-6 mb-6">
       <h2 class="text-lg font-medium text-gray-900 mb-4">Ajouter un membre</h2>
       <div class="flex flex-col sm:flex-row gap-3">
         <div class="flex-1 min-w-0">
@@ -76,7 +76,7 @@
     </div>
 
     <!-- Members List -->
-    <div class="bg-white shadow-sm rounded-lg overflow-hidden">
+    <div id="org-members-list" class="bg-white shadow-sm rounded-lg overflow-hidden">
       <div v-if="loadingMembers" class="text-center py-12">
         <p class="text-sm text-gray-500">Chargement...</p>
       </div>
@@ -86,35 +86,36 @@
       </div>
 
       <ul v-else class="divide-y divide-gray-200">
-        <li 
-          v-for="(member, index) in members" 
-          :key="member.id" 
+        <li
+          v-for="(member, index) in members"
+          :key="member.id"
+          :id="`member-row-${member.id}`"
           class="p-4 sm:p-6 transition-colors"
           :class="{'bg-gray-50 ring-2 ring-indigo-500 ring-inset': dragIndex === index}"
-          draggable="true"
-          @dragstart="onDragStart(index, $event)"
+          :draggable="canEdit"
+          @dragstart="canEdit && onDragStart(index, $event)"
           @dragover.prevent
-          @drop="onDrop(index)"
+          @drop="canEdit && onDrop(index)"
           @dragend="dragIndex = null"
         >
           <div class="flex flex-col sm:flex-row sm:items-center justify-between">
             <div class="flex items-center space-x-3">
               <!-- Desktop Drag Handle -->
-              <div class="hidden sm:block cursor-grab hover:text-indigo-600 text-gray-400 touch-none flex-shrink-0" title="Maintenir pour réorganiser">
+              <div v-if="canEdit" class="hidden sm:block cursor-grab hover:text-indigo-600 text-gray-400 touch-none flex-shrink-0" title="Maintenir pour réorganiser">
                 <Bars3Icon class="h-5 w-5" />
               </div>
               <!-- Mobile Up/Down Arrows -->
-              <div class="flex flex-col sm:hidden flex-shrink-0 mr-2 -ml-2">
-                 <button 
-                  @click.stop="moveMember(index, -1)" 
+              <div v-if="canEdit" class="flex flex-col sm:hidden flex-shrink-0 mr-2 -ml-2">
+                 <button
+                  @click.stop="moveMember(index, -1)"
                   :disabled="index === 0"
                   class="p-1 text-gray-400 hover:text-indigo-600 disabled:opacity-30 disabled:hover:text-gray-400"
                   title="Monter"
                  >
                     <ChevronUpIcon class="h-5 w-5" />
                  </button>
-                 <button 
-                  @click.stop="moveMember(index, 1)" 
+                 <button
+                  @click.stop="moveMember(index, 1)"
                   :disabled="index === members.length - 1"
                   class="p-1 text-gray-400 hover:text-indigo-600 disabled:opacity-30 disabled:hover:text-gray-400"
                   title="Descendre"
@@ -131,62 +132,163 @@
               <div>
                 <p class="text-sm font-medium text-gray-900">
                   {{ getFullName(member) }}
+                  <span v-if="member.user_id === currentUserId" class="text-xs text-indigo-600 font-normal">(vous)</span>
                 </p>
                 <p class="text-xs text-gray-500">{{ member.email }}</p>
               </div>
             </div>
 
             <div class="mt-2 sm:mt-0 flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
-              <input 
-                :value="member.title"
-                @change="updateMemberTitle(member, ($event.target as HTMLInputElement).value)"
-                type="text" 
-                placeholder="Poste" 
-                class="block w-full sm:w-32 rounded-md border-0 px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-              />
-              <Dropdown
-                :model-value="member.role"
-                @update:model-value="updateMemberRole(member, $event)"
-                :options="[
-                  { value: Role.ORG_VIEWER, label: 'Lecteur' },
-                  { value: Role.ORG_MEMBER, label: 'Éditeur' },
-                  { value: Role.ORG_ADMIN, label: 'Administrateur' }
-                ]"
-              />
+              <template v-if="canEdit">
+                <input
+                  :value="member.title"
+                  @change="updateMemberTitle(member, ($event.target as HTMLInputElement).value)"
+                  type="text"
+                  placeholder="Poste"
+                  class="block w-full sm:w-32 rounded-md border-0 px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                />
+                <Dropdown
+                  :model-value="member.role"
+                  @update:model-value="updateMemberRole(member, $event)"
+                  :options="[
+                    { value: Role.ORG_VIEWER, label: 'Lecteur' },
+                    { value: Role.ORG_MEMBER, label: 'Éditeur' },
+                    { value: Role.ORG_ADMIN, label: 'Administrateur' }
+                  ]"
+                />
+
+                <button
+                  v-if="hasHelloAsso"
+                  @click="togglePaymentPermission(member)"
+                  :title="member.can_manage_payment_forms ? 'Retirer la permission de gestion des paiements' : 'Accorder la permission de gestion des paiements'"
+                  class="flex items-center gap-1 text-xs px-2 py-1 rounded-md border transition-colors"
+                  :class="member.can_manage_payment_forms
+                    ? 'border-green-400 text-green-700 bg-green-50 hover:bg-green-100'
+                    : 'border-gray-300 text-gray-400 bg-white hover:bg-gray-50'"
+                >
+                  <CreditCardIcon class="h-4 w-4" />
+                  <span class="hidden lg:inline">Paiements</span>
+                </button>
+
+                <button
+                  @click="removeMember(member)"
+                  class="text-red-600 hover:text-red-700"
+                  title="Retirer ce membre"
+                >
+                  <TrashIcon class="h-5 w-5" />
+                </button>
+              </template>
+              <template v-else>
+                <span v-if="member.title" class="text-sm text-gray-700">{{ member.title }}</span>
+                <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset"
+                  :class="getRoleBadgeClass(member.role)">
+                  {{ getRoleLabel(member.role) }}
+                </span>
+              </template>
 
               <button
-                v-if="hasHelloAsso"
-                @click="togglePaymentPermission(member)"
-                :title="member.can_manage_payment_forms ? 'Retirer la permission de gestion des paiements' : 'Accorder la permission de gestion des paiements'"
-                class="flex items-center gap-1 text-xs px-2 py-1 rounded-md border transition-colors"
-                :class="member.can_manage_payment_forms
-                  ? 'border-green-400 text-green-700 bg-green-50 hover:bg-green-100'
-                  : 'border-gray-300 text-gray-400 bg-white hover:bg-gray-50'"
+                v-if="member.user_id === currentUserId"
+                @click="openTransferModal(member)"
+                class="flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors"
+                title="Transférer ce poste à un·e remplaçant·e"
               >
-                <CreditCardIcon class="h-4 w-4" />
-                <span class="hidden lg:inline">Paiements</span>
+                <ArrowRightCircleIcon class="h-4 w-4" />
+                <span>Transférer mon poste</span>
               </button>
-
               <button
-                @click="removeMember(member)"
-                class="text-red-600 hover:text-red-700"
-                title="Retirer ce membre"
+                v-else-if="canEdit"
+                @click="openTransferModal(member)"
+                class="flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-gray-300 text-gray-600 bg-white hover:bg-gray-50 transition-colors"
+                title="Assigner un·e remplaçant·e pour ce poste"
               >
-                <TrashIcon class="h-5 w-5" />
+                <ArrowRightCircleIcon class="h-4 w-4" />
+                <span class="hidden lg:inline">Passation</span>
               </button>
             </div>
           </div>
         </li>
       </ul>
     </div>
+
+    <!-- Transfer Modal -->
+    <TransitionRoot as="template" :show="showTransferModal">
+      <Dialog as="div" class="relative z-50" @close="closeTransferModal">
+        <TransitionChild as="template" enter="ease-out duration-300" enter-from="opacity-0" enter-to="opacity-100"
+          leave="ease-in duration-200" leave-from="opacity-100" leave-to="opacity-0">
+          <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+        </TransitionChild>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+          <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+            <TransitionChild as="template" enter="ease-out duration-300"
+              enter-from="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+              enter-to="opacity-100 translate-y-0 sm:scale-100" leave="ease-in duration-200"
+              leave-from="opacity-100 translate-y-0 sm:scale-100"
+              leave-to="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
+              <DialogPanel class="relative w-full max-w-lg transform rounded-lg bg-white p-6 shadow-xl transition-all text-left">
+                <DialogTitle as="h3" class="text-base font-semibold text-gray-900">
+                  Transférer le poste{{ transferTargetMember?.title ? ` « ${transferTargetMember.title} »` : '' }}
+                </DialogTitle>
+                <p class="mt-1 text-sm text-gray-500">
+                  Actuellement occupé par {{ transferTargetMember ? getFullName(transferTargetMember) : '' }}.
+                  Choisissez un ou plusieurs remplaçant·e·s ; le rôle ({{ transferTargetMember ? getRoleLabel(transferTargetMember.role) : '' }})
+                  est conservé à l'identique, seul l'intitulé du poste peut être ajusté (ex. masculiniser/féminiser).
+                </p>
+
+                <div class="mt-4 space-y-3">
+                  <div v-for="(row, i) in transferRows" :key="row.user.id" class="flex items-center gap-2 bg-gray-50 rounded-md p-2">
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium text-gray-900 truncate">{{ row.user.full_name || row.user.email }}</p>
+                      <input
+                        v-model="row.title"
+                        type="text"
+                        placeholder="Intitulé du poste"
+                        class="mt-1 block w-full rounded-md border-0 px-2 py-1 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600"
+                      />
+                    </div>
+                    <button @click="transferRows.splice(i, 1)" class="text-gray-400 hover:text-red-600" title="Retirer">
+                      <XMarkIcon class="h-5 w-5" />
+                    </button>
+                  </div>
+
+                  <UserSearchSelector
+                    placeholder="Rechercher un·e remplaçant·e..."
+                    :filter="(u: { id: string }) => !members.some(m => m.user_id === u.id) && !transferRows.some(r => r.user.id === u.id)"
+                    @select="addTransferRow"
+                  />
+                  <p class="text-xs text-gray-400">Vous pouvez ajouter un·e ou plusieurs remplaçant·e·s. Une personne déjà membre de l'organisation ne peut pas être choisie ici : modifiez directement son adhésion depuis la liste.</p>
+                </div>
+
+                <div v-if="transferError" class="mt-4 rounded-md bg-red-50 p-3">
+                  <p class="text-sm text-red-800">{{ transferError }}</p>
+                </div>
+
+                <div class="mt-6 flex justify-end gap-3">
+                  <button type="button" @click="closeTransferModal"
+                    class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                    Annuler
+                  </button>
+                  <button type="button" @click="submitTransfer" :disabled="transferSubmitting"
+                    :class="transferRows.length === 0
+                      ? 'rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 disabled:opacity-50'
+                      : 'rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50'">
+                    {{ transferSubmitting ? 'Envoi...' : (transferRows.length === 0 ? transferDeleteLabel : 'Confirmer le transfert') }}
+                  </button>
+                </div>
+              </DialogPanel>
+            </TransitionChild>
+          </div>
+        </div>
+      </Dialog>
+    </TransitionRoot>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, computed, onMounted, nextTick } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
-import { TrashIcon, Bars3Icon, ChevronUpIcon, ChevronDownIcon, CreditCardIcon } from '@heroicons/vue/24/outline'
+import { TrashIcon, Bars3Icon, ChevronUpIcon, ChevronDownIcon, CreditCardIcon, ArrowRightCircleIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
 import UserSearchSelector from '../components/UserSearchSelector.vue'
 import Dropdown from '../components/Dropdown.vue'
 import { api } from '@/api'
@@ -194,7 +296,25 @@ import type { OrganizationRead, OrgMember, LDAPUserRead } from '@/api/types'
 import { Role } from '@/api/types'
 import { resolveMediaUrl } from '../utils/media.js'
 
+// Backend returns short English codes for action messages; translate them here.
+const MESSAGE_TRANSLATIONS: Record<string, string> = {
+  membership_transferred: 'Poste transféré avec succès',
+  membership_removed: 'Poste supprimé',
+  request_sent: 'Demande envoyée',
+}
+const translateMessage = (code: string) => MESSAGE_TRANSLATIONS[code] || code
+
+// Same idea for error codes returned in the "detail" field.
+const ERROR_TRANSLATIONS: Record<string, string> = {
+  successor_already_member: "Cette personne est déjà membre de l'organisation. Pour lui attribuer ce poste, modifiez directement son adhésion depuis la liste des membres (réservé aux administrateur·rice·s).",
+}
+const translateError = (detail: string | undefined, fallback: string) => {
+  if (!detail) return fallback
+  return ERROR_TRANSLATIONS[detail] || detail
+}
+
 const route = useRoute()
+const router = useRouter()
 const { user } = useAuth()
 const organization = ref<OrganizationRead | null>(null)
 const members = ref<OrgMember[]>([])
@@ -204,6 +324,7 @@ const newMemberTitle = ref('')
 const loading = ref(false)
 const loadingMembers = ref(false)
 const error = ref('')
+const canEdit = ref(false)
 
 const currentUserId = computed(() => user.value?.id)
 const hasHelloAsso = ref(false)
@@ -268,7 +389,23 @@ const getInitials = (name: string) => {
     .join('')
 }
 
+const getRoleLabel = (role: string): string => {
+  const labels: Record<string, string> = {
+    org_admin: 'Administrateur',
+    org_member: 'Éditeur',
+    org_viewer: 'Lecteur',
+  }
+  return labels[role] ?? role
+}
 
+const getRoleBadgeClass = (role: string): string => {
+  const classes: Record<string, string> = {
+    org_admin: 'bg-blue-50 text-blue-700 ring-blue-700/10',
+    org_member: 'bg-green-50 text-green-700 ring-green-600/20',
+    org_viewer: 'bg-yellow-50 text-yellow-700 ring-yellow-600/20',
+  }
+  return classes[role] ?? 'bg-gray-50 text-gray-700 ring-gray-600/20'
+}
 
 const loadOrganization = async () => {
   try {
@@ -277,6 +414,15 @@ const loadOrganization = async () => {
   } catch (err) {
     console.error('Failed to load organization:', err)
     error.value = 'Impossible de charger l\'organisation'
+  }
+}
+
+const checkCanEdit = async () => {
+  try {
+    const res = await api.organizations.can_edit_organization(route.params.id as string)
+    canEdit.value = res.can_edit
+  } catch (err) {
+    console.error('Failed to check edit permission:', err)
   }
 }
 
@@ -379,8 +525,111 @@ const removeMember = async (member: OrgMember) => {
   }
 }
 
-onMounted(() => {
+// ─── Transfer (passation) ────────────────────────────────────────────────
+
+interface TransferSuccessorRow {
+  user: { id: string; email: string; full_name: string | null }
+  title: string
+}
+
+const showTransferModal = ref(false)
+const transferTargetMember = ref<OrgMember | null>(null)
+const transferRows = ref<TransferSuccessorRow[]>([])
+const transferSubmitting = ref(false)
+const transferError = ref('')
+
+const openTransferModal = (member: OrgMember) => {
+  transferTargetMember.value = member
+  transferRows.value = []
+  transferError.value = ''
+  showTransferModal.value = true
+}
+
+const closeTransferModal = () => {
+  showTransferModal.value = false
+  transferTargetMember.value = null
+  transferRows.value = []
+  transferError.value = ''
+}
+
+const addTransferRow = (selected: { id: string; email: string; full_name: string | null }) => {
+  if (transferRows.value.some(r => r.user.id === selected.id)) return
+  if (members.value.some(m => m.user_id === selected.id)) return
+  transferRows.value.push({
+    user: selected,
+    title: transferTargetMember.value?.title || '',
+  })
+}
+
+const transferDeleteLabel = computed(() =>
+  transferTargetMember.value?.user_id === currentUserId.value ? 'Supprimer mon poste' : 'Supprimer ce poste'
+)
+
+const submitTransfer = async () => {
+  if (!transferTargetMember.value) return
+
+  if (transferRows.value.length === 0) {
+    const isSelf = transferTargetMember.value.user_id === currentUserId.value
+    const warning = isSelf
+      ? "Vous n'avez choisi aucun·e remplaçant·e : votre poste va être supprimé sans être transmis à personne. Cette action est irréversible. Continuer ?"
+      : `Aucun·e remplaçant·e choisi·e : le poste de ${getFullName(transferTargetMember.value)} va être supprimé sans être transmis à personne. Cette action est irréversible. Continuer ?`
+    if (!confirm(warning)) return
+  }
+
+  transferSubmitting.value = true
+  transferError.value = ''
+  try {
+    const successors = transferRows.value.map(r => ({
+      user_id: r.user.id,
+      title: r.title || undefined,
+    }))
+    const res = await api.organizations.transfer_membership(
+      route.params.id as string,
+      transferTargetMember.value.id,
+      successors,
+    )
+    closeTransferModal()
+    await loadMembers()
+    alert(translateMessage(res.message))
+  } catch (err) {
+    console.error('Failed to transfer membership:', err)
+    const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+    transferError.value = translateError(detail, 'Impossible de transférer ce poste')
+  } finally {
+    transferSubmitting.value = false
+  }
+}
+
+// Prefill the transfer modal when arriving from a "request-transfer" e-mail link
+// (?transfer_membership=<id>&transfer_to=<user_id>), or scroll to a specific row when
+// arriving from the superadmin mandate-reminder e-mail (#mandate).
+const applyDeepLinks = async () => {
+  const membershipId = route.query.transfer_membership as string | undefined
+  const transferToUserId = route.query.transfer_to as string | undefined
+
+  if (membershipId && transferToUserId) {
+    const targetMember = members.value.find(m => m.id === membershipId)
+    if (targetMember) {
+      try {
+        const requester = await api.users.get_user_profile(transferToUserId)
+        openTransferModal(targetMember)
+        addTransferRow({ id: requester.id, email: requester.email, full_name: requester.full_name })
+      } catch (err) {
+        console.error('Failed to load transfer requester profile:', err)
+      }
+    }
+    // Clean up the URL so a page refresh doesn't reopen the modal
+    router.replace({ query: {} })
+  } else if (route.hash === '#mandate') {
+    await nextTick()
+    document.getElementById('org-members-list')?.scrollIntoView({ behavior: 'smooth' })
+  }
+}
+
+onMounted(async () => {
   loadOrganization()
-  loadMembers()
+  await checkCanEdit()
+  await loadMembers()
+  await applyDeepLinks()
 })
 </script>
