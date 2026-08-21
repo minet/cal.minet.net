@@ -35,46 +35,12 @@
         img-class="w-full h-full object-cover transform hover:scale-105 transition-transform duration-500"
       />
       <!-- Organization Logo Overlay -->
-      <div class="absolute bottom-3 right-3 flex items-center overflow-hidden p-1 bg-white/90 rounded-full shadow-md backdrop-blur-sm" :class="manyOrgs ? '-space-x-6' : 'space-x-2'">
-        <template v-for="(guest, index) in event.guest_organizations" :key="guest.id">
-            <img
-                v-if="guest.logo_file || guest.logo_url"
-                :src="resolveMediaUrl(guest.logo_file, 64) ?? guest.logo_url"
-                :alt="guest.name"
-                class="inline-block h-10 w-10 rounded-full object-cover"
-                :class="{ 'ring-2 ring-white': !manyOrgs }"
-                :style="{ zIndex: guestZIndex(index) }"
-                :title="guest.name"
-            />
-            <div
-                v-else
-                class="inline-block h-10 w-10 rounded-full flex items-center justify-center font-bold"
-                :class="{ 'ring-2 ring-white': !manyOrgs }"
-                :style="{ backgroundColor: guest.color_secondary || '#f0f9ff', color: guest.color_primary || '#0369a1', zIndex: guestZIndex(index) }"
-                :title="guest.name"
-            >
-                {{ guest.name.charAt(0) }}
-            </div>
-        </template>
-
-        <img
-          v-if="event.organization?.logo_file || event.organization?.logo_url"
-          :src="resolveMediaUrl(event.organization.logo_file, 64) ?? event.organization.logo_url"
-          :alt="event.organization.name"
-          class="inline-block h-10 w-10 rounded-full object-cover"
-          :class="{ 'ring-2 ring-white': !manyOrgs }"
-          :style="{ zIndex: mainOrgZIndex }"
-          :title="event.organization.name"
+      <div class="absolute bottom-3 right-3 flex items-center p-1 bg-white/90 rounded-full shadow-md backdrop-blur-sm">
+        <OrgAvatarGroup
+          :organization="event.organization"
+          :guest-organizations="event.guest_organizations"
+          size="lg"
         />
-        <div
-          v-else-if="event.organization"
-          class="inline-block h-10 w-10 rounded-full flex items-center justify-center font-bold"
-          :class="{ 'ring-2 ring-white': !manyOrgs }"
-          :style="{ backgroundColor: event.organization.color_secondary || '#f0f9ff', color: event.organization.color_primary || '#0369a1', zIndex: mainOrgZIndex }"
-          :title="event.organization.name"
-        >
-          {{ event.organization.name.charAt(0) }}
-        </div>
       </div>
     </div>
 
@@ -84,44 +50,12 @@
       class="relative h-24 flex items-center justify-center p-4 transition-colors rounded-t-xl"
       :style="{ background: getEventGradient(event.organization, event.guest_organizations) }"
     >
-      <div class="absolute -bottom-6 left-6 flex items-center" :class="manyOrgs ? '-space-x-7' : '-space-x-2'">
-        <img
-          v-if="event.organization?.logo_file || event.organization?.logo_url"
-          :src="resolveMediaUrl(event.organization.logo_file, 64) ?? event.organization.logo_url"
-          :alt="event.organization.name"
-          class="h-12 w-12 rounded-full object-cover bg-white"
-          :class="{ 'border-4 border-white': !manyOrgs }"
-          :style="{ zIndex: mainOrgZIndex }"
+      <div class="absolute -bottom-6 left-6 flex items-center">
+        <OrgAvatarGroup
+          :organization="event.organization"
+          :guest-organizations="event.guest_organizations"
+          size="xl"
         />
-        <div
-          v-else-if="event.organization"
-          class="h-12 w-12 rounded-full bg-white flex items-center justify-center font-bold"
-          :class="{ 'border-4 border-white': !manyOrgs }"
-          :style="{ color: event.organization.color_primary || '#0369a1', zIndex: mainOrgZIndex }"
-        >
-          {{ event.organization.name.charAt(0) }}
-        </div>
-
-        <template v-for="(guest, index) in event.guest_organizations" :key="guest.id">
-            <img
-                v-if="guest.logo_file || guest.logo_url"
-                :src="resolveMediaUrl(guest.logo_file, 64) ?? guest.logo_url"
-                :alt="guest.name"
-                class="h-12 w-12 rounded-full object-cover bg-white"
-                :class="{ 'border-4 border-white': !manyOrgs }"
-                :style="{ zIndex: guestZIndex(index) }"
-                :title="guest.name"
-            />
-            <div
-                v-else
-                class="h-12 w-12 rounded-full bg-white flex items-center justify-center text-xs font-bold"
-                :class="{ 'border-4 border-white': !manyOrgs }"
-                :style="{ color: guest.color_primary || '#0369a1', zIndex: guestZIndex(index) }"
-                :title="guest.name"
-            >
-                {{ guest.name.charAt(0) }}
-            </div>
-        </template>
       </div>
     </div>
 
@@ -195,6 +129,7 @@ import { resolveMediaUrl } from '../utils/media.js'
 
 import ReactionList from './ReactionList.vue'
 import MediaImage from './MediaImage.vue'
+import OrgAvatarGroup from './OrgAvatarGroup.vue'
 import { api } from '@/api'
 import { getEventGradient } from '../utils/colorUtils'
 
@@ -204,12 +139,6 @@ const props = defineProps({
     required: true
   }
 })
-
-const manyOrgs = computed(() => (props.event.guest_organizations?.length || 0) + 1 > 6)
-
-const guestCount = computed<number>(() => props.event.guest_organizations?.length || 0)
-const mainOrgZIndex = computed<number>(() => guestCount.value + 1)
-const guestZIndex = (index: string | number): number => guestCount.value - Number(index)
 
 const refreshReactions = async () => {
   try {

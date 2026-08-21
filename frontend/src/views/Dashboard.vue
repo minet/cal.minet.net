@@ -118,25 +118,11 @@
                   }"
                 >
                   <div class="flex items-center gap-1.5 min-w-0">
-                    <div class="flex -space-x-1.5 shrink-0" v-if="(event.guest_organizations && event.guest_organizations.length > 0) || event.organization?.logo_file || event.organization?.logo_url">
-                         <img 
-                           v-if="event.organization?.logo_file || event.organization?.logo_url"
-                           :src="(resolveMediaUrl(event.organization?.logo_file, 32) ?? event.organization?.logo_url) ?? undefined"
-                           class="h-4 w-4 rounded-full ring-1 ring-white object-cover bg-white"
-                           :title="event.organization?.name"
-                         />
-                         <template
-                           v-for="guest in event.guest_organizations" 
-                           :key="guest.id"
-                         >
-                           <img  
-                             v-if="guest.logo_file || guest.logo_url"
-                             :src="(resolveMediaUrl(guest.logo_file, 32) ?? guest.logo_url) ?? undefined"
-                             class="h-4 w-4 rounded-full ring-1 ring-white object-cover bg-white"
-                             :title="guest.name"
-                           />
-                         </template>
-                    </div>
+                    <OrgAvatarGroup
+                      :organization="event.organization"
+                      :guest-organizations="event.guest_organizations"
+                      size="xs"
+                    />
                     
                     <span :class="[
                       'flex-auto truncate font-medium',
@@ -212,25 +198,11 @@
                           }"
                         >
                            <div class="flex items-center gap-1.5 min-w-0 w-full">
-                               <div class="flex -space-x-1.5 shrink-0" v-if="(event.guest_organizations && event.guest_organizations.length > 0) || event.organization?.logo_file || event.organization?.logo_url">
-                                    <img 
-                                      v-if="event.organization?.logo_file || event.organization?.logo_url"
-                                      :src="(resolveMediaUrl(event.organization?.logo_file, 32) ?? event.organization?.logo_url) ?? undefined"
-                                      class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
-                                      :title="event.organization?.name"
-                                    />
-                                    <template
-                                      v-for="guest in event.guest_organizations" 
-                                      :key="guest.id"
-                                    >
-                                      <img  
-                                        v-if="guest.logo_file || guest.logo_url"
-                                        :src="(resolveMediaUrl(guest.logo_file, 32) ?? guest.logo_url) ?? undefined"
-                                        class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
-                                        :title="guest.name"
-                                      />
-                                    </template>
-                               </div>
+                                <OrgAvatarGroup
+                                  :organization="event.organization"
+                                  :guest-organizations="event.guest_organizations"
+                                  size="sm"
+                                />
                                <span class="font-medium truncate mr-1">
                                    <span v-if="event.organization?.name" class="font-bold mr-1">{{ event.organization.name }}:</span>{{ event.title }}
                                </span>
@@ -243,7 +215,7 @@
                   <!-- Case 2: Single-day Event (Detailed Card) -->
                   <li v-else>
                     <router-link 
-                      :to="`/events/${event.id}`"
+                      :to="`/events/${event.id}`" 
                       :title="getEventTitle(event)"
                       :class="[
                         'group block p-2 rounded-lg transition-colors',
@@ -259,41 +231,13 @@
                       }"
                     >
                       <!-- Organization Badges -->
-                      <div class="flex items-center gap-1 mb-1.5">
-                        <template v-if="event.guest_organizations && event.guest_organizations.length > 0">
-                           <div class="flex -space-x-1.5">
-                              <img 
-                                v-if="event.organization?.logo_file || event.organization?.logo_url"
-                                :src="(resolveMediaUrl(event.organization?.logo_file, 32) ?? event.organization?.logo_url) ?? undefined"
-                                class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
-                                :title="event.organization?.name"
-                              />
-                              <template
-                                v-for="guest in event.guest_organizations" 
-                                :key="guest.id"
-                              >
-                                <img  
-                                  v-if="guest.logo_file || guest.logo_url"
-                                  :src="(resolveMediaUrl(guest.logo_file, 32) ?? guest.logo_url) ?? undefined"
-                                  class="h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white"
-                                  :title="guest.name"
-                                />
-                              </template>
-                           </div>
-                        </template>
-                        <template v-else>
-                           <div class="inline-flex items-center rounded-full bg-white/60 px-1.5 py-0.5 backdrop-blur-sm">
-                              <img 
-                                v-if="event.organization?.logo_file || event.organization?.logo_url"
-                                :src="(resolveMediaUrl(event.organization?.logo_file, 32) ?? event.organization?.logo_url) ?? undefined" 
-                                class="mr-1 h-3 w-3 rounded-full object-cover"
-                              />
-                              <span class="text-[10px] font-medium leading-none truncate max-w-[100px]" 
-                                    :style="{ color: event.organization?.color_primary || '#4f46e5' }">
-                                {{ event.organization?.name }}
-                              </span>
-                           </div>
-                        </template>
+                      <div class="flex items-center gap-1 mb-1.5 min-w-0">
+                         <OrgAvatarGroup
+                           :organization="event.organization"
+                           :guest-organizations="event.guest_organizations"
+                           size="sm"
+                           single-mode="pill"
+                         />
                       </div>
 
                       <p :class="[
@@ -336,7 +280,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import { PlusIcon, CalendarIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, MapPinIcon } from '@heroicons/vue/24/outline'
 import { api } from '@/api'
-import { resolveMediaUrl } from '../utils/media'
+import OrgAvatarGroup from '../components/OrgAvatarGroup.vue'
 import type { EventRead, MembershipWithOrganization } from '@/api/types'
 
 type CalendarEvent = EventRead & {
