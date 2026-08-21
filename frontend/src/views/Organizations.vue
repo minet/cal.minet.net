@@ -46,7 +46,7 @@
               </div>
               <div class="min-w-0 flex-auto">
                 <p class="text-sm font-semibold leading-6 text-gray-900">{{ org.name }}</p>
-                <p class="mt-1 truncate text-xs leading-5 text-gray-500">{{ org.description ? org.description.split('\n')[0] : '' }}</p>
+                <p class="mt-1 truncate text-xs leading-5 text-gray-500">{{ descriptionPreview(org.description) }}</p>
               </div>
             </div>
             <div class="mt-2 sm:mt-0 flex flex-row sm:flex-col items-center sm:items-end gap-2 shrink-0">
@@ -70,6 +70,7 @@ import type { OrganizationRead } from '@/api/types'
 import { BuildingOfficeIcon } from '@heroicons/vue/24/outline'
 import SubscribeButton from '../components/SubscribeButton.vue'
 import { resolveMediaUrl } from '../utils/media.js'
+import { descriptionPreview } from '../utils/descriptionPreview'
 
 const { user } = useAuth()
 const organizations = ref<OrganizationRead[]>([])
