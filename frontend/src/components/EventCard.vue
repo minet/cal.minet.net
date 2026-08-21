@@ -36,20 +36,21 @@
       />
       <!-- Organization Logo Overlay -->
       <div class="absolute bottom-3 right-3 flex items-center overflow-hidden p-1 bg-white/90 rounded-full shadow-md backdrop-blur-sm" :class="manyOrgs ? '-space-x-6' : 'space-x-2'">
-        <template v-for="guest in event.guest_organizations" :key="guest.id">
+        <template v-for="(guest, index) in event.guest_organizations" :key="guest.id">
             <img
                 v-if="guest.logo_file || guest.logo_url"
                 :src="resolveMediaUrl(guest.logo_file, 64) ?? guest.logo_url"
                 :alt="guest.name"
                 class="inline-block h-10 w-10 rounded-full object-cover"
                 :class="{ 'ring-2 ring-white': !manyOrgs }"
+                :style="{ zIndex: event.guest_organizations.length - index }"
                 :title="guest.name"
             />
             <div
                 v-else
                 class="inline-block h-10 w-10 rounded-full flex items-center justify-center font-bold"
                 :class="{ 'ring-2 ring-white': !manyOrgs }"
-                :style="{ backgroundColor: guest.color_secondary || '#f0f9ff', color: guest.color_primary || '#0369a1' }"
+                :style="{ backgroundColor: guest.color_secondary || '#f0f9ff', color: guest.color_primary || '#0369a1', zIndex: event.guest_organizations.length - index }"
                 :title="guest.name"
             >
                 {{ guest.name.charAt(0) }}
@@ -60,15 +61,16 @@
           v-if="event.organization?.logo_file || event.organization?.logo_url"
           :src="resolveMediaUrl(event.organization.logo_file, 64) ?? event.organization.logo_url"
           :alt="event.organization.name"
-          class="inline-block h-10 w-10 rounded-full object-cover z-10"
+          class="inline-block h-10 w-10 rounded-full object-cover"
           :class="{ 'ring-2 ring-white': !manyOrgs }"
+          :style="{ zIndex: (event.guest_organizations?.length || 0) + 1 }"
           :title="event.organization.name"
         />
         <div
           v-else-if="event.organization"
-          class="inline-block h-10 w-10 rounded-full z-10 flex items-center justify-center font-bold"
+          class="inline-block h-10 w-10 rounded-full flex items-center justify-center font-bold"
           :class="{ 'ring-2 ring-white': !manyOrgs }"
-          :style="{ backgroundColor: event.organization.color_secondary || '#f0f9ff', color: event.organization.color_primary || '#0369a1' }"
+          :style="{ backgroundColor: event.organization.color_secondary || '#f0f9ff', color: event.organization.color_primary || '#0369a1', zIndex: (event.guest_organizations?.length || 0) + 1 }"
           :title="event.organization.name"
         >
           {{ event.organization.name.charAt(0) }}
@@ -87,32 +89,34 @@
           v-if="event.organization?.logo_file || event.organization?.logo_url"
           :src="resolveMediaUrl(event.organization.logo_file, 64) ?? event.organization.logo_url"
           :alt="event.organization.name"
-          class="h-12 w-12 rounded-full object-cover z-20 bg-white"
+          class="h-12 w-12 rounded-full object-cover bg-white"
           :class="{ 'border-4 border-white': !manyOrgs }"
+          :style="{ zIndex: (event.guest_organizations?.length || 0) + 1 }"
         />
         <div
           v-else-if="event.organization"
-          class="h-12 w-12 rounded-full z-20 bg-white flex items-center justify-center font-bold"
+          class="h-12 w-12 rounded-full bg-white flex items-center justify-center font-bold"
           :class="{ 'border-4 border-white': !manyOrgs }"
-          :style="{ color: event.organization.color_primary || '#0369a1' }"
+          :style="{ color: event.organization.color_primary || '#0369a1', zIndex: (event.guest_organizations?.length || 0) + 1 }"
         >
           {{ event.organization.name.charAt(0) }}
         </div>
 
-        <template v-for="guest in event.guest_organizations" :key="guest.id">
+        <template v-for="(guest, index) in event.guest_organizations" :key="guest.id">
             <img
                 v-if="guest.logo_file || guest.logo_url"
                 :src="resolveMediaUrl(guest.logo_file, 64) ?? guest.logo_url"
                 :alt="guest.name"
                 class="h-12 w-12 rounded-full object-cover bg-white"
                 :class="{ 'border-4 border-white': !manyOrgs }"
+                :style="{ zIndex: event.guest_organizations.length - index }"
                 :title="guest.name"
             />
             <div
                 v-else
                 class="h-12 w-12 rounded-full bg-white flex items-center justify-center text-xs font-bold"
                 :class="{ 'border-4 border-white': !manyOrgs }"
-                :style="{ color: guest.color_primary || '#0369a1' }"
+                :style="{ color: guest.color_primary || '#0369a1', zIndex: event.guest_organizations.length - index }"
                 :title="guest.name"
             >
                 {{ guest.name.charAt(0) }}
