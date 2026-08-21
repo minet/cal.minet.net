@@ -7,6 +7,8 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import os
 import io
+import json
+import logging
 from odf.opendocument import OpenDocumentSpreadsheet
 from odf.table import Table, TableRow, TableCell, TableColumn
 from odf.text import P, A
@@ -23,7 +25,8 @@ def _app_tz() -> ZoneInfo:
 
 
 from uuid import UUID
-from app.database import get_session
+from app.database import get_session, engine
+from app.api.notifications import _send_push_notification
 from app.models import (
     Event,
     User,
@@ -38,6 +41,7 @@ from app.models import (
     EventReaction,
     EventLink,
     EventGuestOrganization,
+    UserPushToken,
 )
 from app.api.auth import get_current_user, get_current_user_optional
 from app.schemas import (
@@ -61,6 +65,43 @@ HISTORY_MEMBER_MONTHS = int(os.getenv("ICS_MEMBER_HISTORY_MONTHS", "24"))
 HISTORY_NON_MEMBER_MONTHS = int(os.getenv("ICS_NON_MEMBER_HISTORY_MONTHS", "2"))
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+def _notify_superadmins_of_pending_event(event_id: UUID) -> None:
+    """Push-notify superadmins (who have push notifications enabled) that a new event is awaiting approval."""
+    vapid_private_key = os.getenv("VAPID_PRIVATE_KEY")
+    if not vapid_private_key:
+        return
+    vapid_claims = {"sub": "mailto:" + os.getenv("ADMIN_EMAIL", "admin@example.com")}
+
+    with Session(engine) as session:
+        event = session.get(Event, event_id)
+        if not event:
+            return
+
+        superadmins = session.exec(
+            select(User).where(User.is_superadmin == True)
+        ).all()
+
+        payload = json.dumps({
+            "title": "Nouvel événement à valider",
+            "body": event.title,
+            "icon": "/CalendINT_icon.svg",
+            "data": {"url": "/admin/approvals"},
+        })
+
+        for admin in superadmins:
+            for token in admin.push_tokens:
+                try:
+                    _send_push_notification(
+                        {"endpoint": token.endpoint, "keys": json.loads(token.keys)},
+                        payload,
+                        vapid_private_key,
+                        vapid_claims,
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to notify superadmin {admin.id} of pending event: {e}")
 
 
 def get_org_membership(user: User, org_id, session: Session) -> Optional[Membership]:
@@ -174,6 +215,7 @@ def can_edit_event(event: Event, user: User, session: Session) -> tuple[bool, st
 @router.post("/", response_model=EventRead)
 def create_event(
     event_data: CreateEvent,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
@@ -261,6 +303,9 @@ def create_event(
         session.add(new_event)
 
     session.commit()
+
+    if new_event.visibility == EventVisibility.PUBLIC_PENDING:
+        background_tasks.add_task(_notify_superadmins_of_pending_event, new_event.id)
 
     # Add guest organizations
     for guest_org_id in event_data.guest_organization_ids:
