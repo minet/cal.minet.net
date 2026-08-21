@@ -43,14 +43,14 @@
                 :alt="guest.name"
                 class="inline-block h-10 w-10 rounded-full object-cover"
                 :class="{ 'ring-2 ring-white': !manyOrgs }"
-                :style="{ zIndex: event.guest_organizations.length - index }"
+                :style="{ zIndex: guestZIndex(index) }"
                 :title="guest.name"
             />
             <div
                 v-else
                 class="inline-block h-10 w-10 rounded-full flex items-center justify-center font-bold"
                 :class="{ 'ring-2 ring-white': !manyOrgs }"
-                :style="{ backgroundColor: guest.color_secondary || '#f0f9ff', color: guest.color_primary || '#0369a1', zIndex: event.guest_organizations.length - index }"
+                :style="{ backgroundColor: guest.color_secondary || '#f0f9ff', color: guest.color_primary || '#0369a1', zIndex: guestZIndex(index) }"
                 :title="guest.name"
             >
                 {{ guest.name.charAt(0) }}
@@ -63,14 +63,14 @@
           :alt="event.organization.name"
           class="inline-block h-10 w-10 rounded-full object-cover"
           :class="{ 'ring-2 ring-white': !manyOrgs }"
-          :style="{ zIndex: (event.guest_organizations?.length || 0) + 1 }"
+          :style="{ zIndex: mainOrgZIndex }"
           :title="event.organization.name"
         />
         <div
           v-else-if="event.organization"
           class="inline-block h-10 w-10 rounded-full flex items-center justify-center font-bold"
           :class="{ 'ring-2 ring-white': !manyOrgs }"
-          :style="{ backgroundColor: event.organization.color_secondary || '#f0f9ff', color: event.organization.color_primary || '#0369a1', zIndex: (event.guest_organizations?.length || 0) + 1 }"
+          :style="{ backgroundColor: event.organization.color_secondary || '#f0f9ff', color: event.organization.color_primary || '#0369a1', zIndex: mainOrgZIndex }"
           :title="event.organization.name"
         >
           {{ event.organization.name.charAt(0) }}
@@ -91,13 +91,13 @@
           :alt="event.organization.name"
           class="h-12 w-12 rounded-full object-cover bg-white"
           :class="{ 'border-4 border-white': !manyOrgs }"
-          :style="{ zIndex: (event.guest_organizations?.length || 0) + 1 }"
+          :style="{ zIndex: mainOrgZIndex }"
         />
         <div
           v-else-if="event.organization"
           class="h-12 w-12 rounded-full bg-white flex items-center justify-center font-bold"
           :class="{ 'border-4 border-white': !manyOrgs }"
-          :style="{ color: event.organization.color_primary || '#0369a1', zIndex: (event.guest_organizations?.length || 0) + 1 }"
+          :style="{ color: event.organization.color_primary || '#0369a1', zIndex: mainOrgZIndex }"
         >
           {{ event.organization.name.charAt(0) }}
         </div>
@@ -109,14 +109,14 @@
                 :alt="guest.name"
                 class="h-12 w-12 rounded-full object-cover bg-white"
                 :class="{ 'border-4 border-white': !manyOrgs }"
-                :style="{ zIndex: event.guest_organizations.length - index }"
+                :style="{ zIndex: guestZIndex(index) }"
                 :title="guest.name"
             />
             <div
                 v-else
                 class="h-12 w-12 rounded-full bg-white flex items-center justify-center text-xs font-bold"
                 :class="{ 'border-4 border-white': !manyOrgs }"
-                :style="{ color: guest.color_primary || '#0369a1', zIndex: event.guest_organizations.length - index }"
+                :style="{ color: guest.color_primary || '#0369a1', zIndex: guestZIndex(index) }"
                 :title="guest.name"
             >
                 {{ guest.name.charAt(0) }}
@@ -206,6 +206,10 @@ const props = defineProps({
 })
 
 const manyOrgs = computed(() => (props.event.guest_organizations?.length || 0) + 1 > 6)
+
+const guestCount = computed<number>(() => props.event.guest_organizations?.length || 0)
+const mainOrgZIndex = computed<number>(() => guestCount.value + 1)
+const guestZIndex = (index: string | number): number => guestCount.value - Number(index)
 
 const refreshReactions = async () => {
   try {
