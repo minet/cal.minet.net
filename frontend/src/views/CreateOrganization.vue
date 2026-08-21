@@ -27,10 +27,12 @@
               </div>
 
               <div class="col-span-full">
-                <label for="description" class="block text-sm font-medium leading-6 text-gray-900">Description</label>
-                <div class="mt-2">
-                  <textarea id="description" name="description" rows="3" v-model="form.description" class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"></textarea>
-                </div>
+                <label class="block text-sm font-medium leading-6 text-gray-900 mb-2">Description</label>
+                <OrgDescriptionEditor
+                  v-model="form.description"
+                  placeholder="Description de l'organisation..."
+                  :rows="6"
+                />
               </div>
 
               <div class="sm:col-span-3">
@@ -112,6 +114,7 @@ import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import ImageUpload from '../components/ImageUpload.vue'
 import Dropdown from '../components/Dropdown.vue'
+import OrgDescriptionEditor from '../components/OrgDescriptionEditor.vue'
 import { api } from '@/api'
 import { OrganizationType } from '@/api/types'
 import type { OrganizationRead } from '@/api/types'

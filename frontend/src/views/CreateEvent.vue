@@ -101,16 +101,14 @@
               </div>
 
               <div class="col-span-full">
-                <label for="description" class="block text-sm font-medium leading-6 text-gray-900">Description</label>
-                <div class="mt-2">
-                  <textarea 
-                    id="description" 
-                    name="description" 
-                    rows="3" 
-                    v-model="form.description" 
-                    class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                  ></textarea>
-                </div>
+                <label class="block text-sm font-medium leading-6 text-gray-900 mb-2">Description</label>
+                <OrgDescriptionEditor
+                  v-model="form.description"
+                  :organization-id="form.organization_id"
+                  :members="eventMembers"
+                  placeholder="Description de l'événement..."
+                  :rows="6"
+                />
               </div>
 
               <!-- Date, Time, Duration -->
@@ -403,6 +401,7 @@ import TagSelector from '../components/TagSelector.vue'
 import { PlusIcon, XMarkIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 import { resolveMediaUrl } from '../utils/media'
 import DateTimeDurationPicker from '../components/DateTimeDurationPicker.vue'
+import OrgDescriptionEditor from '../components/OrgDescriptionEditor.vue'
 
 const router = useRouter()
 
@@ -469,6 +468,38 @@ const { user, isSuperAdmin } = useAuth()
 const overlappingEvents = ref<EventRead[]>([])
 const showOverlapModal = ref(false)
 let overlapCheckTimeout: ReturnType<typeof setTimeout> | undefined = undefined
+
+const eventMembers = ref<any[]>([])
+
+const loadEventMembers = async () => {
+  const orgIds = [form.value.organization_id, ...(form.value.guest_organization_ids || [])].filter(Boolean)
+  if (orgIds.length === 0) {
+    eventMembers.value = []
+    return
+  }
+  try {
+    const memberLists = await Promise.all(
+      orgIds.map(id => api.organizations.get_organization_members(id).catch(() => []))
+    )
+    const seen = new Set<string>()
+    const combined: any[] = []
+    for (const list of memberLists) {
+      for (const m of list) {
+        if (m.user_id && !seen.has(m.user_id)) {
+          seen.add(m.user_id)
+          combined.push(m)
+        }
+      }
+    }
+    eventMembers.value = combined
+  } catch {
+    eventMembers.value = []
+  }
+}
+
+watch(() => [form.value.organization_id, form.value.guest_organization_ids], () => {
+  loadEventMembers()
+}, { deep: true })
 
 const formatOverlapDate = (dateStr: string) => {
   if (!dateStr) return ''

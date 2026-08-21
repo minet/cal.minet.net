@@ -128,7 +128,12 @@
         <!-- Description -->
         <div class="bg-white shadow-sm rounded-lg p-6">
           <h2 class="text-lg font-medium text-gray-900 mb-3">Description</h2>
-          <p class="text-gray-700 whitespace-pre-wrap">{{ event.description || 'Aucune description' }}</p>
+          <OrgDescriptionRenderer
+            v-if="event.description"
+            :description="event.description"
+            :members="eventMembers"
+          />
+          <p v-else class="text-gray-500 italic">Aucune description</p>
         </div>
       </div>
 
@@ -515,12 +520,14 @@ import ShareButton from '../components/ShareButton.vue'
 import ActionPanel from '../components/ActionPanel.vue'
 import ActionPanelButton from '../components/ActionPanelButton.vue'
 import MediaImage from '../components/MediaImage.vue'
+import OrgDescriptionRenderer from '../components/OrgDescriptionRenderer.vue'
 import { resolveMediaUrl } from '../utils/media.js'
 
 const route = useRoute()
 const router = useRouter()
 const { user } = useAuth()
 const event = ref<EventRead | null>(null)
+const eventMembers = ref<any[]>([])
 const paymentForm = ref<PaymentFormRead | null>(null)
 const myEntry = ref<MyPaymentEntryRead | null>(null)
 const initiatingPayment = ref(false)
@@ -570,6 +577,29 @@ const getDuration = () => {
 const loadEvent = async () => {
   try {
     event.value = await api.events.get_event(String(route.params.id))
+    if (event.value) {
+      const orgIds = [event.value.organization?.id, ...(event.value.guest_organizations || []).map(g => g.id)].filter(Boolean) as string[]
+      if (orgIds.length > 0) {
+        try {
+          const memberLists = await Promise.all(
+            orgIds.map(id => api.organizations.get_organization_members(id).catch(() => []))
+          )
+          const seen = new Set<string>()
+          const combined: any[] = []
+          for (const list of memberLists) {
+            for (const m of list) {
+              if (m.user_id && !seen.has(m.user_id)) {
+                seen.add(m.user_id)
+                combined.push(m)
+              }
+            }
+          }
+          eventMembers.value = combined
+        } catch {
+          eventMembers.value = []
+        }
+      }
+    }
   } catch (error) {
     console.error('Failed to load event:', error)
   } finally {
