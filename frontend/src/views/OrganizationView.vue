@@ -57,7 +57,7 @@
       </DocsHint>
 
       <DocsHint path="/gerer-les-membres" search="membres">
-        <ActionPanelButton v-if="isMember" :to="`/organizations/${organization.id}/members`" :icon="UserGroupIcon"
+        <ActionPanelButton v-if="isMember || canEdit" :to="`/organizations/${organization.id}/members`" :icon="UserGroupIcon"
           variant="fuchsia" class="w-full lg:w-auto">
           {{ canEdit ? 'Membres' : 'Mon poste' }}
         </ActionPanelButton>
