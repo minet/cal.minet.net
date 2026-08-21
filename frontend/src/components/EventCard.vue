@@ -35,7 +35,7 @@
         img-class="w-full h-full object-cover transform hover:scale-105 transition-transform duration-500"
       />
       <!-- Organization Logo Overlay -->
-      <div class="absolute bottom-3 right-3 flex items-center overflow-hidden p-1 bg-white/90 rounded-full shadow-md backdrop-blur-sm" :class="manyOrgs ? '-space-x-1' : '-space-x-2'">
+      <div class="absolute bottom-3 right-3 flex items-center overflow-hidden p-1 bg-white/90 rounded-full shadow-md backdrop-blur-sm" :class="manyOrgs ? '-space-x-6' : 'space-x-2'">
         <template v-for="guest in event.guest_organizations" :key="guest.id">
             <img
                 v-if="guest.logo_file || guest.logo_url"
@@ -82,7 +82,7 @@
       class="relative h-24 flex items-center justify-center p-4 transition-colors rounded-t-xl"
       :style="{ background: getEventGradient(event.organization, event.guest_organizations) }"
     >
-      <div class="absolute -bottom-6 left-6 flex items-center" :class="manyOrgs ? '-space-x-1' : '-space-x-2'">
+      <div class="absolute -bottom-6 left-6 flex items-center" :class="manyOrgs ? '-space-x-7' : '-space-x-2'">
         <img
           v-if="event.organization?.logo_file || event.organization?.logo_url"
           :src="resolveMediaUrl(event.organization.logo_file, 64) ?? event.organization.logo_url"
