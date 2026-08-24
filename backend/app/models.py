@@ -145,6 +145,9 @@ class Organization(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     logo_file_id: Optional[UUID] = Field(default=None, foreign_key="storedfile.id")
+    hide_members_from_year_1: bool = Field(default=False)
+    hide_members_from_year_2: bool = Field(default=False)
+    hide_members_from_year_3: bool = Field(default=False)
 
     parent: Optional["Organization"] = Relationship(
         back_populates="children",
@@ -186,6 +189,9 @@ class Membership(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     can_manage_payment_forms: bool = Field(default=False)
+    hide_from_year_1: bool = Field(default=False)
+    hide_from_year_2: bool = Field(default=False)
+    hide_from_year_3: bool = Field(default=False)
 
     user: User = Relationship(back_populates="memberships")
     organization: Organization = Relationship(back_populates="members")
@@ -341,6 +347,7 @@ class LDAPUser(SQLModel, table=True):
     email: str = Field(unique=True, index=True)
     full_name: Optional[str] = None
     uid: Optional[str] = Field(default=None, index=True)
+    student_year: Optional[int] = Field(default=None, index=True)
     synced_at: datetime = Field(default_factory=datetime.now)
 
 

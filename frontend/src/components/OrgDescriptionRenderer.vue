@@ -23,6 +23,7 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import MarkdownIt from 'markdown-it'
 import MemberCard from './MemberCard.vue'
+import { renderUnresolvedMemberMention } from '../utils/memberMentions'
 
 type Block =
   | { type: 'text'; content: string }
@@ -133,6 +134,8 @@ const blocks = computed(() => {
         result.push({ type: 'member', member })
         continue
       }
+      textBuffer.push(renderUnresolvedMemberMention(bracketMatch[1], line))
+      continue
     }
 
     // Standalone bare member line: @user_id, @Full Name, @email, @username
@@ -144,6 +147,8 @@ const blocks = computed(() => {
         result.push({ type: 'member', member })
         continue
       }
+      textBuffer.push(renderUnresolvedMemberMention(bareMatch[1], line))
+      continue
     }
 
     // Standalone image line: ![alt](url)
@@ -168,8 +173,6 @@ const blocks = computed(() => {
 
 // Replace inline member mentions (@[Name] or @username) with links to profile
 function preprocessInlineMembers(content: string): string {
-  const isUuid = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str.trim())
-
   // 1. Bracketed mentions: @[key]
   let text = content.replace(/@\[([^\]]+)\]/g, (match, key) => {
     const member = findMember(key)
@@ -177,10 +180,7 @@ function preprocessInlineMembers(content: string): string {
       const displayName = member.full_name || member.email
       return `[@${displayName}](/users/${member.user_id})`
     }
-    if (isUuid(key)) {
-      return `[@Membre](/users/${key.trim()})`
-    }
-    return match
+    return renderUnresolvedMemberMention(key, match)
   })
 
   // 2. Bare mentions: @username or @email or @user_id (preceded by start or whitespace/punctuation)
@@ -190,10 +190,7 @@ function preprocessInlineMembers(content: string): string {
       const displayName = member.full_name || member.email
       return `${prefix}[@${displayName}](/users/${member.user_id})`
     }
-    if (isUuid(key)) {
-      return `${prefix}[@Membre](/users/${key.trim()})`
-    }
-    return match
+    return `${prefix}${renderUnresolvedMemberMention(key, `@${key}`)}`
   })
 
   return text

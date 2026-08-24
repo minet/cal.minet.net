@@ -11,6 +11,7 @@ from sqlmodel import Session, col, delete, select
 
 from app.api.auth import get_current_user
 from app.database import get_session
+from app.member_visibility import normalize_student_year
 from app.models import (
     EventPaymentEntry,
     EventPaymentForm,
@@ -29,6 +30,7 @@ from app.models import (
 from app.schemas import UserRead
 
 router = APIRouter()
+LDAP_STUDENT_YEAR_ATTRIBUTE = "supannEtuEtape"
 
 
 class LDAPSyncRequest(BaseModel):
@@ -41,6 +43,7 @@ class LDAPUserRead(BaseModel):
     email: str
     full_name: str | None
     uid: str | None
+    student_year: int | None
 
 
 @router.post("/ldap/sync")
@@ -64,7 +67,6 @@ async def sync_ldap_users(
         "y",
     )
     ldap_filter = os.getenv("LDAP_FILTER", "(&(objectClass=person)(mail=*))")
-
     # Construct User DN
     user_dn = f"uid={creds.username},{bind_dn}"
 
@@ -90,7 +92,15 @@ async def sync_ldap_users(
             search_base=base_dn,
             search_filter=ldap_filter,
             search_scope=SUBTREE,
-            attributes=["mail", "cn", "displayName", "uid", "givenName", "sn"],
+            attributes=[
+                "mail",
+                "cn",
+                "displayName",
+                "uid",
+                "givenName",
+                "sn",
+                LDAP_STUDENT_YEAR_ATTRIBUTE,
+            ],
         )
 
         entries = conn.entries
@@ -129,6 +139,11 @@ async def sync_ldap_users(
                 email=str(mail_val),
                 full_name=full_name,
                 uid=str(uid_val),
+                student_year=normalize_student_year(
+                    entry[LDAP_STUDENT_YEAR_ATTRIBUTE].values
+                    if LDAP_STUDENT_YEAR_ATTRIBUTE in entry.entry_attributes
+                    else None
+                ),
                 synced_at=datetime.now(),
             )
             new_users.append(ldap_user)
@@ -169,7 +184,13 @@ async def search_ldap_users(
     users = session.exec(query).all()
 
     return [
-        LDAPUserRead(id=str(u.id), email=u.email, full_name=u.full_name, uid=u.uid)
+        LDAPUserRead(
+            id=str(u.id),
+            email=u.email,
+            full_name=u.full_name,
+            uid=u.uid,
+            student_year=u.student_year,
+        )
         for u in users
     ]
 

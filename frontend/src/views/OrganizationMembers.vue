@@ -43,6 +43,41 @@
       </div>
     </div>
 
+    <!-- Roster confidentiality -->
+    <div v-if="canEdit" class="bg-white shadow-sm rounded-lg p-6 mb-6">
+      <h2 class="text-lg font-medium text-gray-900">Confidentialité de la liste des membres</h2>
+      <p class="mt-1 text-sm text-gray-500">
+        Masquer toute la liste aux étudiants des années sélectionnées. Les membres de l'organisation,
+        ses administrateurs et les superadministrateurs conservent toujours un accès complet.
+      </p>
+      <div class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <button
+          v-for="year in studentYears"
+          :key="year"
+          type="button"
+          role="switch"
+          :aria-checked="organizationHiddenFromYears.includes(year)"
+          :disabled="visibilitySaving !== null"
+          class="flex items-center justify-between rounded-md border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50"
+          :class="organizationHiddenFromYears.includes(year)
+            ? 'border-amber-400 bg-amber-50 text-amber-800'
+            : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'"
+          @click="toggleOrganizationVisibility(year)"
+        >
+          <span>{{ year }}{{ year === 1 ? 're' : 'e' }} année</span>
+          <span
+            class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors"
+            :class="organizationHiddenFromYears.includes(year) ? 'bg-amber-500' : 'bg-gray-300'"
+          >
+            <span
+              class="inline-block h-4 w-4 translate-y-0.5 rounded-full bg-white shadow transition-transform"
+              :class="organizationHiddenFromYears.includes(year) ? 'translate-x-[18px]' : 'translate-x-0.5'"
+            />
+          </span>
+        </button>
+      </div>
+    </div>
+
     <!-- Add Member Form -->
     <div v-if="canEdit" class="bg-white shadow-sm rounded-lg p-6 mb-6">
       <h2 class="text-lg font-medium text-gray-900 mb-4">Ajouter un membre</h2>
@@ -206,6 +241,23 @@
               </button>
             </div>
           </div>
+          <div v-if="canEdit" class="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 sm:ml-8">
+            <span class="text-xs text-gray-500">Masquer ce membre aux :</span>
+            <button
+              v-for="year in studentYears"
+              :key="year"
+              type="button"
+              :aria-pressed="member.hidden_from_years.includes(year)"
+              :disabled="visibilitySaving !== null"
+              class="rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50"
+              :class="member.hidden_from_years.includes(year)
+                ? 'border-amber-400 bg-amber-50 text-amber-800'
+                : 'border-gray-300 bg-white text-gray-500 hover:bg-gray-50'"
+              @click="toggleMemberVisibility(member, year)"
+            >
+              {{ year }}{{ year === 1 ? 're' : 'e' }} année
+            </button>
+          </div>
         </li>
       </ul>
     </div>
@@ -325,6 +377,9 @@ const loading = ref(false)
 const loadingMembers = ref(false)
 const error = ref('')
 const canEdit = ref(false)
+const studentYears = [1, 2, 3]
+const organizationHiddenFromYears = ref<number[]>([])
+const visibilitySaving = ref<string | null>(null)
 
 const currentUserId = computed(() => user.value?.id)
 const hasHelloAsso = ref(false)
@@ -447,6 +502,56 @@ const loadMembers = async () => {
     error.value = 'Impossible de charger les membres'
   } finally {
     loadingMembers.value = false
+  }
+}
+
+const loadMemberVisibility = async () => {
+  try {
+    const settings = await api.organizations.get_member_visibility(route.params.id as string)
+    organizationHiddenFromYears.value = settings.hidden_from_years
+  } catch (err) {
+    console.error('Failed to load member visibility settings:', err)
+    error.value = 'Impossible de charger les paramètres de confidentialité'
+  }
+}
+
+const toggledYears = (years: number[], year: number): number[] =>
+  years.includes(year)
+    ? years.filter(item => item !== year)
+    : [...years, year].sort()
+
+const toggleOrganizationVisibility = async (year: number) => {
+  visibilitySaving.value = 'organization'
+  error.value = ''
+  try {
+    const settings = await api.organizations.update_member_visibility(
+      route.params.id as string,
+      toggledYears(organizationHiddenFromYears.value, year),
+    )
+    organizationHiddenFromYears.value = settings.hidden_from_years
+  } catch (err) {
+    console.error('Failed to update member visibility settings:', err)
+    error.value = 'Impossible de modifier les paramètres de confidentialité'
+  } finally {
+    visibilitySaving.value = null
+  }
+}
+
+const toggleMemberVisibility = async (member: OrgMember, year: number) => {
+  visibilitySaving.value = member.id
+  error.value = ''
+  try {
+    const settings = await api.organizations.update_membership_visibility(
+      route.params.id as string,
+      member.id,
+      toggledYears(member.hidden_from_years, year),
+    )
+    member.hidden_from_years = settings.hidden_from_years
+  } catch (err) {
+    console.error('Failed to update membership visibility settings:', err)
+    error.value = 'Impossible de modifier la confidentialité de ce membre'
+  } finally {
+    visibilitySaving.value = null
   }
 }
 
@@ -629,6 +734,7 @@ const applyDeepLinks = async () => {
 onMounted(async () => {
   loadOrganization()
   await checkCanEdit()
+  if (canEdit.value) await loadMemberVisibility()
   await loadMembers()
   await applyDeepLinks()
 })

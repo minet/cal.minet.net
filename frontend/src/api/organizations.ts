@@ -1,5 +1,5 @@
 import { httpClient } from './client'
-import type { EventRead, Message, OrgMember, OrganizationCreate, OrganizationRead, Role } from './types'
+import type { EventRead, MemberVisibilitySettings, Message, OrgMember, OrganizationCreate, OrganizationRead, Role } from './types'
 
 export class OrganizationsApi {
   /** POST /organizations/ */
@@ -38,6 +38,39 @@ export class OrganizationsApi {
   /** GET /organizations/{org_id}/members */
   async get_organization_members(orgId: string): Promise<OrgMember[]> {
     const res = await httpClient.get<OrgMember[]>(`/organizations/${orgId}/members`)
+    return res.data
+  }
+
+  /** GET /organizations/{org_id}/member-visibility */
+  async get_member_visibility(orgId: string): Promise<MemberVisibilitySettings> {
+    const res = await httpClient.get<MemberVisibilitySettings>(
+      `/organizations/${orgId}/member-visibility`,
+    )
+    return res.data
+  }
+
+  /** PUT /organizations/{org_id}/member-visibility */
+  async update_member_visibility(
+    orgId: string,
+    hiddenFromYears: number[],
+  ): Promise<MemberVisibilitySettings> {
+    const res = await httpClient.put<MemberVisibilitySettings>(
+      `/organizations/${orgId}/member-visibility`,
+      { hidden_from_years: hiddenFromYears },
+    )
+    return res.data
+  }
+
+  /** PUT /organizations/{org_id}/members/{membership_id}/visibility */
+  async update_membership_visibility(
+    orgId: string,
+    membershipId: string,
+    hiddenFromYears: number[],
+  ): Promise<MemberVisibilitySettings> {
+    const res = await httpClient.put<MemberVisibilitySettings>(
+      `/organizations/${orgId}/members/${membershipId}/visibility`,
+      { hidden_from_years: hiddenFromYears },
+    )
     return res.data
   }
 

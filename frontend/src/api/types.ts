@@ -414,7 +414,12 @@ export interface OrgMember {
   title: string | null;
   order: number;
   can_manage_payment_forms: boolean;
+  hidden_from_years: number[];
   links: UserLinkRead[];
+}
+
+export interface MemberVisibilitySettings {
+  hidden_from_years: number[];
 }
 
 // ============================================================
@@ -705,6 +710,7 @@ export interface LDAPUserRead {
   email: string;
   full_name: string | null;
   uid: string | null;
+  student_year: number | null;
 }
 
 // ============================================================

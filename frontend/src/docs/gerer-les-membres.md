@@ -41,6 +41,24 @@ Sur la page de l'organisation, cliquez sur **Membres** (`/organizations/<id>/mem
 > membres requiert d'être administrateur **de cette organisation** ; la liste ci-dessus
 > indique lesquelles.
 
+## Confidentialité selon l'année d'étude
+
+Le bloc **Confidentialité de la liste des membres** permet de masquer toute la liste aux
+étudiants de **1re**, **2e** ou **3e année**. Il est aussi possible de masquer une seule
+personne à certaines années avec les boutons situés sous son nom. Les restrictions
+individuelles s'ajoutent à celles de l'organisation.
+
+Les membres de l'organisation, ses administrateurs et les super-administrateurs voient
+toujours la liste complète. Pour les autres visiteurs :
+
+- l'année d'étude provient de la dernière synchronisation LDAP ;
+- un étudiant ne voit pas les membres masqués pour son année ;
+- un visiteur anonyme, ou un compte dont l'année est inconnue, ne voit aucun membre faisant
+  l'objet d'au moins une restriction.
+
+Après un changement d'année scolaire, un super-administrateur doit relancer la
+**synchronisation LDAP** afin d'actualiser les années des étudiants.
+
 ## Passation de mandat
 
 Pour transférer un poste à un·e remplaçant·e en fin de mandat (le vôtre ou celui d'un autre

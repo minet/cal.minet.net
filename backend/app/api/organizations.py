@@ -2,13 +2,13 @@ from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, col, select
 
 from app.api.auth import get_current_user, get_current_user_optional
 from app.database import get_session
+from app.member_visibility import visible_memberships
 from app.models import EventVisibility, Membership, Organization, Role, User, UserLink
 from app.schemas import EventRead, OrganizationRead
 
@@ -46,16 +46,29 @@ def get_organization(org_id: str, session: Session = Depends(get_session)):
     return org.to_read_model(session)
 
 @router.get("/{org_id}/members")
-def get_organization_members(org_id: str, session: Session = Depends(get_session)):
+def get_organization_members(
+    org_id: str,
+    session: Session = Depends(get_session),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+):
     """Get all members of an organization"""
+    organization = session.get(Organization, org_id)
+    if not organization:
+        raise HTTPException(status_code=404, detail="Organization not found")
     memberships = session.exec(
         select(Membership)
         .where(Membership.organization_id == org_id)
         .order_by(col(Membership.order).asc())
     ).all()
+    memberships = visible_memberships(session, organization, current_user, memberships)
+    can_manage_member_visibility = False
+    if current_user:
+        can_manage_member_visibility, _ = can_edit_organization(
+            org_id, current_user, session
+        )
     
     result = []
-    for membership in memberships:
+    for visible_order, membership in enumerate(memberships):
         user = session.get(User, membership.user_id)
         if user:
             user_links = session.exec(
@@ -78,12 +91,103 @@ def get_organization_members(org_id: str, session: Session = Depends(get_session
                 "phone_number": user.phone_number,
                 "role": membership.role,
                 "title": membership.title,
-                "order": membership.order,
+                "order": (
+                    membership.order
+                    if can_manage_member_visibility
+                    else visible_order
+                ),
                 "can_manage_payment_forms": membership.can_manage_payment_forms,
+                "hidden_from_years": (
+                    [
+                        year
+                        for year in (1, 2, 3)
+                        if getattr(membership, f"hide_from_year_{year}")
+                    ]
+                    if can_manage_member_visibility
+                    else []
+                ),
                 "links": [{"id": str(l.id), "name": l.name, "url": l.url, "order": l.order} for l in user_links],
             })
 
     return result
+
+class MemberVisibilitySettings(BaseModel):
+    hidden_from_years: List[int]
+
+
+def _validated_hidden_years(settings: MemberVisibilitySettings) -> set[int]:
+    years = set(settings.hidden_from_years)
+    if not years.issubset({1, 2, 3}):
+        raise HTTPException(status_code=422, detail="Years must be 1, 2, or 3")
+    return years
+
+
+def _require_organization_editor(
+    org_id: str, current_user: User, session: Session
+) -> Organization:
+    organization = session.get(Organization, org_id)
+    if not organization:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    can_edit, reason = can_edit_organization(org_id, current_user, session)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=reason)
+    return organization
+
+
+@router.get("/{org_id}/member-visibility", response_model=MemberVisibilitySettings)
+def get_member_visibility_settings(
+    org_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    organization = _require_organization_editor(org_id, current_user, session)
+    return MemberVisibilitySettings(
+        hidden_from_years=[
+            year
+            for year in (1, 2, 3)
+            if getattr(organization, f"hide_members_from_year_{year}")
+        ]
+    )
+
+
+@router.put("/{org_id}/member-visibility", response_model=MemberVisibilitySettings)
+def update_member_visibility_settings(
+    org_id: str,
+    settings: MemberVisibilitySettings,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    organization = _require_organization_editor(org_id, current_user, session)
+    hidden_years = _validated_hidden_years(settings)
+    for year in (1, 2, 3):
+        setattr(organization, f"hide_members_from_year_{year}", year in hidden_years)
+    session.add(organization)
+    session.commit()
+    return MemberVisibilitySettings(hidden_from_years=sorted(hidden_years))
+
+
+@router.put(
+    "/{org_id}/members/{membership_id}/visibility",
+    response_model=MemberVisibilitySettings,
+)
+def update_membership_visibility_settings(
+    org_id: str,
+    membership_id: str,
+    settings: MemberVisibilitySettings,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    _require_organization_editor(org_id, current_user, session)
+    membership = session.get(Membership, membership_id)
+    if not membership or str(membership.organization_id) != org_id:
+        raise HTTPException(status_code=404, detail="Membership not found")
+    hidden_years = _validated_hidden_years(settings)
+    for year in (1, 2, 3):
+        setattr(membership, f"hide_from_year_{year}", year in hidden_years)
+    session.add(membership)
+    session.commit()
+    return MemberVisibilitySettings(hidden_from_years=sorted(hidden_years))
+
 
 class MemberReorderRequest(BaseModel):
     membership_ids: List[str]
@@ -622,5 +726,3 @@ def delete_organization(
     session.commit()
     
     return {"message": "Organization and all related data deleted successfully"}
-
-
