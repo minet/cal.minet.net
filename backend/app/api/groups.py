@@ -39,6 +39,34 @@ def check_org_admin(user: User, org_id: str, session: Session) -> bool:
     
     return membership is not None
 
+# Helper function to check if user can read the organization's groups
+def check_org_group_reader(user: User, org_id: UUID, session: Session) -> bool:
+    """Superadmins, members of the organization (any role) and admins of its parent."""
+    if user.is_superadmin:
+        return True
+
+    membership = session.exec(
+        select(Membership).where(
+            Membership.user_id == user.id,
+            Membership.organization_id == org_id,
+        )
+    ).first()
+    if membership:
+        return True
+
+    org = session.get(Organization, org_id)
+    if org and org.parent_id:
+        parent_admin = session.exec(
+            select(Membership).where(
+                Membership.user_id == user.id,
+                Membership.organization_id == org.parent_id,
+                Membership.role == Role.ORG_ADMIN,
+            )
+        ).first()
+        return parent_admin is not None
+
+    return False
+
 @router.get("/organizations/{org_id}/groups")
 def get_organization_groups(
     org_id: str,
@@ -50,6 +78,9 @@ def get_organization_groups(
     org = session.get(Organization, UUID(org_id))
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
+
+    if not check_org_group_reader(current_user, org.id, session):
+        raise HTTPException(status_code=403, detail="Not authorized")
     
     # Get groups
     groups = session.exec(
@@ -190,6 +221,9 @@ def get_group_members(
     group = session.get(Group, UUID(group_id))
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
+
+    if not check_org_group_reader(current_user, group.organization_id, session):
+        raise HTTPException(status_code=403, detail="Not authorized")
     
     # Get memberships with user details
     memberships = session.exec(
@@ -266,6 +300,28 @@ def add_group_member(
         "message": "Member added successfully"
     }
 
+@router.delete("/groups/{group_id}/members/me")
+def leave_group(
+    group_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Leave a group (current user)"""
+    membership = session.exec(
+        select(GroupMembership).where(
+            GroupMembership.group_id == UUID(group_id),
+            GroupMembership.user_id == current_user.id
+        )
+    ).first()
+    
+    if not membership:
+        raise HTTPException(status_code=404, detail="Membership not found")
+    
+    session.delete(membership)
+    session.commit()
+    
+    return {"message": "Left group successfully"}
+
 @router.delete("/groups/{group_id}/members/{user_id}")
 def remove_group_member(
     group_id: str,
@@ -298,26 +354,3 @@ def remove_group_member(
     session.commit()
     
     return {"message": "Member removed successfully"}
-
-@router.delete("/groups/{group_id}/members/me")
-def leave_group(
-    group_id: str,
-    current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_session)
-):
-    """Leave a group (current user)"""
-    # Check if membership exists
-    membership = session.exec(
-        select(GroupMembership).where(
-            GroupMembership.group_id == UUID(group_id),
-            GroupMembership.user_id == current_user.id
-        )
-    ).first()
-    
-    if not membership:
-        raise HTTPException(status_code=404, detail="Membership not found")
-    
-    session.delete(membership)
-    session.commit()
-    
-    return {"message": "Left group successfully"}

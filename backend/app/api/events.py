@@ -168,6 +168,9 @@ def can_view_event(
     return False, "You are not authorized to view this event"
 
 
+GUEST_EDITOR = "guest_editor"
+
+
 def can_edit_event(event: Event, user: User, session: Session) -> tuple[bool, str]:
     """Check if user can edit an event"""
     if user.is_superadmin:
@@ -178,7 +181,8 @@ def can_edit_event(event: Event, user: User, session: Session) -> tuple[bool, st
 
     membership = get_org_membership(user, event.organization_id, session)
 
-    # Check guest organization membership (admins and members of guest orgs can edit)
+    # Check guest organization membership (admins and members of guest orgs can edit
+    # the content, but not delete the event nor change its guest list)
     if not membership:
         guest_org_ids = [go.id for go in event.guest_organizations]
         for guest_org_id in guest_org_ids:
@@ -187,7 +191,7 @@ def can_edit_event(event: Event, user: User, session: Session) -> tuple[bool, st
                 Role.ORG_ADMIN,
                 Role.ORG_MEMBER,
             ]:
-                return True, ""
+                return True, GUEST_EDITOR
         return False, "You are not a member of the organization"
 
     # Org Admins can edit everything
@@ -856,13 +860,14 @@ def check_overlapping_events(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    """Get public events overlapping with the given time range (for any authenticated user)"""
+    """Get public events overlapping with the given time range (for any authenticated user)."""
     query = select(Event).where(
         Event.start_time < end_time,
         Event.end_time > start_time,
         Event.visibility.in_(
             [EventVisibility.PUBLIC_APPROVED, EventVisibility.PUBLIC_PENDING]
         ),
+        get_visibility_conditions(current_user, session),
     )
 
     if exclude_event_id:
@@ -986,21 +991,40 @@ def update_event(
     if not can_edit:
         raise HTTPException(status_code=403, detail=reason)
 
+    is_guest_editor = reason == GUEST_EDITOR
+
+    if is_guest_editor and event_data.guest_organization_ids is not None:
+        current_guest_ids = {str(go.id) for go in event.guest_organizations}
+        requested_guest_ids = {str(UUID(gid)) for gid in event_data.guest_organization_ids}
+        if requested_guest_ids != current_guest_ids:
+            raise HTTPException(
+                status_code=403,
+                detail="Only the host organization can change the guest organizations",
+            )
+
+    if event_data.group_id:
+        group = session.get(Group, UUID(event_data.group_id))
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
+        if group.organization_id != event.organization_id:
+            raise HTTPException(
+                status_code=400, detail="Group does not belong to this organization"
+            )
+
     # Lock date/time editing for approved events (unless superadmin)
     is_approved = event.visibility == EventVisibility.PUBLIC_APPROVED
-    if is_approved and not current_user.is_superadmin:
-        if (
+    dates_changed_after_approval = (
+        is_approved
+        and not current_user.is_superadmin
+        and (
             event_data.start_time is not None
             and event_data.start_time.astimezone(timezone.utc)
             != event.start_time.astimezone(timezone.utc)
             or event_data.end_time is not None
             and event_data.end_time.astimezone(timezone.utc)
             != event.end_time.astimezone(timezone.utc)
-        ):
-            # Put the event back into the pending state
-            event.visibility = EventVisibility.PUBLIC_PENDING
-            event.approved_at = None
-            event.rejection_message = None
+        )
+    )
 
     # Update fields
     if event_data.title is not None:
@@ -1036,6 +1060,13 @@ def update_event(
                 event.rejection_message = None
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid visibility value")
+    if (
+        dates_changed_after_approval
+        and event.visibility == EventVisibility.PUBLIC_APPROVED
+    ):
+        event.visibility = EventVisibility.PUBLIC_PENDING
+        event.approved_at = None
+        event.rejection_message = None
     if event_data.group_id is not None:
         event.group_id = UUID(event_data.group_id) if event_data.group_id else None
     if "poster_file_id" in event_data.model_fields_set:
@@ -1071,7 +1102,7 @@ def update_event(
         should_auto_approve = False
         for tag_id in event_data.tag_ids:
             tag = session.get(Tag, UUID(tag_id))
-            if tag:
+            if tag and tag.organization_id == event.organization_id:
                 session.add(EventTag(event_id=event.id, tag_id=UUID(tag_id)))
                 if tag.is_auto_approved:
                     should_auto_approve = True
@@ -1159,6 +1190,10 @@ def delete_event(
     can_edit, reason = can_edit_event(event, current_user, session)
     if not can_edit:
         raise HTTPException(status_code=403, detail=reason)
+    if reason == GUEST_EDITOR:
+        raise HTTPException(
+            status_code=403, detail="Only the host organization can delete this event"
+        )
 
     # Manually delete dependent entities to ensure no foreign key constraints are violated
     # 1. Links

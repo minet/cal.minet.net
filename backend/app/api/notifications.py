@@ -1,7 +1,10 @@
 from datetime import datetime, timedelta, timezone
+import ipaddress
 import json
 import logging
 import os
+import socket
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
@@ -19,12 +22,25 @@ logger = logging.getLogger(__name__)
 def get_vapid_public_key():
     return {"public_key": os.getenv("VAPID_PUBLIC_KEY")}
 
+def _is_public_https_endpoint(endpoint: str) -> bool:
+    parsed = urlparse(endpoint)
+    if parsed.scheme != "https" or not parsed.hostname:
+        return False
+    try:
+        addresses = socket.getaddrinfo(parsed.hostname, parsed.port or 443)
+        return all(ipaddress.ip_address(addr[4][0]).is_global for addr in addresses)
+    except (socket.gaierror, UnicodeError, ValueError):
+        return False
+
 @router.post("/subscribe", response_model=Message)
 def subscribe_push(
     token_data: PushTokenCreate,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
+    if not _is_public_https_endpoint(token_data.endpoint):
+        raise HTTPException(status_code=400, detail="Invalid push endpoint")
+
     existing_token = session.exec(
         select(UserPushToken).where(
             UserPushToken.user_id == current_user.id,

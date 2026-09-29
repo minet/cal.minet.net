@@ -188,10 +188,12 @@ def _can_review_payment_form(
 def _can_manage_form(
     form: EventPaymentForm, current_user: User, session: Session
 ) -> bool:
-    """Return True if user can edit or cancel this form (creator, org admin, or superadmin)."""
+    """Return True if user can edit or cancel this form (payment managers of the
+    requesting or approving org, or superadmin).
+
+    Being the form's creator is not enough: rights are lost with the membership.
+    """
     if current_user.is_superadmin:
-        return True
-    if form.created_by_id == current_user.id:
         return True
     membership = session.exec(
         select(Membership).where(
@@ -200,11 +202,15 @@ def _can_manage_form(
                 Membership.organization_id == form.requesting_org_id,
                 Membership.organization_id == form.approving_org_id,
             ),
+            Membership.can_manage_payment_forms,
         )
     ).first()
-    if not membership:
-        return False
-    return membership.can_manage_payment_forms
+    return membership is not None
+
+
+def _validate_option_prices(options: List[PaymentFormOption]) -> None:
+    if any(opt.price_cents < 0 for opt in options):
+        raise HTTPException(status_code=400, detail="Option prices cannot be negative")
 
 
 def _get_form_or_404(event_id: str, session: Session) -> EventPaymentForm:
@@ -365,7 +371,9 @@ def _parse_selected_option_ids(raw: Optional[str]) -> List[str]:
 
 
 def _resolve_selected_options(
-    form: EventPaymentForm, selected_option_ids: List[str]
+    form: EventPaymentForm,
+    selected_option_ids: List[str],
+    payer: Optional[User] = None,
 ) -> List[EventPaymentFormOption]:
     """Validate and resolve selected option IDs against the form's options."""
     by_id = _opts_map(form)
@@ -381,6 +389,12 @@ def _resolve_selected_options(
         opt = by_id.get(sid)
         if not opt:
             raise HTTPException(status_code=400, detail=f"Invalid option ID: {raw_id}")
+        if (
+            payer is not None
+            and opt.is_private
+            and payer.id not in {link.user_id for link in opt.allowed_user_links}
+        ):
+            raise HTTPException(status_code=403, detail=f"Option not available: {raw_id}")
         seen.add(sid)
         resolved.append(opt)
     return resolved
@@ -718,6 +732,7 @@ def create_payment_form(
 
     if form_data.total_amount_cents <= 0:
         raise HTTPException(status_code=400, detail="Amount must be positive")
+    _validate_option_prices(form_data.options)
 
     org = session.get(Organization, event.organization_id)
     if not org:
@@ -781,7 +796,7 @@ def update_payment_form(
 ):
     """Edit a payment form. Rejected forms cannot be edited.
     item_name / total_amount_cents can only be changed while PENDING.
-    options and is_open can be changed at any time (including after approval).
+    is_open can be changed at any time. After approval.
     """
     form = _get_form_or_404(event_id, session)
 
@@ -797,7 +812,22 @@ def update_payment_form(
         form.is_open = update_data.is_open
 
     if update_data.options is not None:
+        _validate_option_prices(update_data.options)
         existing_opts = {str(o.id): o for o in form.form_options}
+
+        if form.status == PaymentFormStatus.APPROVED and not _can_review_payment_form(
+            form, current_user, session
+        ):
+            requested_prices = {
+                str(o.id) if o.id else None: o.price_cents for o in update_data.options
+            }
+            approved_prices = {oid: o.price_cents for oid, o in existing_opts.items()}
+            if requested_prices != approved_prices:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Options and prices of an approved payment form can only be changed by the approving organization",
+                )
+
         updated_options = []
         for idx, opt_data in enumerate(update_data.options):
             oid = str(opt_data.id) if opt_data.id else None
@@ -997,7 +1027,9 @@ def initiate_payment(
             status_code=400, detail="Payments are currently closed for this event"
         )
 
-    selected_options = _resolve_selected_options(form, request_data.selected_option_ids)
+    selected_options = _resolve_selected_options(
+        form, request_data.selected_option_ids, payer=current_user
+    )
     selected_option_ids = [str(opt.id) for opt in selected_options]
 
     extra_cents = sum(opt.price_cents for opt in selected_options)
@@ -1318,19 +1350,7 @@ def export_organization_checkouts_ods(
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
 
-    # Check user has access to organization (must be member or superadmin)
-    if not current_user.is_superadmin:
-        membership = session.exec(
-            select(Membership).where(
-                Membership.user_id == current_user.id,
-                Membership.organization_id == org_uuid,
-            )
-        ).first()
-        if not membership:
-            raise HTTPException(
-                status_code=403,
-                detail="Not authorized to view this organization's data",
-            )
+    _require_org_admin(org_uuid, current_user, session)
 
     # Verify that the organization has HelloAsso credentials registered
     _check_org_has_helloasso_credentials(org_uuid, session)
@@ -2119,10 +2139,20 @@ def attendee_bulk_resolve(
 @router.post("/users/batch-lookup", response_model=List[AttendeeSearchResult])
 def batch_lookup_users(
     request: UserBatchLookupRequest,
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
     """Look up multiple users by UUID — used to display allowed_user_ids as names in the UI."""
+    if not current_user.is_superadmin:
+        manager_membership = session.exec(
+            select(Membership).where(
+                Membership.user_id == current_user.id,
+                Membership.can_manage_payment_forms,
+            )
+        ).first()
+        if not manager_membership:
+            raise HTTPException(status_code=403, detail="Not authorized")
+
     results: List[AttendeeSearchResult] = []
     for uid_str in request.ids:
         try:
@@ -2351,7 +2381,12 @@ def import_billeterie_attendees(
             status_code=404, detail="HelloAsso integration no longer available"
         )
 
-    _can_manage_form(form, current_user, session)  # also check form permissions
+    if not (
+        current_user.is_superadmin
+        or _can_manage_form(form, current_user, session)
+        or _can_review_payment_form(form, current_user, session)
+    ):
+        raise HTTPException(status_code=403, detail="Not authorized")
 
     try:
         items = ha_service.list_form_items(

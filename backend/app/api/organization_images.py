@@ -9,7 +9,7 @@ from app.api.organizations import can_edit_organization
 from app.database import get_session
 from app.models import Membership, Organization, OrganizationImage, Role, StoredFile, User
 from app.schemas import OrganizationImageRead
-from app.services.storage import delete_file, upload_file
+from app.services.storage import content_type_for, delete_file, upload_file
 
 router = APIRouter()
 
@@ -74,8 +74,6 @@ async def upload_organization_image(
             status_code=400,
             detail=f"Type de fichier non autorisé. Types acceptés : {', '.join(ALLOWED_EXTENSIONS)}",
         )
-    if not file.content_type:
-        raise HTTPException(status_code=400, detail="Type de contenu manquant")
 
     contents = await file.read()
     if len(contents) > MAX_FILE_SIZE:
@@ -84,8 +82,9 @@ async def upload_organization_image(
             detail=f"Fichier trop volumineux. Maximum : {MAX_FILE_SIZE // (1024 * 1024)}MB",
         )
 
+    content_type = content_type_for(file.filename)
     try:
-        url = upload_file(contents, file.filename, file.content_type)
+        url = upload_file(contents, file.filename, content_type)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Échec de l'upload : {str(e)}")
 
@@ -95,7 +94,7 @@ async def upload_organization_image(
         stored_filename=stored_filename,
         original_filename=file.filename,
         url=url,
-        content_type=file.content_type,
+        content_type=content_type,
         size=len(contents),
         uploaded_by_id=current_user.id,
         file_type="image",

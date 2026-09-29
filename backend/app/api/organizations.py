@@ -84,11 +84,11 @@ def get_organization_members(
             result.append({
                 "id": str(membership.id),
                 "user_id": str(user.id),
-                "email": user.email,
+                "email": user.email if current_user else None,
                 "full_name": user.full_name,
                 "profile_picture_url": profile_picture_file["url"] if profile_picture_file else None,
                 "profile_picture_file": profile_picture_file,
-                "phone_number": user.phone_number,
+                "phone_number": user.phone_number if current_user else None,
                 "role": membership.role,
                 "title": membership.title,
                 "order": (
@@ -390,10 +390,14 @@ def transfer_membership(
         raise HTTPException(status_code=404, detail="Membership not found")
 
     is_self = current_user.id == membership.user_id
-    if not is_self:
-        can_edit, reason = can_edit_organization(org_id, current_user, session)
-        if not can_edit:
-            raise HTTPException(status_code=403, detail=reason)
+    can_edit, reason = can_edit_organization(org_id, current_user, session)
+    if not is_self and not can_edit:
+        raise HTTPException(status_code=403, detail=reason)
+    if not can_edit and len(request.successors) > 1:
+        raise HTTPException(
+            status_code=403,
+            detail="Only an organization admin can transfer a post to several successors",
+        )
 
     new_membership_ids: List[str] = []
     for successor in request.successors:
@@ -576,6 +580,46 @@ def can_edit_organization_route(
     can_edit, reason = can_edit_organization(org_id, current_user, session)
     return {"can_edit": can_edit, "reason": reason}
 
+def _check_can_move_organization(
+    org: Organization,
+    new_parent_id: Optional[UUID],
+    current_user: User,
+    session: Session,
+) -> None:
+    if new_parent_id is not None:
+        if not session.get(Organization, new_parent_id):
+            raise HTTPException(status_code=404, detail="Parent organization not found")
+        ancestor_id: Optional[UUID] = new_parent_id
+        visited: set[UUID] = set()
+        while ancestor_id and ancestor_id not in visited:
+            if ancestor_id == org.id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="An organization cannot be its own ancestor",
+                )
+            visited.add(ancestor_id)
+            ancestor = session.get(Organization, ancestor_id)
+            ancestor_id = ancestor.parent_id if ancestor else None
+
+    if current_user.is_superadmin:
+        return
+    for parent_id in (org.parent_id, new_parent_id):
+        if parent_id is None:
+            continue
+        parent_admin = session.exec(
+            select(Membership).where(
+                Membership.user_id == current_user.id,
+                Membership.organization_id == parent_id,
+                Membership.role == Role.ORG_ADMIN,
+            )
+        ).first()
+        if not parent_admin:
+            raise HTTPException(
+                status_code=403,
+                detail="Changing the parent organization requires being admin of both the current and the new parent",
+            )
+
+
 @router.put("/{org_id}", response_model=Organization)
 def update_organization(
     org_id: str,
@@ -592,14 +636,18 @@ def update_organization(
     can_edit, reason = can_edit_organization(org_id, current_user, session)
     if not can_edit:
         raise HTTPException(status_code=403, detail=reason)
-    
+
+    new_parent_id = UUID(str(org_update.parent_id)) if org_update.parent_id else None
+    if new_parent_id != org.parent_id:
+        _check_can_move_organization(org, new_parent_id, current_user, session)
+
     # Update fields
     org.name = org_update.name
     org.slug = org_update.slug
     org.description = org_update.description
     org.logo_file_id = org_update.logo_file_id
     org.type = org_update.type
-    org.parent_id = org_update.parent_id
+    org.parent_id = new_parent_id
     org.delete_after = org_update.delete_after
     org.color_primary = org_update.color_primary
     org.color_secondary = org_update.color_secondary

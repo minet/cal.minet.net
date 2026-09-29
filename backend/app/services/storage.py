@@ -43,6 +43,26 @@ def ensure_bucket_exists():
     except S3Error as e:
         print(f"Error ensuring bucket exists: {e}")
 
+CONTENT_TYPES_BY_EXTENSION = {
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "gif": "image/gif",
+    "webp": "image/webp",
+    "svg": "image/svg+xml",
+    "mp4": "video/mp4",
+    "webm": "video/webm",
+    "mov": "video/quicktime",
+    "avi": "video/x-msvideo",
+    "mkv": "video/x-matroska",
+}
+
+
+def content_type_for(filename: str) -> str:
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    return CONTENT_TYPES_BY_EXTENSION.get(ext, "application/octet-stream")
+
+
 def upload_file(file_data: bytes, filename: str, content_type: str = "application/octet-stream") -> str:
     """
     Upload a file to MinIO and return the public URL

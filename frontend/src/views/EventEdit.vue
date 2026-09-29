@@ -494,6 +494,7 @@ type EventLinkForm = {
 }
 
 type PaymentOptionForm = {
+  id?: string
   name: string
   amount_euros: number | ''
   is_private: boolean
@@ -895,6 +896,7 @@ const loadPaymentForm = async () => {
     existingPaymentForm.value = form
     // Seed edit state from existing options
     paymentFormEdit.value.options = (form.options || []).map(o => ({
+      id: o.id ?? undefined,
       name: o.name,
       amount_euros: o.price_cents / 100,
       is_private: o.is_private || false,
@@ -929,6 +931,7 @@ const savePaymentFormOptions = async () => {
       if (!o.name || o.amount_euros === '' || o.amount_euros === null) continue
 
       optionsToSave.push({
+        id: o.id,
         name: o.name,
         price_cents: Math.round(o.amount_euros * 100),
         is_private: o.is_private || false,
@@ -939,6 +942,7 @@ const savePaymentFormOptions = async () => {
     const updated = await api.helloasso.update_payment_form(eventId, { options: optionsToSave })
     existingPaymentForm.value = updated
     paymentFormEdit.value.options = (updated.options || []).map(o => ({
+      id: o.id ?? undefined,
       name: o.name,
       amount_euros: o.price_cents / 100,
       is_private: o.is_private || false,

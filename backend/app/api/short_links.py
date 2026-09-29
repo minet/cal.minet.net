@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import html
 import json
 import os
 import random
@@ -216,7 +217,7 @@ def visit_short_link(short_id: str, session: Session = Depends(get_session)):
 
     if link.item_type == ShortLinkType.EVENT:
         event = session.get(Event, link.item_id)
-        if event:
+        if event and event.visibility == EventVisibility.PUBLIC_APPROVED:
             og_title = event.title
             og_type = "article"
             event_start = event.start_time
@@ -279,6 +280,12 @@ def visit_short_link(short_id: str, session: Session = Depends(get_session)):
                             lf, app_base_url
                         )
 
+    og_title = html.escape(og_title)
+    og_description = html.escape(og_description)
+    og_image = html.escape(og_image)
+    redirect_url_js = json.dumps(redirect_url).replace("<", "\\u003c")
+    redirect_url = html.escape(redirect_url)
+
     og_image_tags = (
         f'<meta property="og:image" content="{og_image}" />\n' if og_image else ""
     )
@@ -311,7 +318,7 @@ def visit_short_link(short_id: str, session: Session = Depends(get_session)):
 </head>
 <body>
     <p>Redirecting to <a href="{redirect_url}">{redirect_url}</a>...</p>
-    <script>window.location.href = "{redirect_url}";</script>
+    <script>window.location.href = {redirect_url_js};</script>
 </body>
 </html>"""
 
