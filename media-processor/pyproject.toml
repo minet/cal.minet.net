@@ -6,5 +6,4 @@ requires-python = ">=3.11"
 dependencies = [
     "Pillow>=10.0.0",
     "psycopg2-binary>=2.9.0",
-    "minio>=7.2.0",
 ]

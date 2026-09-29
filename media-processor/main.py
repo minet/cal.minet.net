@@ -7,13 +7,13 @@ import json
 import logging
 import os
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 from uuid import UUID
 
 import psycopg2
 import psycopg2.extras
-from minio import Minio
 from PIL import Image
 
 logging.basicConfig(
@@ -26,11 +26,7 @@ log = logging.getLogger(__name__)
 # Configuration
 # ---------------------------------------------------------------------------
 DATABASE_URL: str = os.environ["DATABASE_URL"]
-MINIO_ENDPOINT: str = os.environ["MINIO_ENDPOINT"]
-MINIO_ACCESS_KEY: str = os.environ["MINIO_ACCESS_KEY"]
-MINIO_SECRET_KEY: str = os.environ["MINIO_SECRET_KEY"]
-MINIO_BUCKET: str = os.environ.get("MINIO_BUCKET", "calendint")
-MINIO_SECURE: bool = os.environ.get("MINIO_SECURE", "false").lower() == "true"
+UPLOAD_DIR: Path = Path(os.environ.get("UPLOAD_DIR", "/data/uploads"))
 MEDIA_SIZES: list[int] = sorted(
     int(s)
     for s in os.environ.get("MEDIA_SIZES", "320,640,960,1280,1920").split(",")
@@ -63,22 +59,31 @@ def connect_db() -> psycopg2.extensions.connection:
             time.sleep(5)
 
 
-def connect_minio() -> Minio:
-    """Connect to MinIO, retrying until ready."""
-    client = Minio(
-        MINIO_ENDPOINT,
-        access_key=MINIO_ACCESS_KEY,
-        secret_key=MINIO_SECRET_KEY,
-        secure=MINIO_SECURE,
-    )
-    while True:
-        try:
-            client.bucket_exists(MINIO_BUCKET)
-            log.info("Connected to MinIO.")
-            return client
-        except Exception as exc:
-            log.warning("MinIO not ready (%s), retrying in 5s…", exc)
-            time.sleep(5)
+# ---------------------------------------------------------------------------
+# Storage helpers
+# ---------------------------------------------------------------------------
+
+
+def _path_for(filename: str) -> Path:
+    """Resolve a stored filename to its path, rejecting anything outside UPLOAD_DIR."""
+    if not filename or Path(filename).name != filename:
+        raise ValueError(f"Invalid stored filename: {filename!r}")
+    return UPLOAD_DIR / filename
+
+
+def _write_bytes(object_name: str, data: bytes) -> None:
+    """Write to a temp file then rename, so nginx never serves a partial file."""
+    path = _path_for(object_name)
+    fd, tmp_path = tempfile.mkstemp(dir=UPLOAD_DIR, prefix=".tmp-")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+        # mkstemp creates 0600 files; nginx runs as another user and needs read access
+        os.chmod(tmp_path, 0o644)
+        os.replace(tmp_path, path)
+    except BaseException:
+        Path(tmp_path).unlink(missing_ok=True)
+        raise
 
 
 # ---------------------------------------------------------------------------
@@ -86,27 +91,13 @@ def connect_minio() -> Minio:
 # ---------------------------------------------------------------------------
 
 
-def _upload_bytes(
-    minio_client: Minio, bucket: str, object_name: str, data: bytes, content_type: str
-) -> None:
-    minio_client.put_object(
-        bucket,
-        object_name,
-        io.BytesIO(data),
-        length=len(data),
-        content_type=content_type,
-    )
-
-
 def _generate_webp_variants(
     img: Image.Image,
     stem: str,
     sizes: list[int],
-    minio_client: Minio,
-    bucket: str,
 ) -> list[dict]:
     """Resize `img` to each width in `sizes` (skip if wider than original) and
-    upload as WebP. Returns list of variant dicts."""
+    store as WebP. Returns list of variant dicts."""
     variants: list[dict] = []
     orig_w, orig_h = img.size
 
@@ -124,8 +115,8 @@ def _generate_webp_variants(
         data = buf.getvalue()
 
         object_name = f"{width}_{stem}.webp"
-        _upload_bytes(minio_client, bucket, object_name, data, "image/webp")
-        log.info("  Uploaded variant %s (%d bytes)", object_name, len(data))
+        _write_bytes(object_name, data)
+        log.info("  Stored variant %s (%d bytes)", object_name, len(data))
         variants.append(
             {
                 "width": width,
@@ -145,8 +136,6 @@ def _generate_webp_variants(
 
 def _run_ffmpeg_with_tempfile(args: list[str], input_data: bytes) -> bytes:
     """Write input to a temp file and run ffmpeg — needed for seekable formats (MP4, MOV…)."""
-    import tempfile
-
     with tempfile.NamedTemporaryFile(suffix=".input", delete=False) as tmp:
         tmp.write(input_data)
         tmp_path = tmp.name
@@ -173,8 +162,6 @@ def _generate_video_variants(
     data: bytes,
     stem: str,
     sizes: list[int],
-    minio_client: Minio,
-    bucket: str,
 ) -> list[dict]:
     """Generate WebP thumbnails + one WebM transcode for a video."""
     variants: list[dict] = []
@@ -198,7 +185,7 @@ def _generate_video_variants(
             data,
         )
         img = Image.open(io.BytesIO(thumb_png))
-        webp_variants = _generate_webp_variants(img, stem, sizes, minio_client, bucket)
+        webp_variants = _generate_webp_variants(img, stem, sizes)
         variants.extend(webp_variants)
     except Exception as exc:
         log.warning("  Could not extract thumbnail: %s", exc)
@@ -228,8 +215,8 @@ def _generate_video_variants(
             data,
         )
         object_name = f"720p_{stem}.webm"
-        _upload_bytes(minio_client, bucket, object_name, webm_data, "video/webm")
-        log.info("  Uploaded WebM variant %s (%d bytes)", object_name, len(webm_data))
+        _write_bytes(object_name, webm_data)
+        log.info("  Stored WebM variant %s (%d bytes)", object_name, len(webm_data))
         variants.append(
             {
                 "width": 1280,
@@ -251,8 +238,6 @@ def _generate_video_variants(
 
 def process_file(
     conn: psycopg2.extensions.connection,
-    minio_client: Minio,
-    bucket: str,
     row: dict,
     sizes: list[int],
 ) -> None:
@@ -263,13 +248,7 @@ def process_file(
 
     log.info("Processing file %s (%s, %s)", stored_filename, file_type, content_type)
 
-    # Download from MinIO
-    response = minio_client.get_object(bucket, stored_filename)
-    try:
-        data: bytes = response.read()
-    finally:
-        response.close()
-        response.release_conn()
+    data: bytes = _path_for(stored_filename).read_bytes()
 
     # Derive a safe stem (no extension)
     stem = Path(stored_filename).stem
@@ -282,9 +261,9 @@ def process_file(
     elif file_type == "image":
         img = Image.open(io.BytesIO(data))
         img = img.convert("RGBA") if img.mode in ("P", "RGBA") else img.convert("RGB")
-        variants = _generate_webp_variants(img, stem, sizes, minio_client, bucket)
+        variants = _generate_webp_variants(img, stem, sizes)
     elif file_type == "video":
-        variants = _generate_video_variants(data, stem, sizes, minio_client, bucket)
+        variants = _generate_video_variants(data, stem, sizes)
     else:
         log.warning(
             "  Unknown file_type '%s', marking processed with no variants.", file_type
@@ -324,7 +303,7 @@ def main() -> None:
         RESET_RETRIES_ON_START,
     )
     conn = connect_db()
-    minio_client = connect_minio()
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
     if RESET_RETRIES_ON_START:
         reset_retries(conn)
@@ -354,7 +333,7 @@ def main() -> None:
             for row in rows:
                 file_id = str(row["id"])
                 try:
-                    process_file(conn, minio_client, MINIO_BUCKET, row, MEDIA_SIZES)
+                    process_file(conn, row, MEDIA_SIZES)
                 except Exception as exc:
                     log.error("Failed to process %s: %s", row["stored_filename"], exc)
                     try:

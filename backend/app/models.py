@@ -557,10 +557,10 @@ class PaymentFormBilleterie(SQLModel, table=True):
 
 
 class StoredFile(SQLModel, table=True):
-    """Tracks every file uploaded to MinIO storage"""
+    """Tracks every file stored in the upload directory"""
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    stored_filename: str = Field(index=True)  # unique name in MinIO (e.g. "abc123.mp4")
+    stored_filename: str = Field(index=True)  # unique name in the upload directory (e.g. "abc123.mp4")
     original_filename: str  # original name from the user's machine
     url: str  # public URL (/uploads/abc123.mp4)
     content_type: str

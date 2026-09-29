@@ -103,7 +103,7 @@ async def upload_image(
 
     content_type = content_type_for(file.filename)
     try:
-        url = upload_file(contents, file.filename, content_type)
+        url = upload_file(contents, file.filename)
         sf = record_upload(session, url, file.filename, content_type, len(contents), current_user)
         return {"url": url, "filename": file.filename, "stored_file_id": str(sf.id)}
     except Exception as e:
@@ -136,7 +136,7 @@ async def upload_video(
 
     content_type = content_type_for(file.filename)
     try:
-        url = upload_file(contents, file.filename, content_type)
+        url = upload_file(contents, file.filename)
         sf = record_upload(session, url, file.filename, content_type, len(contents), current_user)
         return {"url": url, "filename": file.filename, "stored_file_id": str(sf.id)}
     except Exception as e:

@@ -84,7 +84,7 @@ async def upload_organization_image(
 
     content_type = content_type_for(file.filename)
     try:
-        url = upload_file(contents, file.filename, content_type)
+        url = upload_file(contents, file.filename)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Échec de l'upload : {str(e)}")
 
@@ -129,7 +129,7 @@ def delete_organization_image(
     if not image or str(image.organization_id) != org_id:
         raise HTTPException(status_code=404, detail="Image introuvable")
 
-    # Remove from MinIO via StoredFile
+    # Remove from storage via StoredFile
     if image.stored_file_id:
         sf = session.get(StoredFile, image.stored_file_id)
         if sf:

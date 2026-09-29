@@ -23,6 +23,7 @@ services:
     volumes:
       - ./.env:/app/.env
       - migration_data:/app/migration_state
+      - uploads_data:/data/uploads
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/calendint
       - SMTP_HOST=mailhog
@@ -98,6 +99,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+      - uploads_data:/srv/uploads:ro
       - ./nginx/certs:/etc/nginx/certs:ro
     healthcheck:
       test: [ "CMD-SHELL", "wget -qO- http://localhost/nginx_health || exit 1" ]
@@ -113,31 +115,15 @@ services:
     container_name: calendint-media-processor
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/calendint
-      - MINIO_ENDPOINT=minio:9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin
-      - MINIO_BUCKET=calendint
-      - MINIO_SECURE=false
       - MEDIA_SIZES=${MEDIA_SIZES:-320,640,960,1280}
       - POLL_INTERVAL=${POLL_INTERVAL:-10}
       - RESET_RETRIES_ON_START=${RESET_RETRIES_ON_START:-false}
+    volumes:
+      - uploads_data:/data/uploads
     depends_on:
       db:
         condition: service_healthy
-      minio:
-        condition: service_started
     restart: unless-stopped
-
-  minio:
-    image: minio/minio:latest
-    container_name: calendint-minio
-    command: server /data --console-address ":9001"
-    volumes:
-      - minio_data:/data
-    environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin
-    # Ports not exposed, accessible via nginx
 
   pgadmin:
     image: dpage/pgadmin4
@@ -154,5 +140,5 @@ services:
 
 volumes:
   postgres_data:
-  minio_data:
+  uploads_data:
   migration_data:

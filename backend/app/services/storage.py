@@ -1,47 +1,30 @@
-from io import BytesIO
-import json
 import os
+from pathlib import Path
+import tempfile
 from uuid import uuid4
 
-from minio import Minio
-from minio.error import S3Error
+UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "/data/uploads"))
 
-# MinIO client configuration
-MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "minio:9000")
-MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
-MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
-MINIO_BUCKET = os.getenv("MINIO_BUCKET", "calendint")
-MINIO_SECURE = os.getenv("MINIO_SECURE", "False").lower() == "true"
 
-# Initialize MinIO client
-minio_client = Minio(
-    MINIO_ENDPOINT,
-    access_key=MINIO_ACCESS_KEY,
-    secret_key=MINIO_SECRET_KEY,
-    secure=MINIO_SECURE
-)
+def _path_for(filename: str) -> Path:
+    """Resolve a stored filename to its path, rejecting anything outside UPLOAD_DIR"""
+    if not filename or Path(filename).name != filename:
+        raise ValueError(f"Invalid stored filename: {filename!r}")
+    return UPLOAD_DIR / filename
 
-def ensure_bucket_exists():
-    """Ensure the bucket exists, create if it doesn't"""
+
+def _write_atomic(path: Path, data: bytes) -> None:
+    """Write to a temp file then rename, so nginx never serves a partial file"""
+    fd, tmp_path = tempfile.mkstemp(dir=path.parent, prefix=".tmp-")
     try:
-        if not minio_client.bucket_exists(MINIO_BUCKET):
-            minio_client.make_bucket(MINIO_BUCKET)
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+        os.chmod(tmp_path, 0o644)
+        os.replace(tmp_path, path)
+    except BaseException:
+        Path(tmp_path).unlink(missing_ok=True)
+        raise
 
-        # Always enforce public read policy, including for pre-existing buckets.
-        policy = {
-            "Version": "2012-10-17",
-            "Statement": [
-                {
-                    "Effect": "Allow",
-                    "Principal": {"AWS": "*"},
-                    "Action": ["s3:GetObject"],
-                    "Resource": [f"arn:aws:s3:::{MINIO_BUCKET}/*"]
-                }
-            ]
-        }
-        minio_client.set_bucket_policy(MINIO_BUCKET, json.dumps(policy))
-    except S3Error as e:
-        print(f"Error ensuring bucket exists: {e}")
 
 CONTENT_TYPES_BY_EXTENSION = {
     "png": "image/png",
@@ -63,42 +46,31 @@ def content_type_for(filename: str) -> str:
     return CONTENT_TYPES_BY_EXTENSION.get(ext, "application/octet-stream")
 
 
-def upload_file(file_data: bytes, filename: str, content_type: str = "application/octet-stream") -> str:
+def upload_file(file_data: bytes, filename: str) -> str:
     """
-    Upload a file to MinIO and return the public URL
+    Store a file in the upload directory and return the public URL
     
     Args:
         file_data: The file content as bytes
         filename: Original filename
-        content_type: MIME type of the file
     
     Returns:
         Public URL of the uploaded file
     """
-    ensure_bucket_exists()
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     
     # Generate a unique filename
     ext = filename.rsplit('.', 1)[1] if '.' in filename else ''
     unique_filename = f"{uuid4()}.{ext}" if ext else str(uuid4())
     
-    # Upload the file
-    file_stream = BytesIO(file_data)
-    file_size = len(file_data)
+    _write_atomic(_path_for(unique_filename), file_data)
     
-    minio_client.put_object(
-        MINIO_BUCKET,
-        unique_filename,
-        file_stream,
-        file_size,
-        content_type=content_type
-    )
-    
-    # Return the public URL (via nginx proxy)
+    # Return the public URL (served by nginx)
     return f"/uploads/{unique_filename}"
 
 def delete_file(filename: str) -> bool:
     """
-    Delete a file from MinIO
+    Delete a file from the upload directory
     
     Args:
         filename: The filename to delete (without /uploads/ prefix)
@@ -107,8 +79,8 @@ def delete_file(filename: str) -> bool:
         True if successful, False otherwise
     """
     try:
-        minio_client.remove_object(MINIO_BUCKET, filename)
+        _path_for(filename).unlink(missing_ok=True)
         return True
-    except S3Error as e:
+    except (OSError, ValueError) as e:
         print(f"Error deleting file: {e}")
         return False
