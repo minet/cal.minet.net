@@ -119,6 +119,20 @@
                 />
               </div>
 
+              <!-- Recurrence -->
+              <div class="col-span-full">
+                <RecurrenceSelector
+                  v-model:enabled="recurrence.enabled"
+                  v-model:weekdays="recurrence.weekdays"
+                  v-model:end-type="recurrence.endType"
+                  v-model:until-date="recurrence.untilDate"
+                  v-model:count="recurrence.count"
+                  v-model:skip-dates="recurrence.skipDates"
+                  :start-time="form.start_time"
+                  :end-time="form.end_time"
+                />
+              </div>
+
               <!-- Overlapping events warning -->
               <div v-if="overlappingEvents.length > 0" class="col-span-full">
                 <div class="rounded-lg bg-orange-50 border border-orange-200 p-3">
@@ -337,7 +351,7 @@
             :disabled="loading || !form.organization_id"
             class="w-full sm:w-auto rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50"
           >
-            {{ loading ? 'Enregistrement...' : 'Enregistrer' }}
+            {{ loading ? (creationProgress || 'Enregistrement...') : 'Enregistrer' }}
           </button>
         </div>
       </form>
@@ -402,6 +416,8 @@ import { PlusIcon, XMarkIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/
 import { resolveMediaUrl } from '../utils/media'
 import DateTimeDurationPicker from '../components/DateTimeDurationPicker.vue'
 import OrgDescriptionEditor from '../components/OrgDescriptionEditor.vue'
+import RecurrenceSelector from '../components/RecurrenceSelector.vue'
+import { computeRecurringOccurrences } from '../utils/recurrence'
 
 const router = useRouter()
 
@@ -459,6 +475,23 @@ const form = ref<{
 const userOrganizations = ref<OrganizationRead[]>([])
 const error = ref('')
 const loading = ref(false)
+const creationProgress = ref('')
+
+const recurrence = ref<{
+  enabled: boolean
+  weekdays: number[]
+  endType: 'date' | 'count'
+  untilDate: string
+  count: number
+  skipDates: string[]
+}>({
+  enabled: false,
+  weekdays: [],
+  endType: 'count',
+  untilDate: '',
+  count: 10,
+  skipDates: [],
+})
 const helloassoConnected = ref(false)
 const paymentForm = ref<{ item_name: string; amount_euros: number | string; options: PaymentOption[] }>({ item_name: '', amount_euros: '', options: [] })
 const allOrganizations = ref<OrganizationRead[]>([])
@@ -649,62 +682,128 @@ const removeLink = (index: number) => {
   })
 }
 
+const buildEventData = (startIso: string, endIso: string) => ({
+  title: form.value.title,
+  description: form.value.description,
+  start_time: startIso,
+  end_time: endIso,
+  location: form.value.location,
+  location_url: form.value.location_url,
+  poster_file_id: form.value.poster_file_id || undefined,
+  video_file_id: form.value.video_file_id || undefined,
+  organization_id: form.value.organization_id,
+  visibility: form.value.visibility,
+  group_id: form.value.group_id ?? undefined,
+  tag_ids: form.value.tag_ids,
+  hide_details: form.value.hide_details,
+  links: form.value.links.filter(link => link.name && link.url).map(({ name, url }) => ({ name, url })),
+  guest_organization_ids: form.value.guest_organization_ids
+})
+
+const submitPaymentForm = async (eventId: string) => {
+  if (!(helloassoConnected.value && paymentForm.value.item_name && Number(paymentForm.value.amount_euros) > 0)) {
+    return
+  }
+  const optionsToSave = []
+  for (const o of paymentForm.value.options) {
+    if (!o.name || o.amount_euros === '' || o.amount_euros === null) continue
+    optionsToSave.push({
+      name: o.name,
+      price_cents: Math.round(Number(o.amount_euros) * 100),
+      is_private: o.is_private || false,
+      allowed_user_ids: []
+    })
+  }
+  await api.helloasso.create_payment_form(eventId, {
+    item_name: paymentForm.value.item_name,
+    total_amount_cents: Math.round(Number(paymentForm.value.amount_euros) * 100),
+    options: optionsToSave,
+  })
+}
+
+const recurringOccurrences = computed(() => {
+  if (!recurrence.value.enabled || recurrence.value.weekdays.length === 0) return []
+  const start = new Date(form.value.start_time)
+  const end = new Date(form.value.end_time)
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return []
+
+  const all = computeRecurringOccurrences({
+    startDate: start,
+    endDate: end,
+    weekdays: recurrence.value.weekdays,
+    until: recurrence.value.endType === 'date' && recurrence.value.untilDate
+      ? new Date(`${recurrence.value.untilDate}T23:59:59`)
+      : null,
+    count: recurrence.value.endType === 'count' ? recurrence.value.count : null,
+  })
+
+  return all.filter(occ => !recurrence.value.skipDates.includes(occ.key))
+})
+
 const createEvent = async () => {
+  const occurrences = recurringOccurrences.value
+
+  if (occurrences.length > 1) {
+    const confirmed = window.confirm(
+      `Cela va créer ${occurrences.length} événements récurrents. Continuer ?`
+    )
+    if (!confirmed) return
+  }
+
   loading.value = true
   error.value = ''
-  
+  creationProgress.value = ''
+
   try {
-    const eventData = {
-      title: form.value.title,
-      description: form.value.description,
-      start_time: localToUtc(form.value.start_time),
-      end_time: localToUtc(form.value.end_time),
-      location: form.value.location,
-      location_url: form.value.location_url,
-      poster_file_id: form.value.poster_file_id || undefined,
-      video_file_id: form.value.video_file_id || undefined,
-      organization_id: form.value.organization_id,
-      visibility: form.value.visibility,
-      group_id: form.value.group_id ?? undefined,
-      tag_ids: form.value.tag_ids,
-      hide_details: form.value.hide_details,
-      links: form.value.links.filter(link => link.name && link.url).map(({ name, url }) => ({ name, url })),
-      guest_organization_ids: form.value.guest_organization_ids
+    if (occurrences.length > 1) {
+      let firstEventId: string | null = null
+      const failures: string[] = []
+
+      for (let i = 0; i < occurrences.length; i++) {
+        creationProgress.value = `Création de l'événement ${i + 1}/${occurrences.length}...`
+        const occ = occurrences[i]
+        try {
+          const response = await api.events.create_event(
+            buildEventData(localToUtc(occ.start), localToUtc(occ.end))
+          )
+          if (!firstEventId) {
+            firstEventId = response.id
+            try {
+              await submitPaymentForm(response.id)
+            } catch (payErr) {
+              console.error('Payment form submission failed:', payErr)
+            }
+          }
+        } catch (err) {
+          console.error('Failed to create occurrence:', err)
+          failures.push(new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' }).format(occ.start))
+        }
+      }
+
+      if (!firstEventId) {
+        error.value = "Échec de la création des événements récurrents"
+        return
+      }
+
+      if (failures.length > 0) {
+        error.value = `${failures.length} occurrence(s) n'ont pas pu être créées (${failures.join(', ')})`
+      }
+
+      router.push(`/events/${firstEventId}`)
+      return
     }
 
+    const eventData = buildEventData(localToUtc(form.value.start_time), localToUtc(form.value.end_time))
     const response = await api.events.create_event(eventData)
     const eventId = response.id
 
-    // Submit payment form proposal if filled in
-    if (
-      helloassoConnected.value &&
-      paymentForm.value.item_name &&
-      Number(paymentForm.value.amount_euros) > 0
-    ) {
-      try {
-        const optionsToSave = []
-        for (const o of paymentForm.value.options) {
-          if (!o.name || o.amount_euros === '' || o.amount_euros === null) continue
-
-          optionsToSave.push({
-            name: o.name,
-            price_cents: Math.round(Number(o.amount_euros) * 100),
-            is_private: o.is_private || false,
-            allowed_user_ids: []
-          })
-        }
-
-        await api.helloasso.create_payment_form(eventId, {
-          item_name: paymentForm.value.item_name,
-          total_amount_cents: Math.round(Number(paymentForm.value.amount_euros) * 100),
-          options: optionsToSave,
-        })
-      } catch (payErr) {
-        console.error('Payment form submission failed:', payErr)
-        error.value = 'Événement créé mais la proposition de formulaire de paiement a échoué.'
-        router.push(`/events/${eventId}`)
-        return
-      }
+    try {
+      await submitPaymentForm(eventId)
+    } catch (payErr) {
+      console.error('Payment form submission failed:', payErr)
+      error.value = 'Événement créé mais la proposition de formulaire de paiement a échoué.'
+      router.push(`/events/${eventId}`)
+      return
     }
 
     router.push(`/events/${eventId}`)
@@ -713,6 +812,7 @@ const createEvent = async () => {
     error.value = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Échec de la création de l\'événement'
   } finally {
     loading.value = false
+    creationProgress.value = ''
   }
 }
 
