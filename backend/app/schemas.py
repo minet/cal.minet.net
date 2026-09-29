@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta, timezone
+import re
 from typing import Any, List, Optional, TYPE_CHECKING
-from typing import Any, Generic, List, Optional, TYPE_CHECKING, TypeVar
+from typing import Annotated, Any, Generic, List, Optional, TYPE_CHECKING, TypeVar
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import AfterValidator, BaseModel
 
 from app.models import (
     ChangelogAudience,
@@ -15,6 +16,23 @@ from app.models import (
 )
 
 T = TypeVar("T")
+
+ALLOWED_URL_SCHEMES = {"http", "https", "mailto", "tel"}
+_URL_SCHEME_RE = re.compile(r"^([a-zA-Z][a-zA-Z0-9+.-]*):")
+
+
+def validate_link_url(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    value = value.strip()
+    compact = re.sub(r"[\x00-\x20\x7f]", "", value)
+    match = _URL_SCHEME_RE.match(compact)
+    if match and match.group(1).lower() not in ALLOWED_URL_SCHEMES:
+        raise ValueError("URL scheme not allowed (use http or https)")
+    return value
+
+
+LinkUrl = Annotated[str, AfterValidator(validate_link_url)]
 
 
 class PaginatedResponse(BaseModel, Generic[T]):
@@ -134,13 +152,13 @@ class UserLinkRead(BaseModel):
 
 class UserLinkCreate(BaseModel):
     name: str
-    url: str
+    url: LinkUrl
     order: int = 0
 
 
 class EventLinkCreate(BaseModel):
     name: str
-    url: str
+    url: LinkUrl
 
 
 class EventLinkRead(BaseModel):
@@ -230,6 +248,19 @@ class UserRead(BaseModel):
         from_attributes = True
 
 
+class UserProfileRead(BaseModel):
+    """Another user's profile as seen by a regular user: same contact details as
+    the organization member lists, without account/admin fields."""
+
+    id: UUID
+    email: str
+    full_name: Optional[str] = None
+    profile_picture_url: Optional[str] = None
+    phone_number: Optional[str] = None
+    links: List["UserLinkRead"] = []
+    profile_picture_file: Optional[StoredFileRead] = None
+
+
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     profile_picture_file_id: Optional[str] = None  # UUID string
@@ -243,10 +274,10 @@ class PushTokenCreate(BaseModel):
 
 
 class UserPublicRead(BaseModel):
+    # Embedded in public payloads (e.g. EventRead.created_by): no contact details
     id: UUID
     full_name: Optional[str] = None
     profile_picture_url: Optional[str] = None
-    phone_number: Optional[str] = None
     links: List["UserLinkRead"] = []
     profile_picture_file: Optional[StoredFileRead] = None
 
@@ -272,7 +303,6 @@ class UserPublicRead(BaseModel):
             profile_picture_url=(
                 profile_picture_file.url if profile_picture_file else None
             ),
-            phone_number=user.phone_number,
             links=[
                 UserLinkRead(id=l.id, name=l.name, url=l.url, order=l.order)
                 for l in user.links
@@ -292,7 +322,7 @@ class CreateEvent(BaseModel):
     start_time: datetime
     end_time: datetime
     location: Optional[str] = None
-    location_url: Optional[str] = None
+    location_url: Optional[LinkUrl] = None
     organization_id: str
     visibility: str = "public_pending"
     group_id: Optional[str] = None
@@ -310,7 +340,7 @@ class UpdateEvent(BaseModel):
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     location: Optional[str] = None
-    location_url: Optional[str] = None
+    location_url: Optional[LinkUrl] = None
     visibility: Optional[str] = None
     group_id: Optional[str] = None
     tag_ids: Optional[List[str]] = None
@@ -532,8 +562,8 @@ class EventRead(BaseModel):
             created_by_id=event.created_by_id,
             reactions=reactions_summary,
             is_draft=(event.visibility == EventVisibility.DRAFT),
-            poster_file=poster_file,
-            video_file=video_file,
+            poster_file=None if should_hide else poster_file,
+            video_file=None if should_hide else video_file,
         )
 
 

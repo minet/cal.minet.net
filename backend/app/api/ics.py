@@ -168,9 +168,16 @@ def export_user_calendar(
         last_modified = event.updated_at or event.created_at
         ievent.add("last-modified", last_modified.astimezone(timezone.utc))
 
+        should_hide = (
+            event.hide_details
+            and event.visibility == EventVisibility.PUBLIC_APPROVED
+            and not user.is_superadmin
+            and event.organization_id not in member_org_ids
+        )
+
         # Build description with poster and event link
         description_parts = []
-        if event.description:
+        if event.description and not should_hide:
             description_parts.append(event.description)
         if organization_name:
             description_parts.append(f"\n\nOrganisé par: {organization_name}")
@@ -183,7 +190,7 @@ def export_user_calendar(
         if description_parts:
             ievent.add("description", "\n".join(description_parts))
 
-        if event.location:
+        if event.location and not should_hide:
             ievent.add("location", event.location)
 
         # ORGANIZER — main hosting organization

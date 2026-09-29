@@ -22,7 +22,7 @@
 
     <!-- Social link icons -->
     <div v-if="member.links && member.links.length > 0" class="flex items-center justify-center gap-2 mt-2 flex-wrap">
-      <a v-for="link in member.links" :key="link.id" :href="link.url" target="_blank"
+      <a v-for="link in member.links" :key="link.id" :href="safeUrl(link.url)" target="_blank"
         @click.prevent.stop="openLink(link.url)"
         class="flex items-center justify-center h-6 w-6 rounded-full hover:scale-110 transition-transform"
         :title="link.name">
@@ -45,6 +45,7 @@
 import UserAvatar from './UserAvatar.vue'
 import { LinkIcon, PhoneIcon, UserPlusIcon } from '@heroicons/vue/24/outline'
 import { getSocialIcon } from '../utils/social'
+import { safeUrl } from '../utils/url'
 import { resolveMediaUrl } from '../utils/media.js'
 
 defineProps({
@@ -62,6 +63,7 @@ defineProps({
 defineEmits(['request-transfer'])
 
 function openLink(url: string) {
-  window.open(url, '_blank', 'noopener,noreferrer')
+  const safe = safeUrl(url)
+  if (safe) window.open(safe, '_blank', 'noopener,noreferrer')
 }
 </script>

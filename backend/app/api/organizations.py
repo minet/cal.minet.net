@@ -516,13 +516,15 @@ def get_organization_events(
     current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """Get future events for an organization"""
+    from app.api.events import get_visibility_conditions
     from app.models import Event
-    
+
     events = session.exec(
         select(Event).where(
             Event.organization_id == org_id,
             Event.start_time >= datetime.now(timezone.utc),
-            Event.visibility != EventVisibility.DRAFT
+            Event.visibility != EventVisibility.DRAFT,
+            get_visibility_conditions(current_user, session),
         ).order_by(col(Event.start_time))
     ).all()
     

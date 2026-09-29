@@ -16,7 +16,7 @@
 
     <!-- Dropdown -->
     <div
-      v-if="showDropdown && searchQuery.length > 0"
+      v-if="showDropdown && searchQuery.length >= MIN_QUERY_LENGTH"
       class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm"
     >
       <div v-if="loading" class="px-4 py-3 text-sm text-gray-500 text-center">
@@ -101,11 +101,13 @@ const getInitials = (user: UserSearchExtended) => {
     .join('')
 }
 
+const MIN_QUERY_LENGTH = 2
+
 // Watch for search query changes
 watch(searchQuery, () => {
   clearTimeout(debounceTimeout)
   
-  if (searchQuery.value.length === 0) {
+  if (searchQuery.value.length < MIN_QUERY_LENGTH) {
     searchResults.value = []
     showDropdown.value = false
     return
@@ -118,7 +120,7 @@ watch(searchQuery, () => {
 })
 
 const searchUsers = async () => {
-  if (searchQuery.value.length === 0) return
+  if (searchQuery.value.length < MIN_QUERY_LENGTH) return
   
   loading.value = true
   try {

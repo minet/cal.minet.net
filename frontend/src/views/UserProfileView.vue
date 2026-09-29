@@ -145,7 +145,7 @@
               <div v-if="profileUser.links && profileUser.links.length > 0" class="sm:col-span-2">
                 <dt class="text-sm font-medium text-gray-500 mb-1">Liens</dt>
                 <dd class="mt-1 flex flex-wrap gap-3">
-                  <a v-for="link in profileUser.links" :key="link.id" :href="link.url" target="_blank"
+                  <a v-for="link in profileUser.links" :key="link.id" :href="safeUrl(link.url)" target="_blank"
                     class="flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 hover:underline">
                     <img v-if="getSocialIcon(link.url)" :src="getSocialIcon(link.url) ?? undefined"
                       class="h-4 w-4 object-contain flex-shrink-0" />
@@ -307,6 +307,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
+import { safeUrl } from '../utils/url'
 import TextInput from '../components/TextInput.vue'
 import UserAvatar from '../components/UserAvatar.vue'
 import OrganizationCard from '../components/OrganizationCard.vue'

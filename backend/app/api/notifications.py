@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 
 from app.api.auth import get_current_user
 from app.database import get_session
-from app.models import Event, EventVisibility, Subscription, User, UserPushToken
+from app.models import Event, EventVisibility, Membership, Subscription, User, UserPushToken
 from app.schemas import Message, PushTokenCreate
 from pywebpush import WebPushException, webpush
 
@@ -156,9 +156,19 @@ def process_notifications(session: Session):
                         break
             
             if is_subscribed:
+                show_location = bool(event.location) and (
+                    not event.hide_details
+                    or user.is_superadmin
+                    or session.exec(
+                        select(Membership).where(
+                            Membership.user_id == user.id,
+                            Membership.organization_id == event.organization_id,
+                        )
+                    ).first() is not None
+                )
                 payload = json.dumps({
                     "title": f"Rappel: {event.title}",
-                    "body": f"L'événement commence dans {int(minutes_until)} minutes" + (f" à {event.location}." if event.location else "."),
+                    "body": f"L'événement commence dans {int(minutes_until)} minutes" + (f" à {event.location}." if show_location else "."),
                     "icon": "/CalendINT_icon.svg",
                     "data": { "url": f"/events/{event.id}" }
                 })

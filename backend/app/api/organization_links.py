@@ -8,17 +8,18 @@ from sqlmodel import Session, select
 from app.api.auth import get_current_user
 from app.database import get_session
 from app.models import Membership, Organization, OrganizationLink, Role, User
+from app.schemas import LinkUrl
 
 router = APIRouter()
 
 class OrganizationLinkCreate(BaseModel):
     name: str
-    url: str
+    url: LinkUrl
     order: int = 1
 
 class OrganizationLinkUpdate(BaseModel):
     name: Optional[str] = None
-    url: Optional[str] = None
+    url: Optional[LinkUrl] = None
     order: Optional[int] = None
 
 # Helper function to check if user is admin of organization

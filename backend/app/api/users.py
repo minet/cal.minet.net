@@ -1,4 +1,4 @@
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Union
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -21,6 +21,7 @@ from app.models import (
     UserLink,
 )
 from app.schemas import (
+    UserProfileRead,
     UserPublicRead,
     UserRead,
     PaginatedResponse,
@@ -320,11 +321,18 @@ async def delete_my_link(
 
 @router.get("/search", response_model=List[UserSearchResult])
 async def search_users(
-    q: str = Query(..., min_length=1, description="Search query"),
+    q: str = Query(..., min_length=2, description="Search query"),
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    """Search users by name or email"""
+    """Search users by name or email."""
+    if not current_user.is_superadmin:
+        membership = session.exec(
+            select(Membership).where(Membership.user_id == current_user.id)
+        ).first()
+        if not membership:
+            raise HTTPException(status_code=403, detail="Not authorized")
+
     search_pattern = f"%{q}%"
 
     users = session.exec(
@@ -348,13 +356,13 @@ async def search_users(
     ]
 
 
-@router.get("/{user_id}", response_model=UserRead)
+@router.get("/{user_id}", response_model=Union[UserRead, UserProfileRead])
 async def get_user_profile(
     user_id: str,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    """Get a user's public profile by ID"""
+    """Get a user's profile by ID (full account data only for self/superadmin)"""
     if user_id == "me":
         return _user_read(current_user, session)
 
@@ -362,7 +370,19 @@ async def get_user_profile(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return _user_read(user, session)
+    full = _user_read(user, session)
+    if current_user.is_superadmin or user.id == current_user.id:
+        return full
+
+    return UserProfileRead(
+        id=full.id,
+        email=full.email,
+        full_name=full.full_name,
+        profile_picture_url=full.profile_picture_url,
+        phone_number=full.phone_number,
+        links=full.links,
+        profile_picture_file=full.profile_picture_file,
+    )
 
 
 @router.get("/", response_model=PaginatedResponse[UserRead])

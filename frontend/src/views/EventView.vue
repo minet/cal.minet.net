@@ -92,7 +92,7 @@
           <a
             v-for="link in event.event_links"
             :key="link.id"
-            :href="link.url"
+            :href="safeUrl(link.url)"
             target="_blank"
             class="flex items-center gap-2 bg-white shadow-md rounded-full px-5 py-3 text-lg font-semibold text-gray-800 hover:shadow-lg hover:text-indigo-600 transition-all border border-gray-100"
           >
@@ -389,7 +389,7 @@
             <MapPinIcon class="h-5 w-5 text-gray-400 mr-2" />
             <a 
               v-if="event.location_url" 
-              :href="event.location_url" 
+              :href="safeUrl(event.location_url)" 
               target="_blank" 
               class="text-indigo-600 hover:text-indigo-500 hover:underline"
             >
@@ -405,7 +405,7 @@
           <ul class="space-y-3">
             <li v-for="link in event.event_links" :key="link.id">
               <a 
-                :href="link.url" 
+                :href="safeUrl(link.url)" 
                 target="_blank" 
                 class="flex items-center text-sm text-indigo-600 hover:text-indigo-500 hover:underline group"
               >
@@ -492,6 +492,7 @@ import type {
   TagRead,
 } from '@/api/types'
 import { getSocialIcon, isHelloAsso } from '../utils/social'
+import { safeUrl } from '../utils/url'
 import {
   ClockIcon,
   MapPinIcon,

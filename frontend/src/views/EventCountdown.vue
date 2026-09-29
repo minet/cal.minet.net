@@ -106,7 +106,7 @@
              <a 
                 v-for="link in event.event_links" 
                 :key="link.id" 
-                :href="link.url" 
+                :href="safeUrl(link.url)" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 class="flex items-center px-6 py-3 rounded-full font-bold shadow-lg transform transition hover:scale-105 backdrop-blur-sm"
@@ -159,6 +159,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/api'
 import type { EventRead, OrganizationRead } from '@/api/types'
 import { useAuth } from '../composables/useAuth'
+import { safeUrl } from '../utils/url'
 import CountdownTimer from '../components/CountdownTimer.vue'
 import ReactionList from '../components/ReactionList.vue'
 import { MapPinIcon, CalendarIcon, LinkIcon, ArrowRightIcon } from '@heroicons/vue/24/outline'

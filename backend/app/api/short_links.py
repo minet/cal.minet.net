@@ -226,18 +226,18 @@ def visit_short_link(short_id: str, session: Session = Depends(get_session)):
             start_local = event_start.astimezone(_app_tz())
 
             desc_parts = []
-            if event.description:
+            if event.description and not event.hide_details:
                 first_line = event.description.split("\n")[0].strip()
                 if first_line:
                     desc_parts.append(first_line)
             desc_parts.append(f"Le {start_local.strftime('%d/%m/%Y à %H:%M')}")
-            if event.location:
+            if event.location and not event.hide_details:
                 desc_parts.append(f"Lieu : {event.location}")
             if event.organization:
                 desc_parts.append(f"Organisé par {event.organization.name}")
             og_description = " - ".join(desc_parts)
 
-            if event.poster_file_id:
+            if event.poster_file_id and not event.hide_details:
                 pf = session.get(StoredFile, event.poster_file_id)
                 if pf:
                     og_image, og_image_width, og_image_mime = get_og_image(

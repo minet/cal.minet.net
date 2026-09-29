@@ -202,7 +202,6 @@ export interface UserPublicRead {
   id: string;
   full_name: string | null;
   profile_picture_url: string | null;
-  phone_number: string | null;
   links: UserLinkRead[];
   profile_picture_file: StoredFileRead | null;
 }
