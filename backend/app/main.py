@@ -37,6 +37,7 @@ from app.api import (
     users,
 )
 from app.api.notifications import process_notifications
+from app.api.organizations import delete_expired_organizations
 from app.database import create_db_and_tables, get_session
 from app.database import engine
 from app.migration_runner import run_migrations, get_last_migration
@@ -80,6 +81,10 @@ async def lifespan(app: FastAPI):
             with Session(engine) as session:
                 return process_notifications(session)
 
+        def run_org_cleanup():
+            with Session(engine) as session:
+                return delete_expired_organizations(session)
+
         while True:
             try:
                 cron_delay = int(os.getenv("CRON_DELAY", "900"))
@@ -89,6 +94,10 @@ async def lifespan(app: FastAPI):
                 
                 if count > 0:
                     logger.info(f"Sent {count} notifications")
+
+                deleted, errors = await asyncio.to_thread(run_org_cleanup)
+                if deleted or errors:
+                    logger.info(f"Deleted {deleted} expired organizations ({errors} errors)")
                 await asyncio.sleep(cron_delay)
             except Exception as e:
                 logger.error(f"Error in notification loop: {e}")

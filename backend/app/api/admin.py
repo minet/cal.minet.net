@@ -296,31 +296,14 @@ async def housekeeping(
       present in the LDAP cache and are not exempt from RGPD deletion.
             Payment entries are reassigned to the ghost user to preserve history.
     """
-    from datetime import datetime, timezone
-    from app.models import Organization, GHOST_USER_ID as _ghost
-    from app.api.organizations import delete_organization
+    from app.models import GHOST_USER_ID as _ghost
+    from app.api.organizations import delete_expired_organizations
 
     if not current_user.is_superadmin:
         raise HTTPException(status_code=403, detail="Superadmin access required")
 
-    now = datetime.now(timezone.utc)
-
     # --- Org cleanup ---
-    orgs_to_delete = session.exec(
-        select(Organization).where(
-            Organization.delete_after != None, col(Organization.delete_after) <= now
-        )
-    ).all()
-
-    org_count = 0
-    org_errors = 0
-    for org in orgs_to_delete:
-        try:
-            delete_organization(str(org.id), current_user, session)
-            org_count += 1
-        except Exception as e:
-            print(f"Error deleting org {org.id}: {e}")
-            org_errors += 1
+    org_count, org_errors = delete_expired_organizations(session)
 
     # --- Orphan user deletion ---
     user_count = 0

@@ -671,24 +671,59 @@ def delete_organization(
     session: Session = Depends(get_session)
 ):
     """Delete an organization and all its related entities (requires permission)"""
+    org = session.get(Organization, org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    can_edit, reason = can_edit_organization(org_id, current_user, session)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=reason)
+
+    purge_organization(org, session)
+
+    return {"message": "Organization and all related data deleted successfully"}
+
+
+def delete_expired_organizations(session: Session) -> tuple[int, int]:
+    """Delete every organization whose delete_after date has passed.
+
+    Returns (deleted_count, error_count)."""
+    now = datetime.now(timezone.utc)
+    org_ids = session.exec(
+        select(Organization.id).where(
+            Organization.delete_after != None, col(Organization.delete_after) <= now
+        )
+    ).all()
+
+    deleted = 0
+    errors = 0
+    for org_id in org_ids:
+        org = session.get(Organization, org_id)
+        if not org:
+            continue
+        try:
+            purge_organization(org, session)
+            deleted += 1
+        except Exception as e:
+            session.rollback()
+            print(f"Error deleting org {org_id}: {e}")
+            errors += 1
+    return deleted, errors
+
+
+def purge_organization(org: Organization, session: Session):
+    """Delete an organization and all its related entities, without permission checks."""
     from app.models import (
         Membership, Subscription, Tag, OrganizationLink, 
         Group, GroupMembership, Event, EventLink, EventTag, 
         EventReaction, EventGuestOrganization, GHOST_ORGANIZATION_ID
     )
     from app.services.storage import delete_file
-    
-    org = session.get(Organization, org_id)
-    if not org:
-        raise HTTPException(status_code=404, detail="Organization not found")
-    
+
+    org_id = org.id
     org_name = org.name
     org_parent = org.parent_id if org.parent_id else GHOST_ORGANIZATION_ID
-    # Check permissions (same as edit, effectively ORG_ADMIN or SUPERADMIN)
-    can_edit, reason = can_edit_organization(org_id, current_user, session)
-    if not can_edit:
-        raise HTTPException(status_code=403, detail=reason)
-    
+
     # 1. Delete Memberships
     memberships = session.exec(select(Membership).where(Membership.organization_id == org_id)).all()
     for m in memberships:
@@ -743,12 +778,12 @@ def delete_organization(
     #     approving_org_id:  set to None (the form is already approved/rejected/pending).
     from app.models import EventPaymentForm as _EPF
     for form in session.exec(
-        select(_EPF).where(_EPF.requesting_org_id == UUID(org_id))
+        select(_EPF).where(_EPF.requesting_org_id == org_id)
     ).all():
         form.requesting_org_id = org_parent
         session.add(form)
     for form in session.exec(
-        select(_EPF).where(_EPF.approving_org_id == UUID(org_id))
+        select(_EPF).where(_EPF.approving_org_id == org_id)
     ).all():
         form.approving_org_id = None
         session.add(form)
@@ -774,5 +809,3 @@ def delete_organization(
     session.delete(org)
     
     session.commit()
-    
-    return {"message": "Organization and all related data deleted successfully"}
