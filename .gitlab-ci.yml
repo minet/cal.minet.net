@@ -14,6 +14,8 @@ before_script:
   - |
     if [ "$CI_COMMIT_REF_NAME" = "$CI_DEFAULT_BRANCH" ]; then
       export IMAGE_TAG=stable
+    elif [ "$CI_COMMIT_REF_NAME" = "pre-prod" ]; then
+      export IMAGE_TAG=prep
     else
       export IMAGE_TAG=$CI_COMMIT_SHORT_SHA
     fi
@@ -54,7 +56,7 @@ build_media_processor:
     - docker build --cache-from $IMAGE_REGISTRY_BASE/media-processor:$IMAGE_TAG --build-arg BUILDKIT_INLINE_CACHE=1 -f Dockerfile -t $IMAGE_REGISTRY_BASE/media-processor:$IMAGE_TAG .
     - docker push $IMAGE_REGISTRY_BASE/media-processor:$IMAGE_TAG
 
-deploy:
+deploy_prod:
   stage: deploy
   trigger:
     project: minet/configurations/push/swarm-prod
@@ -72,3 +74,22 @@ deploy:
       optional: true
   only:
     - main
+
+deploy_preprod:
+  stage: deploy
+  trigger:
+    project: minet/configurations/push/swarm-prod
+    branch: preprod
+    strategy: depend
+    inputs:
+      folder_name: cal.minet.net
+      image_registry: $CI_REGISTRY_IMAGE
+  needs:
+    - job: build_backend
+      optional: true
+    - job: build_nginx
+      optional: true
+    - job: build_media_processor
+      optional: true
+  only:
+    - pre-prod

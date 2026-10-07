@@ -37,11 +37,11 @@
              <h1 class="text-7xl lg:text-9xl font-black mb-12 text-gray-900 tracking-tight">Calend'INT</h1>
              <p class="text-4xl lg:text-5xl font-medium text-gray-700 mb-16 leading-normal">
                  Retrouvez tous les événements et ajoutez les vôtres sur
-                 <span class="text-indigo-600 font-bold block mt-4">cal.minet.net</span>
+                 <span class="text-indigo-600 font-bold block mt-4">{{ siteHost }}</span>
              </p>
              <div class="bg-white p-8 rounded-3xl shadow-2xl ring-8 ring-indigo-50 h-100 w-100">
                  <QRCodeVue3
-                  value="https://cal.minet.net/"
+                  :value="siteUrl"
                   :width="512" :height="512"
                   :qrOptions="{ errorCorrectionLevel: 'H' }"
                   :dots-options="{ type: 'square' }"
@@ -161,6 +161,9 @@ import { formatLocalDate } from '../utils/dateUtils'
 import { ClockIcon, MapPinIcon } from '@heroicons/vue/24/outline'
 import QRCodeVue3 from 'qrcode-vue3'
 import { resolveMediaUrl } from '../utils/media.js'
+
+const siteHost = window.location.host
+const siteUrl = `${window.location.origin}/`
 
 const loading = ref(true)
 const events = ref<EventRead[]>([])
