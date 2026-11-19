@@ -17,6 +17,7 @@ dependencies = [
     "odfpy>=1.4.1",
     "passlib[bcrypt]",
     "psycopg2-binary",
+    "psycopg[binary]>=3.3.9",
     "pyjwt",
     "python-cas",
     "python-dotenv",
