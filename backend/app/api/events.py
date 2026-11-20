@@ -176,7 +176,10 @@ def can_edit_event(event: Event, user: User, session: Session) -> tuple[bool, st
     if user.is_superadmin:
         return True, ""
 
-    if event.end_time < datetime.now():
+    end_time = event.end_time
+    if end_time.tzinfo is None:
+        end_time = end_time.replace(tzinfo=timezone.utc)
+    if end_time < datetime.now(timezone.utc):
         return False, "Event is in the past"
 
     membership = get_org_membership(user, event.organization_id, session)
