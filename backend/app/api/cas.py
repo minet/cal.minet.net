@@ -102,6 +102,11 @@ async def callback_campus(request: Request, session: Session = Depends(get_sessi
                  raise HTTPException(status_code=400, detail="CAS validation failed")
             
             user_email = attributes.get('mail')
+            if not user_email:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"CAS returned no 'mail' attribute for user {user!r} (attributes: {sorted(attributes or {})})"
+                )
             # CAS attributes might vary, trying common ones or fallback to email
             user_name = (attributes.get('givenName') + " " + attributes.get('sn')).title() if attributes.get('givenName') and attributes.get('sn') else attributes.get('displayName') or attributes.get('cn') or user_email
             
